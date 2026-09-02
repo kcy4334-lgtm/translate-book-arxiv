@@ -12,6 +12,9 @@
      "footnote": 27,
      "maketitle": 1
     },
+    "macro": {
+     "tab-stop": 56
+    },
     "math": {
      "align": 2,
      "equation": 49,
@@ -45,7 +48,22 @@
     },
     "front matter": {
      "author": 1,
+     "bibliographystyle": 1,
      "footnote": 3
+    },
+    "macro": {
+     "bfseries-group": 104,
+     "ensuremath": 152,
+     "newcommand-bare": 85,
+     "newcommand-braced": 128,
+     "providecommand": 1,
+     "renewcommand": 3,
+     "xspace": 2
+    },
+    "macro in style files": {
+     "ensuremath": 231,
+     "let-binding": 31,
+     "newcommand-braced": 42
     },
     "math": {
      "old-font-switch": 3044,
@@ -82,8 +100,12 @@
      "footnote": 4,
      "maketitle": 1
     },
+    "macro": {
+     "renewcommand": 1
+    },
     "math": {
      "align": 37,
+     "display-bracket": 24,
      "equation": 74,
      "setlength": 2,
      "sideset": 8,
@@ -122,8 +144,17 @@
      "maketitle": 1,
      "thanks": 3
     },
+    "macro": {
+     "newcommand-braced": 3
+    },
+    "macro in style files": {
+     "let-binding": 3,
+     "newif": 1,
+     "renewcommand": 2
+    },
     "math": {
      "align": 2,
+     "display-bracket": 3,
      "equation": 4,
      "old-font-switch": 8
     },
@@ -163,6 +194,11 @@
      "institute": 1,
      "maketitle": 1,
      "running-head": 2
+    },
+    "macro": {
+     "newcommand-braced": 2,
+     "providecommand": 2,
+     "renewcommand": 1
     },
     "math": {
      "equation": 2
@@ -205,8 +241,27 @@
      "footnote": 6,
      "maketitle": 1
     },
+    "macro": {
+     "newcommand-braced": 6,
+     "renewcommand": 12
+    },
+    "macro in style files": {
+     "DeclareRobustCommand": 1,
+     "abbreviation-macro": 8,
+     "futurelet": 1,
+     "let-binding": 10,
+     "newcommand-bare": 14,
+     "newcommand-braced": 12,
+     "newcommand-starred": 22,
+     "newif": 4,
+     "onedot": 12,
+     "optional-argument": 3,
+     "renewcommand": 10,
+     "xspace": 1
+    },
     "math": {
      "equation": 2,
+     "inline-paren": 2,
      "setlength": 14
     },
     "other": {
@@ -254,6 +309,19 @@
      "maketitle": 1,
      "thanks": 3
     },
+    "macro": {
+     "newcommand-bare": 3,
+     "newcommand-braced": 12,
+     "newcommand-starred": 1
+    },
+    "macro in style files": {
+     "let-binding": 4,
+     "newcommand-braced": 9,
+     "newcommand-starred": 2,
+     "newif": 2,
+     "providecommand": 8,
+     "renewcommand": 27
+    },
     "math": {
      "equation": 3,
      "old-font-switch": 3
@@ -286,6 +354,26 @@
      "footnote": 1,
      "maketitle": 1,
      "thanks": 1
+    },
+    "macro": {
+     "abbreviation-macro": 22,
+     "newcommand-braced": 6,
+     "newif": 1,
+     "run-in-heading-macro": 13
+    },
+    "macro in style files": {
+     "abbreviation-macro": 4,
+     "bfseries-group": 3,
+     "futurelet": 1,
+     "let-binding": 28,
+     "newcommand-bare": 3,
+     "newcommand-braced": 85,
+     "newcommand-starred": 117,
+     "newif": 22,
+     "optional-argument": 12,
+     "renewcommand": 30,
+     "run-in-heading-macro": 1,
+     "xspace": 19
     },
     "math": {
      "old-font-switch": 43
@@ -324,6 +412,22 @@
      "bibliographystyle": 1,
      "footnote": 1,
      "maketitle": 1
+    },
+    "macro": {
+     "abbreviation-macro": 1,
+     "newcommand-bare": 3,
+     "newcommand-braced": 55,
+     "newcommand-starred": 4,
+     "providecommand": 4,
+     "renewcommand": 4
+    },
+    "macro in style files": {
+     "let-binding": 4,
+     "newcommand-braced": 10,
+     "newcommand-starred": 2,
+     "newif": 4,
+     "providecommand": 8,
+     "renewcommand": 27
     },
     "math": {
      "align": 20,
@@ -373,6 +477,22 @@
      "footnote": 15,
      "maketitle": 1
     },
+    "macro": {
+     "newcite": 3,
+     "newcommand-bare": 4,
+     "newcommand-braced": 1,
+     "renewcommand": 1,
+     "xspace": 3
+    },
+    "macro in style files": {
+     "let-binding": 10,
+     "newcite": 1,
+     "newcommand-bare": 12,
+     "newcommand-braced": 15,
+     "newcommand-starred": 9,
+     "newif": 5,
+     "renewcommand": 5
+    },
     "math": {
      "old-font-switch": 104,
      "setlength": 1
@@ -392,6 +512,65 @@
     }
    },
    "title": "BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding"
+  },
+  "2005.14165v4": {
+   "shapes": {
+    "bibliography": {
+     "bibitem": 144,
+     "cite": 186,
+     "citep": 17,
+     "thebibliography-inlined": 1
+    },
+    "caption": {
+     "caption": 109,
+     "captionof": 1,
+     "captionsetup": 1
+    },
+    "float": {
+     "figure": 88,
+     "minipage": 2,
+     "table": 21
+    },
+    "front matter": {
+     "author": 1,
+     "bibliographystyle": 1,
+     "footnote": 11,
+     "footnotemark": 3,
+     "maketitle": 1,
+     "thanks": 2
+    },
+    "macro": {
+     "ensuremath": 1,
+     "let-binding": 1,
+     "newcommand-braced": 1
+    },
+    "macro in style files": {
+     "let-binding": 4,
+     "newcommand-braced": 10,
+     "newcommand-starred": 2,
+     "newif": 4,
+     "providecommand": 8,
+     "renewcommand": 27
+    },
+    "math": {
+     "display-bracket": 1,
+     "old-font-switch": 54,
+     "setlength": 4
+    },
+    "other": {
+     "newcommand": 1
+    },
+    "preamble": {
+     "documentclass": 1
+    },
+    "table": {
+     "cmidrule": 3,
+     "multicolumn": 3,
+     "tabular": 32,
+     "tabularx": 54
+    }
+   },
+   "title": "Language Models are Few-Shot Learners"
   },
   "2006.11239v2": {
    "shapes": {
@@ -420,6 +599,17 @@
      "bibliographystyle": 1,
      "maketitle": 1
     },
+    "macro": {
+     "newcommand-braced": 36
+    },
+    "macro in style files": {
+     "let-binding": 6,
+     "newcommand-braced": 11,
+     "newcommand-starred": 2,
+     "newif": 4,
+     "providecommand": 8,
+     "renewcommand": 27
+    },
     "math": {
      "align": 16,
      "setlength": 1
@@ -438,6 +628,59 @@
     }
    },
    "title": "Denoising Diffusion Probabilistic Models"
+  },
+  "2204.02311v5": {
+   "shapes": {
+    "bibliography": {
+     "bibitem": 176,
+     "cite": 59,
+     "citep": 239,
+     "citet": 31,
+     "thebibliography-inlined": 1
+    },
+    "caption": {
+     "caption": 75
+    },
+    "float": {
+     "figure": 24,
+     "figure*": 4,
+     "subfigure": 4,
+     "table": 44
+    },
+    "front matter": {
+     "author": 1,
+     "bibliographystyle": 1,
+     "footnote": 20,
+     "footnotemark": 6,
+     "maketitle": 1,
+     "thanks": 3
+    },
+    "macro": {
+     "newcommand-braced": 16,
+     "providecommand": 4,
+     "renewcommand": 2,
+     "xspace": 3
+    },
+    "math": {
+     "display-bracket": 2,
+     "old-font-switch": 5,
+     "setlength": 24
+    },
+    "other": {
+     "newcommand": 16
+    },
+    "preamble": {
+     "documentclass": 1
+    },
+    "table": {
+     "cmidrule": 42,
+     "longtable": 2,
+     "makecell": 92,
+     "multicolumn": 84,
+     "tabular": 44
+    }
+   },
+   "title": "2em% height 4pt% 0.25in% - % PaLM: Scaling Language Modeling with Pathways 0.2in% - % height 1pt% 0.09in"
   },
   "2409.12514v5": {
    "shapes": {
@@ -462,6 +705,27 @@
      "maketitle": 1,
      "markboth": 1,
      "thanks": 10
+    },
+    "macro": {
+     "let-binding": 1,
+     "newcommand-braced": 22,
+     "providecommand": 8,
+     "renewcommand": 1,
+     "rowcolor": 1,
+     "xspace": 1
+    },
+    "macro in style files": {
+     "DeclareRobustCommand": 7,
+     "bfseries-group": 5,
+     "ensuremath": 1,
+     "let-binding": 143,
+     "newcommand-bare": 5,
+     "newcommand-starred": 1,
+     "newif": 53,
+     "optional-argument": 6,
+     "providecommand": 16,
+     "renewcommand": 10,
+     "tab-stop": 5
     },
     "math": {
      "old-font-switch": 2
@@ -503,12 +767,31 @@
     },
     "front matter": {
      "author": 1,
+     "bibliographystyle": 1,
      "footnote": 1,
-     "footnotemark": 1
+     "footnotemark": 1,
+     "maketitle": 1
+    },
+    "macro": {
+     "abbreviation-macro": 4,
+     "newcommand-bare": 1,
+     "newcommand-braced": 10,
+     "renewcommand": 4,
+     "xspace": 3
+    },
+    "macro in style files": {
+     "let-binding": 6,
+     "newcommand-braced": 16,
+     "newcommand-starred": 2,
+     "newif": 4,
+     "optional-argument": 5,
+     "providecommand": 8,
+     "renewcommand": 27
     },
     "math": {
      "align": 1,
      "equation": 7,
+     "inline-paren": 67,
      "nolimits": 4,
      "old-font-switch": 15,
      "setlength": 21,
@@ -516,6 +799,9 @@
     },
     "other": {
      "newcommand": 11
+    },
+    "preamble": {
+     "documentclass": 1
     },
     "table": {
      "multicolumn": 7,
@@ -553,6 +839,98 @@
      "footnote": 1,
      "icml-frontmatter": 8,
      "twocolumn-title": 1
+    },
+    "macro": {
+     "abbreviation-macro": 1,
+     "bfseries-group": 34,
+     "cellcolor": 2,
+     "let-binding": 3,
+     "newcommand-braced": 52,
+     "providecommand": 4
+    },
+    "macro in style files": {
+     "let-binding": 71,
+     "newcommand-bare": 22,
+     "newcommand-braced": 111,
+     "newcommand-starred": 1,
+     "newif": 11,
+     "optional-argument": 23,
+     "providecommand": 1,
+     "renewcommand": 16,
+     "tab-stop": 1
+    },
+    "math": {
+     "eqnarray": 1,
+     "equation": 6,
+     "old-font-switch": 1,
+     "setlength": 18
+    },
+    "other": {
+     "algorithm": 1,
+     "algorithmic": 1,
+     "def": 384,
+     "newcommand": 52
+    },
+    "preamble": {
+     "documentclass": 1
+    },
+    "table": {
+     "cmidrule": 50,
+     "multicolumn": 36,
+     "multirow": 26,
+     "repeat-column-spec": 12,
+     "rotatebox": 26,
+     "tabular": 19,
+     "tnote": 9
+    }
+   },
+   "title": "SINQ: Sinkhorn-Normalized Quantization for Calibration-Free Low-Precision LLM Weights"
+  },
+  "2509.22944v4": {
+   "shapes": {
+    "bibliography": {
+     "bibitem": 29,
+     "cite": 51,
+     "thebibliography-inlined": 1
+    },
+    "caption": {
+     "caption": 38
+    },
+    "disabled in place": {
+     "commented-caption": 5,
+     "commented-float": 1
+    },
+    "float": {
+     "figure": 6,
+     "figure*": 3,
+     "subfigure": 9,
+     "subfloat": 4,
+     "table": 5,
+     "table*": 14
+    },
+    "front matter": {
+     "footnote": 1,
+     "icml-frontmatter": 8,
+     "twocolumn-title": 1
+    },
+    "macro": {
+     "abbreviation-macro": 1,
+     "bfseries-group": 34,
+     "cellcolor": 2,
+     "let-binding": 3,
+     "newcommand-braced": 52,
+     "providecommand": 4
+    },
+    "macro in style files": {
+     "let-binding": 71,
+     "newcommand-bare": 22,
+     "newcommand-braced": 111,
+     "newcommand-starred": 1,
+     "newif": 11,
+     "optional-argument": 23,
+     "providecommand": 1,
+     "renewcommand": 16,
+     "tab-stop": 1
     },
     "math": {
      "eqnarray": 1,
@@ -607,9 +985,104 @@
      "footnote": 2,
      "maketitle": 1
     },
+    "macro": {
+     "abbreviation-macro": 4,
+     "ensuremath": 2,
+     "let-binding": 1,
+     "newcommand-braced": 237,
+     "newcommand-starred": 1,
+     "providecommand": 6,
+     "renewcommand": 4,
+     "xspace": 4
+    },
+    "macro in style files": {
+     "DeclareRobustCommand": 17,
+     "futurelet": 2,
+     "let-binding": 169,
+     "newcommand-bare": 77,
+     "newif": 16,
+     "optional-argument": 2,
+     "providecommand": 27,
+     "renewcommand": 38
+    },
     "math": {
      "align": 3,
+     "display-bracket": 6,
      "equation": 2,
+     "inline-paren": 1,
+     "old-font-switch": 54,
+     "setlength": 2
+    },
+    "other": {
+     "algorithm": 1,
+     "algorithmic": 1,
+     "def": 568,
+     "newcommand": 238
+    },
+    "preamble": {
+     "documentclass": 1
+    },
+    "table": {
+     "addlinespace": 2,
+     "cmidrule": 8,
+     "multicolumn": 11,
+     "multirow": 1,
+     "tabular": 8
+    }
+   },
+   "title": "CafeQ: Calibration-free Quantization via Learned Transformations and Adaptive Rounding"
+  },
+  "2511.19705v1": {
+   "shapes": {
+    "bibliography": {
+     "bibitem": 61,
+     "cite": 4,
+     "citep": 51,
+     "citet": 5,
+     "thebibliography-inlined": 1
+    },
+    "caption": {
+     "caption": 12,
+     "subcaption": 3
+    },
+    "float": {
+     "SCfigure": 1,
+     "figure": 1,
+     "figure*": 1,
+     "subfigure": 3,
+     "table": 8
+    },
+    "front matter": {
+     "author": 2,
+     "bibliographystyle": 1,
+     "footnote": 2,
+     "maketitle": 1
+    },
+    "macro": {
+     "abbreviation-macro": 4,
+     "ensuremath": 2,
+     "let-binding": 1,
+     "newcommand-braced": 237,
+     "newcommand-starred": 1,
+     "providecommand": 6,
+     "renewcommand": 4,
+     "xspace": 4
+    },
+    "macro in style files": {
+     "DeclareRobustCommand": 17,
+     "futurelet": 2,
+     "let-binding": 169,
+     "newcommand-bare": 77,
+     "newif": 16,
+     "optional-argument": 2,
+     "providecommand": 27,
+     "renewcommand": 38
+    },
+    "math": {
+     "align": 3,
+     "display-bracket": 6,
+     "equation": 2,
+     "inline-paren": 1,
      "old-font-switch": 54,
      "setlength": 2
     },
@@ -659,6 +1132,69 @@
      "bibliographystyle": 1,
      "footnote": 2,
      "maketitle": 1
+    },
+    "macro": {
+     "abbreviation-macro": 1,
+     "let-binding": 2,
+     "newcommand-braced": 48,
+     "renewcommand": 11
+    },
+    "math": {
+     "equation": 27,
+     "old-font-switch": 8,
+     "setlength": 10
+    },
+    "other": {
+     "def": 384,
+     "newcommand": 48
+    },
+    "preamble": {
+     "documentclass": 1
+    },
+    "table": {
+     "addlinespace": 7,
+     "cmidrule": 12,
+     "multicolumn": 6,
+     "multirow": 33,
+     "resizebox": 9,
+     "tabular": 12
+    }
+   },
+   "title": "AlphaQ: Calibration-Free Bit Allocation for Mixture-of-Experts Quantization"
+  },
+  "2606.04980v1": {
+   "shapes": {
+    "bibliography": {
+     "bibliography-file": 1,
+     "cite": 87,
+     "citep": 1
+    },
+    "caption": {
+     "caption": 28
+    },
+    "disabled in place": {
+     "commented-caption": 3,
+     "commented-float": 3
+    },
+    "float": {
+     "figure": 13,
+     "figure*": 1,
+     "minipage": 4,
+     "subfigure": 2,
+     "table": 5,
+     "table*": 5
+    },
+    "front matter": {
+     "author": 1,
+     "bibliographystyle": 1,
+     "footnote": 2,
+     "maketitle": 1
+    },
+    "macro": {
+     "abbreviation-macro": 1,
+     "let-binding": 2,
+     "newcommand-braced": 48,
+     "renewcommand": 11
     },
     "math": {
      "equation": 27,
@@ -714,14 +1250,37 @@
     },
     "front matter": {
      "author": 2,
+     "bibliographystyle": 1,
      "footnote": 42,
+     "institute": 1,
+     "maketitle": 1,
+     "running-head": 3,
      "thanks": 1
+    },
+    "macro": {
+     "abbreviation-macro": 2,
+     "let-binding": 2,
+     "newcommand-bare": 6,
+     "newcommand-braced": 242,
+     "providecommand": 53,
+     "renewcommand": 9
+    },
+    "macro in style files": {
+     "DeclareRobustCommand": 5,
+     "bfseries-group": 2,
+     "ensuremath": 2,
+     "let-binding": 76,
+     "newcommand-bare": 52,
+     "newcommand-starred": 8,
+     "newif": 8,
+     "renewcommand": 43
     },
     "math": {
      "align": 3,
      "eqnarray": 20,
      "equation": 40,
-     "old-font-switch": 543
+     "old-font-switch": 543,
+     "subequations": 3
     },
     "other": {
      "def": 90,
@@ -757,6 +1316,13 @@
      "maketitle": 1,
      "markboth": 1,
      "thanks": 2
+    },
+    "macro": {
+     "newcommand-braced": 3,
+     "renewcommand": 3,
+     "tab-stop": 114,
+     "tabbing": 3,
+     "tabbing-kill": 3
     },
     "math": {
      "eqnarray": 1,

@@ -51,13 +51,6 @@
   },
   {
    "checks": {},
-   "chunks": 11,
-   "failed": 0,
-   "lang": "ko",
-   "paper": "1512.03385v1"
-  },
-  {
-   "checks": {},
    "chunks": 15,
    "failed": 0,
    "lang": "ko",
@@ -113,6 +106,20 @@
    "failed": 3,
    "lang": "ko",
    "paper": "2409.12514v5"
+  },
+  {
+   "checks": {
+    "meta_evidence": {
+     "chunks": [
+      "chunk0006"
+     ],
+     "severity": "fail"
+    }
+   },
+   "chunks": 11,
+   "failed": 1,
+   "lang": "ko",
+   "paper": "1512.03385v1"
   }
  ],
  "version": 1

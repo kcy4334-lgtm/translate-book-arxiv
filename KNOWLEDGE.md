@@ -153,6 +153,7 @@ here; the test is the real record. This file is for the *reasoning*, the
 | An `\icml` author block loses a name or prints a key | [K138](#k138) |
 | The book's author line reads "Unknown Author" | [K139](#k139) |
 | A rewrite silently skips every macro in one stretch of prose | [K140](#k140) |
+| A macro defined with `\let` still prints its own name | [K141](#k141) |
 | A float is in output.md but not in the book | [K78](#k78) |
 | A term lost its English between two versions | [K79](#k79) |
 | A label is printed twice: "3.2절 절을" | [K77](#k77) |
@@ -1991,6 +1992,21 @@ macro inside it is skipped without a word — invisible in exactly the way
 K110's swallow is. A position belongs to the text it was found in; find it
 again in the target.
 *Status: LOCKED — `tests/test_paper_macros.py`.*
+
+---
+
+### K141
+**`\let\foo\bar` defines a macro with no body, and nothing here reads it.**
+`paper_macros.read_definitions` recognises `\newcommand`, `\renewcommand`,
+`\providecommand`, `\DeclareRobustCommand` and `\def` — every form that ends
+in a `{body}` it can resolve. `\let` binds one NAME to another and has no body
+at all, so the macro is never collected and its name goes on printing at the
+reader, which is the defect K135 exists for. The census now says how often:
+16 of 24 papers ship a `\let` in a style file, 9 use one in the document.
+Not attempted, and the precedent is a caution — `read_math_macros` already
+follows `\let` and needed an alias rule, because following one to a name
+nobody defined swaps an unreadable token for a different unreadable token.
+*Status: open, measured 2026-09-03. Classified `gap` in `test_source_lint.py`.*
 
 ---
 

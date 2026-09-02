@@ -275,6 +275,44 @@ CONSTRUCT_DISPOSITION = {
     'rotatebox': 'handled', 'algorithm': 'handled', 'algorithmic': 'handled',
     'lstlisting': 'handled', 'IEEEPARstart': 'handled',
     'twocolumn-title': 'handled',
+    # Tables the corpus met once the census widened from 19 papers to 24.
+    # `\makecell{a\\b}` is unwrapped because pandoc renders that cell EMPTY.
+    'longtable': 'handled', 'tabularx': 'handled', 'makecell': 'handled',
+    # ---- the paper's own macros (K135) ----------------------------------
+    # Every spelling `paper_macros.read_definitions` recognises. A spelling it
+    # misses is not a crash: the macro is simply never collected, so its name
+    # goes on printing at the reader, which is the defect the module exists
+    # for. That is why each one is counted separately rather than as "a
+    # definition".
+    'newcommand-braced': 'handled', 'newcommand-bare': 'handled',
+    'newcommand-starred': 'handled', 'renewcommand': 'handled',
+    'providecommand': 'handled', 'DeclareRobustCommand': 'handled',
+    'optional-argument': 'handled',
+    # `\let\foo\bar` binds a name without a body, and `read_definitions` does
+    # not read it. 16 of 24 papers ship one. See K141.
+    'let-binding': 'gap',
+    # The conditional-definition path. The flag is NOT evaluated — doing that
+    # means executing package options — so a name defined once per branch is
+    # settled by what the printed paper shows instead (H38).
+    'newif': 'counted',
+    # cvpr.sty's abbreviation period: `\futurelet` lookahead that adds a stop
+    # unless one follows. Recognised by the shape of its body, not its name.
+    'futurelet': 'handled', 'onedot': 'handled',
+    'abbreviation-macro': 'handled', 'run-in-heading-macro': 'handled',
+    'newcite': 'handled', 'xspace': 'handled', 'ensuremath': 'handled',
+    'bfseries-group': 'handled',
+    # Their argument is a colour, not text, so they are dropped whole.
+    'cellcolor': 'handled', 'rowcolor': 'handled',
+    # Destructive if mistaken for an abbreviation: a macro bound to a tab stop
+    # looks exactly like one, and resolving it to nothing deletes the
+    # indentation of a listing. Refused by shape.
+    'tabbing': 'handled', 'tabbing-kill': 'handled', 'tab-stop': 'handled',
+    # The maths delimiters that decide which regions no rewrite may touch.
+    'display-bracket': 'handled', 'inline-paren': 'handled',
+    # A wrapper, not a formula: what it holds is `equation` environments, and
+    # those are spans in their own right. Counted so a paper that puts prose
+    # directly inside one is noticed.
+    'subequations': 'counted',
 }
 
 

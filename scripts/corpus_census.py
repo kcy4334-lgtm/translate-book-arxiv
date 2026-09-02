@@ -100,6 +100,56 @@ MARKERS = {
         (r'\\nolimits\b', 'nolimits'),
         (r'\\setlength\b', 'setlength'),
         (r'\{\s*\\(?:rm|bf|it|sf|tt|sc)\s', 'old-font-switch'),
+        # The delimiters that decide `paper_macros._MATH_SPAN_RE`, which marks
+        # the regions no macro rewrite may touch. A miss here is the one
+        # failure in that module that lands INSIDE a formula, so the corpus
+        # has to be able to say whether it has ever met each spelling.
+        (r'\\begin\{multline\}', 'multline'),
+        (r'\\begin\{alignat\}', 'alignat'),
+        (r'\\begin\{flalign\}', 'flalign'),
+        (r'\\begin\{IEEEeqnarray\}', 'IEEEeqnarray'),
+        (r'\\begin\{dmath\}', 'dmath-breqn'),
+        (r'\\begin\{empheq\}', 'empheq'),
+        (r'\\begin\{subequations\}', 'subequations'),
+        (r'(?<!\\)\\\[', 'display-bracket'),
+        (r'(?<!\\)\\\(', 'inline-paren'),
+    ),
+    # How a paper defines its OWN shorthand, and how it uses it. Added because
+    # the census could not see any of this while `\ie` was printing in the
+    # middle of a sentence in a finished book (K135): asked how often the
+    # corpus had met a definition spelling, the only way to answer was to read
+    # 3.7 MB of flat.tex and 1 MB of .sty by hand.
+    #
+    # Two of these decide something destructive rather than merely missed.
+    # `tab-stop` and `tabbing-kill` are how Shor writes indentation — a macro
+    # bound to one of them looks exactly like an abbreviation, and expanding it
+    # deletes the layout of three algorithm listings. `newif` is the
+    # conditional-definition path, where the same name is defined twice and
+    # the default is the wrong one.
+    'macro': (
+        (r'\\newcommand\s*\{', 'newcommand-braced'),
+        (r'\\newcommand\s*\\', 'newcommand-bare'),
+        (r'\\newcommand\s*\*', 'newcommand-starred'),
+        (r'\\renewcommand\b', 'renewcommand'),
+        (r'\\providecommand\b', 'providecommand'),
+        (r'\\DeclareRobustCommand\b', 'DeclareRobustCommand'),
+        (r'\\(?:new|renew|provide)command\s*\{?\s*\\[A-Za-z@]+\s*\}?'
+         r'\s*\[\s*\d\s*\]\s*\[', 'optional-argument'),
+        (r'\\let\s*\\[A-Za-z@]+', 'let-binding'),
+        (r'\\newif\s*\\if[A-Za-z@]+', 'newif'),
+        (r'\\futurelet\b', 'futurelet'),
+        (r'\\onedot\b', 'onedot'),
+        (r'\\xspace\b', 'xspace'),
+        (r'\\ensuremath\b', 'ensuremath'),
+        (r'\\(?:ie|eg|etal|etc|cf|wrt|dof|vs)(?![A-Za-z])', 'abbreviation-macro'),
+        (r'\\parhead\b', 'run-in-heading-macro'),
+        (r'\\newcite\b', 'newcite'),
+        (r'\\begin\{tabbing\}', 'tabbing'),
+        (r'\\kill(?![A-Za-z])', 'tabbing-kill'),
+        (r'\\[>=+](?![A-Za-z])', 'tab-stop'),
+        (r'\\cellcolor\b', 'cellcolor'),
+        (r'\\rowcolor\b', 'rowcolor'),
+        (r'\{\s*\\bfseries(?![A-Za-z])', 'bfseries-group'),
     ),
     # How the document declares itself. Added because the census could not see
     # this at all: when the backend rejected Shor 1995 for having "no
@@ -181,6 +231,15 @@ MARKERS = dict((group, tuple((_compile(p), name) for p, name in patterns))
                for group, patterns in MARKERS.items())
 COMMENTED = tuple((_compile(p), name) for p, name in COMMENTED)
 
+# `flatten_tex` inlines `\input`, never `\usepackage`, so a definition that
+# lives in a shipped `.sty` is absent from flat.tex entirely -- cvpr.sty's
+# `\def\ie{\emph{i.e}\onedot}` among them. Surveying only the document would
+# report the corpus has never seen `\def`-style definitions while nine papers
+# ship them, which is blindness reported as evidence (the shape of K123).
+# Only the macro group is counted here: the rest describe a document's body,
+# and a style file has none.
+STYLE_MARKERS = {'macro in style files': MARKERS['macro']}
+
 
 def strip_comments(tex):
     return re.sub(r'(?m)(?<!\\)%.*$', '', tex)
@@ -202,11 +261,31 @@ def paper_id(temp_dir):
     return re.sub(r'_temp.*$', '', name)
 
 
-def survey(tex):
+def read_style_files(temp_dir):
+    r"""The `.sty`/`.cls` the paper SHIPS, concatenated.
+
+    Its own files only. TeX Live's copy of a standard package is not in the
+    tarball, so anything found here is the author's, which is what
+    `paper_macros` reads and therefore what the census has to be able to
+    count.
+    """
+    root = os.path.join(temp_dir, 'arxiv_src')
+    if not os.path.isdir(root):
+        return ''
+    parts = []
+    for base, dirs, names in os.walk(root):
+        dirs[:] = [d for d in dirs if not d.startswith('.')]
+        for name in sorted(names):
+            if name.endswith(('.sty', '.cls')):
+                parts.append(read(os.path.join(base, name)))
+    return '\n'.join(parts)
+
+
+def survey(tex, markers=None):
     """Every marker this paper carries, and how many times. {group: {name: n}}"""
     bare = strip_comments(tex)
     out = {}
-    for group, patterns in MARKERS.items():
+    for group, patterns in (markers or MARKERS).items():
         found = {}
         for pattern, name in patterns:
             n = len(pattern.findall(bare))
@@ -214,6 +293,11 @@ def survey(tex):
                 found[name] = n
         if found:
             out[group] = found
+    if markers is not None:
+        # "Does this paper disable things in place?" is a question about the
+        # document. Asking it of a style file would put a second
+        # 'disabled in place' group into the same row and overwrite the real one.
+        return out
     found = {}
     for pattern, name in COMMENTED:
         n = len(pattern.findall(tex))
@@ -259,9 +343,13 @@ def record(temp_dir, quiet=False):
     title = re.search(r'(?m)^original_title=(.+)$',
                       read(os.path.join(temp_dir, 'config.txt')))
     known = data['papers'].get(key, {})
+    shapes = survey(tex)
+    style = read_style_files(temp_dir)
+    if style:
+        shapes.update(survey(style, STYLE_MARKERS))
     data['papers'][key] = {
         'title': (title.group(1).strip() if title else known.get('title', '')),
-        'shapes': survey(tex),
+        'shapes': shapes,
     }
     save(data)
     if not quiet:
@@ -286,7 +374,11 @@ def digest():
         for group, found in row.get('shapes', {}).items():
             for name in found:
                 groups.setdefault(group, {}).setdefault(name, []).append(key)
-    order = list(MARKERS) + ['disabled in place']
+    # STYLE_MARKERS is in this list because leaving it out does not drop the
+    # data, it hides it: `record` writes the group, `digest` skips any group it
+    # cannot name, and the census then answers "never seen" about shapes it has
+    # counted 31 times. An entry nothing can reach may as well not be there.
+    order = list(MARKERS) + list(STYLE_MARKERS) + ['disabled in place']
     for group in order:
         if group not in groups:
             continue
@@ -299,10 +391,12 @@ def digest():
                          % (name, len(users), len(papers), ', '.join(users)))
     # The half that is hard to get any other way.
     unseen = []
-    for group, patterns in MARKERS.items():
-        for _pattern, name in patterns:
-            if name not in groups.get(group, {}):
-                unseen.append(name)
+    for source in (MARKERS, STYLE_MARKERS):
+        for group, patterns in source.items():
+            for _pattern, name in patterns:
+                if name not in groups.get(group, {}):
+                    unseen.append('%s (in .sty)' % name
+                                  if source is STYLE_MARKERS else name)
     if unseen:
         lines.append('')
         lines.append('NEVER SEEN in this corpus — a pattern that decides on '
