@@ -315,6 +315,7 @@
      "newcommand-starred": 1
     },
     "macro in style files": {
+     "glue-only-macro": 1,
      "let-binding": 4,
      "newcommand-braced": 9,
      "newcommand-starred": 2,
@@ -422,6 +423,7 @@
      "renewcommand": 4
     },
     "macro in style files": {
+     "glue-only-macro": 1,
      "let-binding": 4,
      "newcommand-braced": 10,
      "newcommand-starred": 2,
@@ -545,6 +547,7 @@
      "newcommand-braced": 1
     },
     "macro in style files": {
+     "glue-only-macro": 1,
      "let-binding": 4,
      "newcommand-braced": 10,
      "newcommand-starred": 2,
@@ -603,6 +606,7 @@
      "newcommand-braced": 36
     },
     "macro in style files": {
+     "glue-only-macro": 1,
      "let-binding": 6,
      "newcommand-braced": 11,
      "newcommand-starred": 2,
@@ -780,6 +784,7 @@
      "xspace": 3
     },
     "macro in style files": {
+     "glue-only-macro": 1,
      "let-binding": 6,
      "newcommand-braced": 16,
      "newcommand-starred": 2,
@@ -857,7 +862,8 @@
      "optional-argument": 23,
      "providecommand": 1,
      "renewcommand": 16,
-     "tab-stop": 1
+     "tab-stop": 1,
+     "xparse-command": 5
     },
     "math": {
      "eqnarray": 1,
@@ -930,7 +936,8 @@
      "optional-argument": 23,
      "providecommand": 1,
      "renewcommand": 16,
-     "tab-stop": 1
+     "tab-stop": 1,
+     "xparse-command": 5
     },
     "math": {
      "eqnarray": 1,
@@ -988,6 +995,7 @@
     "macro": {
      "abbreviation-macro": 4,
      "ensuremath": 2,
+     "glue-only-macro": 2,
      "let-binding": 1,
      "newcommand-braced": 237,
      "newcommand-starred": 1,
@@ -998,6 +1006,7 @@
     "macro in style files": {
      "DeclareRobustCommand": 17,
      "futurelet": 2,
+     "glue-only-macro": 1,
      "let-binding": 169,
      "newcommand-bare": 77,
      "newif": 16,
@@ -1061,6 +1070,7 @@
     "macro": {
      "abbreviation-macro": 4,
      "ensuremath": 2,
+     "glue-only-macro": 2,
      "let-binding": 1,
      "newcommand-braced": 237,
      "newcommand-starred": 1,
@@ -1071,6 +1081,7 @@
     "macro in style files": {
      "DeclareRobustCommand": 17,
      "futurelet": 2,
+     "glue-only-macro": 1,
      "let-binding": 169,
      "newcommand-bare": 77,
      "newif": 16,
@@ -1269,6 +1280,7 @@
      "DeclareRobustCommand": 5,
      "bfseries-group": 2,
      "ensuremath": 2,
+     "glue-only-macro": 2,
      "let-binding": 76,
      "newcommand-bare": 52,
      "newcommand-starred": 8,
@@ -1279,6 +1291,8 @@
      "align": 3,
      "eqnarray": 20,
      "equation": 40,
+     "ifmmode-dollar": 31,
+     "math-env-alias": 4,
      "old-font-switch": 543,
      "subequations": 3
     },

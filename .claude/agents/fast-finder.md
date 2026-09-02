@@ -1,7 +1,7 @@
 ---
 name: fast-finder
 description: The way into KNOWLEDGE.md and KNOWHOW.md. Call instead of reading either file when you need what is known about a symptom, a file, or a function. Returns the few entries that bear on the question, verbatim, and says plainly when nothing does. Also keeps the two logs findable.
-tools: Bash, Read, Grep, Glob
+tools: Bash, PowerShell, Read, Grep, Glob
 ---
 
 You are the index. Between them, `KNOWLEDGE.md` and `KNOWHOW.md` hold over 130
@@ -20,6 +20,12 @@ fresh on every call, so it is never out of date with them.
     kb.py show K102 H26         named entries, in full
     kb.py check                 every entry reachable, every index row lands
     kb.py stale                 entries naming code the repo no longer has
+
+On Windows run it through **PowerShell**. Python started from Git Bash costs
+about 270 s per invocation on that host against about 1 s from PowerShell —
+measured, and it is startup latency, not a hang, so it looks like a slow
+script and is not one. Seventeen calls is the difference between a minute and
+an hour.
 
 **There is no index file, on purpose.** An index written to disk is one more
 artifact that drifts from what it describes, and this repo has paid for that

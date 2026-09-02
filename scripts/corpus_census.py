@@ -113,6 +113,18 @@ MARKERS = {
         (r'\\begin\{subequations\}', 'subequations'),
         (r'(?<!\\)\\\[', 'display-bracket'),
         (r'(?<!\\)\\\(', 'inline-paren'),
+        # The two shapes that hid a formula from the span regex, each found by
+        # an advisor rather than by this census, and each invisible to it at
+        # the time. `\ifmmode ...$\else ...$\fi` carries an ODD number of `$`
+        # per branch — correct TeX, since only one branch runs — and pairing
+        # them lexically destroyed `$`-parity for the rest of the file.
+        (r'\\ifmmode[^\n]*\$', 'ifmmode-dollar'),
+        # `\newcommand{\be}{\begin{equation}}`: the display is opened by a
+        # NAME, so a pattern looking for `\begin` finds nothing at all.
+        (r'\\(?:new|renew|provide)command\s*\*?\s*\{?\s*\\[A-Za-z@]+\s*\}?'
+         r'\s*\{\s*\\begin\s*\{\s*(?:equation|align|eqnarray|gather|multline'
+         r'|subequations|displaymath|alignat|flalign)',
+         'math-env-alias'),
     ),
     # How a paper defines its OWN shorthand, and how it uses it. Added because
     # the census could not see any of this while `\ie` was printing in the
@@ -150,6 +162,16 @@ MARKERS = {
         (r'\\cellcolor\b', 'cellcolor'),
         (r'\\rowcolor\b', 'rowcolor'),
         (r'\{\s*\\bfseries(?![A-Za-z])', 'bfseries-group'),
+        # A name bound to horizontal space. It looks exactly like an
+        # abbreviation and resolving it to nothing deletes indentation —
+        # `_TABBING_BODY_RE` knew only the tabbing primitives, so a body
+        # spelled `\hspace{1em}` walked past it. CafeQ ships one.
+        (r'\\(?:new|renew|provide)command\s*\*?\s*\{?\s*\\[A-Za-z@]+\s*\}?'
+         r'\s*\{\s*\\(?:hspace\*?|hskip|kern|quad|qquad)(?![A-Za-z])',
+         'glue-only-macro'),
+        # xparse. Its argument specification is `{ s O{} m }`, not `[n][d]`,
+        # so `read_definitions` cannot read the signature at all.
+        (r'\\(?:New|Declare|Renew|Provide)DocumentCommand', 'xparse-command'),
     ),
     # How the document declares itself. Added because the census could not see
     # this at all: when the backend rejected Shor 1995 for having "no

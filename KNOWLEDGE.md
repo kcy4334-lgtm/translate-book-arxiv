@@ -153,7 +153,7 @@ here; the test is the real record. This file is for the *reasoning*, the
 | An `\icml` author block loses a name or prints a key | [K138](#k138) |
 | The book's author line reads "Unknown Author" | [K139](#k139) |
 | A rewrite silently skips every macro in one stretch of prose | [K140](#k140) |
-| A macro defined with `\let` still prints its own name | [K141](#k141) |
+| A macro definition nothing collects still prints its own name | [K141](#k141) |
 | A float is in output.md but not in the book | [K78](#k78) |
 | A term lost its English between two versions | [K79](#k79) |
 | A label is printed twice: "3.2절 절을" | [K77](#k77) |
@@ -1996,17 +1996,17 @@ again in the target.
 ---
 
 ### K141
-**`\let\foo\bar` defines a macro with no body, and nothing here reads it.**
-`paper_macros.read_definitions` recognises `\newcommand`, `\renewcommand`,
-`\providecommand`, `\DeclareRobustCommand` and `\def` — every form that ends
-in a `{body}` it can resolve. `\let` binds one NAME to another and has no body
-at all, so the macro is never collected and its name goes on printing at the
-reader, which is the defect K135 exists for. The census now says how often:
-16 of 24 papers ship a `\let` in a style file, 9 use one in the document.
-Not attempted, and the precedent is a caution — `read_math_macros` already
-follows `\let` and needed an alias rule, because following one to a name
-nobody defined swaps an unreadable token for a different unreadable token.
-*Status: open, measured 2026-09-03. Classified `gap` in `test_source_lint.py`.*
+**Two definition forms `read_definitions` does not read, both silently.**
+It recognises `\newcommand`, `\renewcommand`, `\providecommand`,
+`\DeclareRobustCommand` and `\def` — every form ending in a `{body}` it can
+resolve. `\let\foo\bar` binds one NAME to another and has no body; xparse's
+`\NewDocumentCommand` writes its signature as `{ s O{} m }`, not `[n][d]`.
+Neither is collected, so the name goes on printing at the reader (K135). The
+census says how often: `\let` in 16 of 24 shipped style files and 9
+documents, xparse in 2. Neither attempted, and the precedent is a caution —
+`read_math_macros` follows `\let` and needed an alias rule, because following
+one to a name nobody defined swaps an unreadable token for a different one.
+*Status: open, measured 2026-09-03. Both `gap` in `test_source_lint.py`.*
 
 ---
 
@@ -2043,6 +2043,17 @@ PY="<python 3.8+ executable>"   # `python scripts/doctor.py` finds all of these
 - Chrome 149: `C:\Program Files\Google\Chrome\Application\chrome.exe`
 - pip packages present: PyMuPDF, python-docx, lxml, Markdown, pypandoc.
   **beautifulsoup4 is NOT installed**, so `add_toc` takes its regex path.
+- **Python through Git Bash costs ~270 s per invocation here; through
+  PowerShell it costs ~1 s.** Measured on `python -c "print('x')"`: 271.8 s
+  and 266.5 s (the second with stdin redirected to `/dev/null`, which changes
+  nothing, so it is not a stdin block) against 1.078 s. Both exit 0 with the
+  right output — it is startup latency, not a hang. It compounds badly for the
+  advisors, whose every mandated command is a Python CLI: fast-finder spent
+  51 minutes on 17 tool calls while using the FEWEST tokens of any agent in
+  the run. Wall-clock is what it costs; tokens go up only indirectly, because
+  an agent facing a 4-minute call batches its work into large probe scripts
+  instead of asking several small questions. Run the CLIs through PowerShell
+  on this host.
 
 ## Run book — a new paper start to finish
 

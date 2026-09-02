@@ -313,6 +313,26 @@ CONSTRUCT_DISPOSITION = {
     # those are spans in their own right. Counted so a paper that puts prose
     # directly inside one is noticed.
     'subequations': 'counted',
+    # ---- the shapes that hid a formula from a span regex -----------------
+    # All three were found by an advisor, not by this census, because the
+    # census could not see any of them. Each is now handled, and counted so
+    # the next paper carrying one is noticed rather than measured by hand.
+    #
+    # `\ifmmode ...$\else ...$\fi` puts an ODD number of `$` in one branch --
+    # correct TeX, since only one branch runs -- and pairing them lexically
+    # destroyed `$`-parity for the rest of the file. planck, and 73 rewrites
+    # landed inside its formulas before `_protected_spans` began pairing on a
+    # text with the definition bodies blanked out.
+    'ifmmode-dollar': 'handled',
+    # `\newcommand{\be}{\begin{equation}}` -- the display is opened by a NAME,
+    # so a pattern looking for `\begin` finds nothing. `_alias_math_spans`.
+    'math-env-alias': 'handled',
+    # A name bound to horizontal space looks exactly like an abbreviation, and
+    # resolving it to nothing deletes indentation. 8 of 24 papers ship one.
+    'glue-only-macro': 'handled',
+    # xparse's signature is `{ s O{} m }`, not `[n][d]`; the definition is not
+    # collected and the name prints. See K141.
+    'xparse-command': 'gap',
 }
 
 
