@@ -313,6 +313,43 @@ class AnOddDollarInAMacroBodyIsNotADocumentDelimiter(unittest.TestCase):
                              'formula: %r' % tex[start:end])
 
 
+class TheOneConditionalThisModuleKnows(unittest.TestCase):
+    r"""`\ifmmode` is decidable HERE and nowhere else: the module rewrites only
+    outside maths, so at every site it touches the condition is false by
+    construction. Not a guess about the paper — the module's own contract.
+
+    Worth taking because the alternative is refusing the macro whole. ATLAS
+    writes `\GeV` as `\ifmmode {\mathrm{\ Ge\kern -0.1em V}}\else
+    \textrm{Ge\kern -0.1em V}\fi`, and that name stood verbatim 35 times in
+    higgs_atlas's finished markdown, `\TeV` 25 more. Checked afterwards, all
+    25 of its rewritten sites are outside maths and none inside.
+    """
+
+    def test_the_false_branch_is_taken(self):
+        d = defs_of(r'\newcommand{\GeV}{\ifmmode {\mathrm{Ge V}}\else '
+                    r'\textrm{GeV}\fi}')
+        self.assertEqual(pm.resolve('GeV', d)[0], r'\textrm{GeV}')
+
+    def test_with_no_else_branch_it_prints_nothing(self):
+        d = defs_of(r'\newcommand{\q}{\ifmmode \quad\fi}')
+        self.assertEqual(pm.resolve('q', d), ('', None))
+
+    def test_a_nested_conditional_does_not_steal_the_else(self):
+        d = defs_of(r'\newcommand{\z}{\ifmmode \ifnum1>0 A\else B\fi'
+                    r'\else OUT\fi}')
+        self.assertEqual(pm.resolve('z', d)[0], 'OUT')
+
+    def test_any_other_conditional_still_refuses(self):
+        # `\ifdraft` is a package option's flag. Its value is not knowable
+        # here, and guessing it is what H38 exists to avoid.
+        d = defs_of(r'\newcommand{\z}{\ifdraft A\else B\fi}')
+        self.assertIsNone(pm.resolve('z', d)[0])
+
+    def test_a_longer_control_word_is_not_mistaken_for_it(self):
+        d = defs_of(r'\newcommand{\z}{\ifmmodex A\fi}')
+        self.assertIsNone(pm.resolve('z', d)[0])
+
+
 class ADisplayCanBeOpenedByAMacro(unittest.TestCase):
     r"""planck defines `\be` as `\begin{equation}` and uses it 16 times,
     `\beglet` as `\begin{subequations}` 19 times. `_MATH_SPAN_RE` looks for

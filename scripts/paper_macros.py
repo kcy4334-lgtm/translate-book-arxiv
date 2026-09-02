@@ -88,6 +88,53 @@ _SPACING_TOKEN_RE = re.compile(
 def _is_spacing_only(body):
     return bool(body.strip()) and not _SPACING_TOKEN_RE.sub('', body).strip()
 
+
+# Any TeX conditional opens with `\if...` and closes with `\fi`; `\else` splits
+# it. Only the depth matters here, not which conditional it is.
+_IF_RE = re.compile(r'\\(if[a-zA-Z@]*|else|fi)(?![a-zA-Z@])')
+
+
+def _resolve_ifmmode(body):
+    r"""`\ifmmode A\else B\fi` -> `B`; `\ifmmode A\fi` -> nothing.
+
+    Sound here and nowhere else. This module rewrites ONLY outside maths — the
+    protected spans are the whole point of it — so at every site it touches the
+    condition is false by construction. That is not a guess about the paper; it
+    is the module's own contract read back.
+
+    It is worth doing because the alternative is refusing the macro whole:
+    ATLAS writes `\GeV` as `\ifmmode {\mathrm{\ Ge\kern -0.1em V}}\else
+    \textrm{Ge\kern -0.1em V}\fi`, and that name stands verbatim 35 times in
+    higgs_atlas's finished markdown, `\TeV` 25 more.
+
+    No other conditional is touched. `\ifdim`, `\ifnum` and a package's own
+    `\ifFOO` are genuinely unknown here and still refuse the body.
+    """
+    for _ in range(MAX_DEPTH):
+        start = body.find('\\ifmmode')
+        if start < 0:
+            break
+        if re.match(r'\\ifmmode[a-zA-Z@]', body[start:]):
+            break                                   # a longer control word
+        depth, else_at, end = 0, None, None
+        for m in _IF_RE.finditer(body, start):
+            kind = m.group(1)
+            if kind.startswith('if'):
+                depth += 1
+            elif kind == 'else':
+                if depth == 1 and else_at is None:
+                    else_at = m
+            else:
+                depth -= 1
+                if depth == 0:
+                    end = m
+                    break
+        if end is None:
+            break                                   # unbalanced; refused below
+        taken = body[else_at.end():end.start()] if else_at else ''
+        body = body[:start] + taken + body[end.end():]
+    return body
+
 # `\catcode13=10` -- an assignment, not text. Without this the digits survive
 # as "printable content" and a body that sets no glyph looks like one that does.
 _ASSIGN_RE = re.compile(
@@ -418,6 +465,13 @@ def resolve(name, defs, seen=None, depth=0):
                          ', '.join(sorted(set(d.source for d in entries)))))
     d = entries[0]
     body = d.body
+
+    # The one conditional whose value this module knows: it rewrites only
+    # outside maths, so `\ifmmode` is false at every site it touches.
+    body = _resolve_ifmmode(body)
+    if d.arity == 0 and _is_spacing_only(body):
+        return None, ('the body is horizontal space; resolving it to nothing '
+                      'would delete indentation, not a name')
 
     # A body that is nothing but grouping and assignment prints nothing. That
     # is an answer, not a failure -- and refusing it refuses every macro that
