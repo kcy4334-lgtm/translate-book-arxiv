@@ -12,6 +12,8 @@ A fork of [deusyu/translate-book](https://github.com/deusyu/translate-book); ups
   measurement that proved it. Read on unexpected output; append per SKILL.md
   Step 9. Anything a test now enforces is one line here pointing at the test
 - `scripts/convert.py` — PDF/DOCX/EPUB → Markdown chunks (via Calibre HTMLZ)
+- `scripts/arxiv_backend.py` — the arXiv LaTeX-source path: fetch, flatten, sanitize, pandoc
+- `scripts/paper_macros.py` — resolves the paper's own `\newcommand`s from the `.sty` files it ships, before pandoc reads the source. A `.sty` is never `\input`, so pandoc never sees the definition and the name prints at the reader. Refuses rather than guesses, and reports what it refused
 - `scripts/manifest.py` — SHA-256 chunk tracking and merge validation
 - `scripts/glossary.py` — Term-consistency glossary; per-chunk term tables injected into sub-agent prompts
 - `scripts/chunk_context.py` — Read-only previous/next chunk excerpts injected into sub-agent prompts

@@ -1901,17 +1901,17 @@ what `unwrap_tabbing` makes of a stop anyway.
 ---
 
 ### K135
-**Looking ONE leaked name up in the shipped `.sty` is not K121's experiment.**
-K121 collected a whole package and measured worse. Resolving a name that has
-ALREADY reached the prose cannot: either a readable body is found or the token
-stays exactly as it is. Measured over the finished books — resnet `\ie`/`\eg`
-(cvpr.sty, `\emph{i.e}\onedot`), spectre `\etal` (`et~al.`) and `\parhead`
-(**one argument, a run-in HEADING — twelve real headings, never droppable**),
-bert `\newcite` (`\citet`), DeeR-VLA `\answerYes` (`\textcolor{blue}{[Yes] #1}`),
-about fifty tokens across eight books. NOT DONE: `\ie` resolves to `i.e` and
-the closing stop lives in `\onedot`, so a body needs recursive resolution to be
-right, and half of it would print `i.e` — the K121 shape again.
-*Status: measured 2026-09-02, open. Inventory in this entry; no code yet.*
+**The paper's own shorthand, resolved from the `.sty` it ships.**
+A `.sty` is never `\input`, so pandoc never sees the definition and the name
+reaches the book: resnet printed `\ie` mid-sentence 5 times where its PDF
+prints "i.e." 5 times. Handing pandoc the definitions is WORSE, measured —
+dtrt.sty's real `\parhead` made it emit nothing for 13 headings, and
+`\onedot`'s `\futurelet` came out `*i.e*..`. `scripts/paper_macros.py` resolves
+instead, refusing on machinery, on a discarded argument, on two definitions
+(spectre's `\dtcolornote`), and on what pandoc reads better — `\cite`, `\url`,
+`\newblock`, and Shor's `\tab`, a tabbing STOP whose deletion would have
+flattened three listings. 1418 calls, 17 papers, no prose word lost.
+*Status: done 2026-09-02. Remainder: `\dtcolornote` x12, refused and reported.*
 
 ---
 

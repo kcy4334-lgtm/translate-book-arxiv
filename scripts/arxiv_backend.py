@@ -28,6 +28,7 @@ import urllib.error
 import urllib.request
 
 import math_guard
+import paper_macros
 
 for _stream in (sys.stdout, sys.stderr):
     try:
@@ -2114,6 +2115,30 @@ def build(input_file, temp_dir, arxiv_id, allow_network=True):
     if front_sections:
         print(f"Front matter: {front_sections} environment(s) kept as sections "
               f"(pandoc drops abstract/keywords as metadata otherwise)")
+
+    # The paper's own shorthand, before pandoc reads the source. A `.sty` is
+    # never `\input`, so `flatten_tex` does not inline it and pandoc never sees
+    # the definition -- the name then survives `+raw_tex` verbatim and prints
+    # at the reader. resnet's finished book had `\ie` mid-sentence five times.
+    # Done here rather than inside latex_to_markdown so flat.tex, the markdown
+    # and everything downstream that re-reads flat.tex agree on one source.
+    flat, macro_report = paper_macros.expand_in_source(
+        flat, paper_macros.shipped_sources(flat, work_dir))
+    if macro_report['expanded']:
+        top = sorted(macro_report['expanded'].items(), key=lambda kv: -kv[1])
+        print(f"Expanded {sum(macro_report['expanded'].values())} call(s) of "
+              f"the paper's own macros: "
+              + ', '.join(f'\\{k} x{v}' for k, v in top[:6]))
+    # Reported, not swallowed. A refusal leaves the name printing verbatim in
+    # the book, and the silent version of that is how it went unnoticed until
+    # a reader found `\ie` in the middle of a Korean sentence (K110).
+    used_refusals = {k: v for k, v in macro_report['refused'].items()
+                     if re.search(r'\\%s(?![A-Za-z])' % re.escape(k), flat)}
+    if used_refusals:
+        print(f"{len(used_refusals)} macro(s) used in the body could not be "
+              f"resolved and will appear verbatim:")
+        for name, why in sorted(used_refusals.items())[:8]:
+            print(f"  \\{name}: {why}")
 
     # Written out so a verification step can count equations in the source and
     # compare against the produced markdown.
