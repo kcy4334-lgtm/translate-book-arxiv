@@ -69,6 +69,7 @@ A finding about a tool goes there. A finding about the method goes here.
 | choose the next paper by its field or its fame | [H35](#h35) |
 | probe a stage with bare pandoc instead of the pipeline's flags | [H36](#h36) |
 | treat a check firing as proof the check is working | [H37](#h37) |
+| accept a package default when two definitions compete | [H38](#h38) |
 
 ---
 
@@ -534,6 +535,22 @@ was stated as decisive. Count the artefacts first and say how many; if the
 count is not the one you expected, the glob is wrong before the finding is.
 *Cost when skipped: a corpus-wide claim that was an artefact of a wildcard,
 offered as the evidence for changing a check (K125, K129).*
+---
+
+### H38
+**When the source cannot say which of two definitions ran, ask the printed
+paper — with a phrase, gathered where the text actually enters.**
+The candidates make opposite predictions about whether an argument reaches the
+page, and the artefact refutes one. Three things decide whether it works.
+Evidence must be a CONTIGUOUS multi-word phrase: asking whether a few of the
+words each occur somewhere answers yes for almost any English sentence, and one
+call whose entire argument was "processors" turned a clear verdict into a mixed
+one. The samples come through the WRAPPERS — spectre never calls
+`\dtcolornote` in its body, so the evidence sits at `\paul`. And the verdict
+must be inherited by a wrapper that only passes its argument along, or the
+caller is refused anyway.
+*Cost when skipped: fourteen of the authors' private editing notes printed in a
+finished book, under a package default the paper itself had switched off.*
 ---
 
 ## Maintenance protocol

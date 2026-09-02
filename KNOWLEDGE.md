@@ -152,6 +152,7 @@ here; the test is the real record. This file is for the *reasoning*, the
 | A caption says `\subref{...}` beside the panel it means | [K137](#k137) |
 | An `\icml` author block loses a name or prints a key | [K138](#k138) |
 | The book's author line reads "Unknown Author" | [K139](#k139) |
+| A rewrite silently skips every macro in one stretch of prose | [K140](#k140) |
 | A float is in output.md but not in the book | [K78](#k78) |
 | A term lost its English between two versions | [K79](#k79) |
 | A label is printed twice: "3.2절 절을" | [K77](#k77) |
@@ -1975,6 +1976,21 @@ a list missing someone is as wrong as one naming the wrong person and harder to
 notice. Accepted and checked name-by-name against the source PDFs: ddpm, gpt3,
 higgs_atlas, maynard, palm, planck, randmat, shor, unet, SINQ.
 *Status: LOCKED — `tests/test_latex_authors.py`.*
+
+---
+
+### K140
+**An offset measured in one string, applied to another, lines up by luck.**
+`paper_macros` protects each definition site so a rewrite cannot turn
+`\newcommand{\etal}{et~al.\ }` into `\newcommand{et al. }{...}` — and it used
+the span recorded when the definition was READ, out of whichever `.sty` or
+`.tex` it came from, to index the document being rewritten. In the pipeline
+those two are the same string, so every span landed and nothing looked wrong.
+Where they differ the span covers an arbitrary stretch of prose, and every
+macro inside it is skipped without a word — invisible in exactly the way
+K110's swallow is. A position belongs to the text it was found in; find it
+again in the target.
+*Status: LOCKED — `tests/test_paper_macros.py`.*
 
 ---
 
