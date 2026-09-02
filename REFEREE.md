@@ -31,6 +31,7 @@ card that says "be more careful", and cards clear when the role runs clean.
 | most of a run gets the same schema wrong | [R3](#r3) |
 | a chunk is rejected and the agent looks at fault | [R4](#r4) |
 | an evidence quote fails on a character nobody can see | [R5](#r5) |
+| a check name is chronic but the causes are not the same | [R6](#r6) |
 
 ---
 
@@ -114,4 +115,33 @@ nothing about what goes in it; if a field has required keys, the brief has to
 show one filled in.
 *Decided: fix the brief, not the agents. No card. The translations themselves
 passed the gate — only the metas were malformed, and quarantine held.*
+---
+
+### R6
+**A chronic check name is not a chronic cause.**
+ResNet: nine of ten metas quarantined on invented field names — `entity` for
+`entity_source`, `name`/`type`/`translation` for the new-entity fields,
+`confidence` absent — and `meta_evidence` on chunk0006. Reported as two
+faults, the brief for one and the agent for the other. They are one.
+`meta.py prompt-block` emits the field names and the verbatim-quote rule in a
+SINGLE block; `brief_chunk0006.md` contains neither word in its 1,924
+characters, because the orchestrator retyped the schema by hand as empty
+arrays. The agent broke a rule it was never shown, and its ellipsis splice is
+downstream of that same omission. This is [R3](#r3) a second time in a second
+book — except R3's remedy has since SHIPPED: `SKILL.md:516` mandates the
+command and `tests/test_meta_prompt_block.py` pins it. Attribution 1 is out,
+the tool works; 2 is out, the brief is explicit. The card is the
+orchestrator's: assemble the block, never retype it.
+The tally read `meta_evidence`: 2 runs, 4 chunks, 2 papers. It is three
+mechanisms — TinyVLA's two dropped markup tokens and its unescaped backslash
+([K129](KNOWLEDGE.md#k129)), and here an ellipsis splice. A shared check name
+is not a shared cause; read the recorded cause before joining two rows.
+One more, no card. The repair agent reported 7 of 62 quotes failing on
+U+00A0. `_SMART_FOLD` folds U+00A0 and `str.split()` eats it before the fold
+is reached; the repaired store holds 81 checkable quotes, 8 of them carrying
+U+00A0, and the check passes all 81. Wrong comparator, wrong denominator —
+[R5](#r5)'s class again, within days. R5 carded nobody, so this does not
+either; the next one does.
+*Decided: one card, orchestrator. None to the chunk role, which was never
+shown the rule it broke, and none to the repair role.*
 ---
