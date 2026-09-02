@@ -149,7 +149,8 @@ _TABBING_BODY_RE = re.compile(
 class Definition(object):
     """One `\\newcommand` / `\\def`, with where it came from."""
 
-    __slots__ = ('name', 'arity', 'optional', 'body', 'source', 'span')
+    __slots__ = ('name', 'arity', 'optional', 'body', 'source', 'span',
+                 'evidenced')
 
     def __init__(self, name, arity, optional, body, source, span):
         self.name = name
@@ -158,6 +159,10 @@ class Definition(object):
         self.body = body
         self.source = source
         self.span = span              # (start, end) in its own source text
+        # Set when the printed paper picked this definition over a competing
+        # one. It licenses the argument-discarding case below: the evidence IS
+        # that the argument does not appear in the paper.
+        self.evidenced = False
 
     def __repr__(self):
         return '<%s/%d from %s>' % (self.name, self.arity, self.source)
@@ -409,22 +414,45 @@ def resolve(name, defs, seen=None, depth=0):
     if _is_onedot(defs):
         body = re.sub(r'\\onedot(?![A-Za-z])', '.', body)
 
-    # Expand the paper's own nested shorthand first.
-    for _ in range(MAX_DEPTH):
+    # Expand the paper's own nested shorthand first, arguments and all.
+    # spectre wraps its note command: `\paul{...}` is `\dtcolornote[Paul]{red}{#1}`,
+    # so stopping at argument-free macros left eight of the twelve notes in
+    # place after the wrapped one had been settled.
+    tried = set()
+    used_inner = []
+    for _ in range(MAX_DEPTH * 4):
         hit = None
         for m in re.finditer(r'\\([A-Za-z@]+)(?![A-Za-z])', body):
             inner = m.group(1)
-            if inner in _PANDOC_READS or inner in _NO_GLYPH:
+            if inner in _PANDOC_READS or inner in _NO_GLYPH or inner in tried:
                 continue
-            if inner in defs and defs[inner][0].arity == 0:
+            if inner in defs:
                 hit = m
                 break
         if not hit:
             break
-        sub, why = resolve(hit.group(1), defs, seen, depth + 1)
+        inner = hit.group(1)
+        sub, why = resolve(inner, defs, seen, depth + 1)
         if sub is None:
-            return None, 'via \\%s: %s' % (hit.group(1), why)
-        body = body[:hit.start()] + sub + body[hit.end():]
+            # Not fatal on its own. `\parhead` calls `\dt@MaybeAddPunct`, which
+            # is a punctuation test written in `\ifx`; refusing the caller for
+            # it cost thirteen headings. Leave the call in place and let
+            # `_unwrap_unresolved` decide whether its argument is printed.
+            tried.add(inner)
+            continue
+        d_inner = defs[inner][0]
+        used_inner.append(inner)
+        if d_inner.arity:
+            taken = _take_args(body, hit.end(), d_inner.arity, d_inner.optional)
+            if taken is None:
+                return None, ('via \\%s: the call does not match its '
+                              'definition' % inner)
+            args, end = taken
+            for n, arg in enumerate(args, 1):
+                sub = sub.replace('#%d' % n, arg)
+            body = body[:hit.start()] + sub + body[end:]
+        else:
+            body = body[:hit.start()] + sub + body[hit.end():]
 
     body = _drop_no_glyph(body)
     body = _apply_font_groups(body)
@@ -440,10 +468,18 @@ def resolve(name, defs, seen=None, depth=0):
         return None, ('unresolved command(s): %s'
                       % ', '.join('\\' + x for x in sorted(set(leftovers))))
 
-    for i in range(1, d.arity + 1):
-        if '#%d' % i not in body:
-            return None, ('argument #%d is discarded; expanding would delete '
-                          'the text the author wrote there' % i)
+    # An argument that vanished is normally the refusal that matters most --
+    # expanding would delete the author's text and nothing downstream counts
+    # the loss. It is licensed only when the printed paper established that
+    # this text is not on the page, and that verdict is inherited by a wrapper
+    # that does nothing but pass its argument along (`\paul` -> `\dtcolornote`).
+    evidenced = d.evidenced or any(
+        defs[n][0].evidenced for n in used_inner if n in defs)
+    if not evidenced:
+        for i in range(1, d.arity + 1):
+            if '#%d' % i not in body:
+                return None, ('argument #%d is discarded; expanding would '
+                              'delete the text the author wrote there' % i)
 
     # A trailing space survives on purpose. `\etal` is `et~al.\ ` because
     # LaTeX eats the space after a control word; strip it and the next word is
@@ -477,10 +513,18 @@ def _protected_spans(tex, defs):
         spans.append((m.start(), m.end()))
     # A definition contains its own name. Rewriting there turns
     # `\newcommand{\etal}{et~al.\ }` into `\newcommand{et al. }{...}`.
-    for entries in defs.values():
-        for d in entries:
-            if d.source == 'flat.tex':
-                spans.append(d.span)
+    #
+    # Located in THIS text rather than carried over from the file the
+    # definition was read out of. In the pipeline those are the same string,
+    # so a span taken from the other one happened to line up; when they differ
+    # it protects an arbitrary stretch of prose instead, and the macros inside
+    # it are silently left alone.
+    clean = strip_comments(tex)
+    for rx in (_NEWCOMMAND_RE, _DECLARE_RE, _DEF_RE):
+        for m in rx.finditer(clean):
+            close = _group_end(clean, m.end())
+            if close > 0:
+                spans.append((m.start(), close))
     spans.sort()
     return spans
 
@@ -526,6 +570,114 @@ def _take_args(tex, at, arity, optional):
     return args, i
 
 
+def _call_arguments(tex, name, entry, body_at, spans, limit=6, min_words=4):
+    """Argument text from real call sites, longest first.
+
+    Only a phrase of several words counts. spectre's `\\yval` is called with
+    "processors", which occurs in the paper for reasons that have nothing to
+    do with this macro; one common word is not evidence, and mixing it with
+    real phrases turned a clear verdict into an inconclusive one.
+    """
+    found = []
+    rx = re.compile(r'\\%s(?![A-Za-z])' % re.escape(name))
+    for m in rx.finditer(tex, body_at):
+        if _in_span(m.start(), spans):
+            continue
+        taken = _take_args(tex, m.end(), entry.arity, entry.optional)
+        if taken is None:
+            continue
+        for arg in taken[0]:
+            text = ' '.join(_CMD_RE.sub(' ', arg).split())
+            if len(text.split()) >= min_words and re.search(r'[A-Za-z]{4}', text):
+                found.append(text)
+    found.sort(key=len, reverse=True)
+    return found[:limit]
+
+
+def _wrapper_samples(name, defs, tex, body_at, spans):
+    r"""Call-site text of macros that pass their argument INTO `name`.
+
+    spectre never calls `\dtcolornote` directly in the body -- all four
+    occurrences are in the preamble, inside `\newcommand{\paul}` and its
+    siblings. The text that would be printed arrives through those wrappers,
+    so that is where the evidence is.
+    """
+    out = []
+    for other, entries in defs.items():
+        if other == name or len(entries) != 1:
+            continue
+        d = entries[0]
+        if not re.search(r'\\%s(?![A-Za-z])' % re.escape(name), d.body):
+            continue
+        if not re.search(r'#\d', d.body):
+            continue
+        out.extend(_call_arguments(tex, other, d, body_at, spans))
+    return out
+
+
+def _appears_in_paper(samples, paper_text):
+    """True if every sample is printed, False if none is, None if mixed.
+
+    Matched as a CONTIGUOUS phrase. Asking instead whether a handful of the
+    sample's words each occur somewhere in the paper answers yes for almost
+    any English sentence -- "Delete the following as not background material"
+    scored a hit on spectre because "following", "background" and "material"
+    all appear elsewhere, and the mixed verdict refused the macro.
+    """
+    flat = ' '.join(paper_text.split())
+    if not flat:
+        return None
+    hits = 0
+    for s in samples:
+        probe = ' '.join(_CMD_RE.sub(' ', s).split())
+        words = probe.split()
+        if len(words) > 6:
+            probe = ' '.join(words[:6])
+        if len(probe) < 8:
+            continue
+        if probe in flat:
+            hits += 1
+    if hits == 0:
+        return False
+    if hits == len(samples):
+        return True
+    return None
+
+
+def disambiguate(name, defs, tex, paper_text, body_at, spans):
+    r"""Pick between conflicting definitions using the printed paper.
+
+    A macro defined once in each branch of a conditional cannot be resolved by
+    reading the source alone -- the branch is chosen by a package option this
+    module does not evaluate, and dtrt.sty's DEFAULT is the wrong one: line 127
+    is `\newif\ifdt@notes \dt@notestrue`, but spectre is built `camera`, so the
+    notes are off.
+
+    The paper itself settles it. One candidate prints its argument, the other
+    discards it; spectre's PDF contains "NeedReference" zero times, so the
+    candidate that would have printed it is refuted. Measuring the artefact
+    rather than the intermediate is K138.
+    """
+    entries = defs.get(name) or []
+    if len(entries) < 2 or not paper_text or name in _NEVER_EXPAND:
+        return None
+    keeps = [bool(re.search(r'#\d', d.body)) for d in entries]
+    if len(set(keeps)) < 2:
+        return None                       # candidates agree; no question asked
+    samples = (_call_arguments(tex, name, entries[0], body_at, spans)
+               + _wrapper_samples(name, defs, tex, body_at, spans))
+    if not samples:
+        return None
+    printed = _appears_in_paper(samples, paper_text)
+    if printed is None:
+        return None
+    survivors = [d for d, k in zip(entries, keeps) if k == printed]
+    if len(survivors) != 1:
+        return None
+    survivors[0].evidenced = True
+    return survivors[0]
+
+
 def shipped_sources(flat_tex, root):
     r"""(label, text) for flat.tex and every .sty/.cls in the paper's tarball.
 
@@ -550,7 +702,7 @@ def shipped_sources(flat_tex, root):
     return sources
 
 
-def expand_in_source(tex, sources):
+def expand_in_source(tex, sources, paper_text=None):
     r"""Replace calls to the paper's own resolvable macros. Returns (tex, report).
 
     `report` carries `expanded` ({name: count}) and `refused` ({name: reason}),
@@ -569,8 +721,25 @@ def expand_in_source(tex, sources):
         body_at = m.end()
 
     spans = _protected_spans(tex, defs)
-    resolved = {}
 
+    # Settle the ambiguous names FIRST, once, so a decision is visible to every
+    # macro that calls one. `\paul` is `\dtcolornote[Paul]{red}{#1}`; deciding
+    # \dtcolornote only while resolving itself would leave its three wrappers
+    # -- fourteen of the notes -- still refused.
+    decided = {}
+    for name, entries in defs.items():
+        if len(entries) < 2:
+            continue
+        chosen = disambiguate(name, defs, tex, paper_text, body_at, spans)
+        if chosen is not None:
+            decided[name] = chosen
+    if decided:
+        defs = dict(defs)
+        for name, d in decided.items():
+            defs[name] = [d]
+        report['decided'] = dict((n, d.source) for n, d in decided.items())
+
+    resolved = {}
     for name in sorted(defs, key=len, reverse=True):
         if not re.search(r'\\%s(?![A-Za-z])' % re.escape(name), tex[body_at:]):
             continue                              # never used in the body

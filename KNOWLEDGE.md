@@ -1907,11 +1907,11 @@ reaches the book: resnet printed `\ie` mid-sentence 5 times where its PDF
 prints "i.e." 5 times. Handing pandoc the definitions is WORSE, measured —
 dtrt.sty's real `\parhead` made it emit nothing for 13 headings, and
 `\onedot`'s `\futurelet` came out `*i.e*..`. `scripts/paper_macros.py` resolves
-instead, refusing on machinery, on a discarded argument, on two definitions
-(spectre's `\dtcolornote`), and on what pandoc reads better — `\cite`, `\url`,
-`\newblock`, and Shor's `\tab`, a tabbing STOP whose deletion would have
-flattened three listings. 1418 calls, 17 papers, no prose word lost.
-*Status: done 2026-09-02. Remainder: `\dtcolornote` x12, refused and reported.*
+instead, refusing on machinery, on a discarded argument, and on what pandoc
+reads better — `\cite`, `\url`, `\newblock`, Shor's `\tab` (a tabbing STOP;
+deleting it flattens three listings). One definition per conditional branch is
+settled by the PRINTED paper: spectre's 14 author notes go, its PDF having 0.
+*Status: done 2026-09-02. 1418 calls, 17 papers, no prose word lost.*
 
 ---
 

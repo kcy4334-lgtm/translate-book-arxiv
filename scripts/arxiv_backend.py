@@ -291,6 +291,29 @@ def extract_latex_authors(tex):
     return '; '.join(out)
 
 
+def read_pdf_text(pdf_path):
+    r"""The text the PRINTED paper shows, or '' when it cannot be read.
+
+    Used to settle a question the source cannot: a macro defined once in each
+    branch of a conditional. spectre's `\dtcolornote` prints an author's margin
+    note in one branch and nothing in the other, and dtrt.sty's default is the
+    first -- but the paper is built `camera` and its PDF contains
+    "NeedReference" zero times. The artefact decides (K138).
+    """
+    try:
+        try:
+            import pymupdf
+        except ImportError:
+            import fitz as pymupdf  # noqa: N813
+        doc = pymupdf.open(pdf_path)
+        try:
+            return '\n'.join(page.get_text('text') for page in doc)
+        finally:
+            doc.close()
+    except Exception:
+        return ''
+
+
 def extract_pdf_metadata(pdf_path):
     """Title/author straight from the PDF metadata (cleaner than Calibre's OPF)."""
     out = {}
@@ -2123,7 +2146,11 @@ def build(input_file, temp_dir, arxiv_id, allow_network=True):
     # Done here rather than inside latex_to_markdown so flat.tex, the markdown
     # and everything downstream that re-reads flat.tex agree on one source.
     flat, macro_report = paper_macros.expand_in_source(
-        flat, paper_macros.shipped_sources(flat, work_dir))
+        flat, paper_macros.shipped_sources(flat, work_dir),
+        paper_text=read_pdf_text(input_file))
+    for name, source in sorted(macro_report.get('decided', {}).items()):
+        print(f"\\{name} has competing definitions; the printed paper picks "
+              f"the one in {source}")
     if macro_report['expanded']:
         top = sorted(macro_report['expanded'].items(), key=lambda kv: -kv[1])
         print(f"Expanded {sum(macro_report['expanded'].values())} call(s) of "

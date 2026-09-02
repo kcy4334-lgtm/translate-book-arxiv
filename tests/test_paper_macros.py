@@ -269,5 +269,75 @@ class OnlyTheProseIsRewritten(unittest.TestCase):
         self.assertIn(r'\note[a]{b}{c}', out)
 
 
+class ThePrintedPaperSettlesAConditionalDefinition(unittest.TestCase):
+    r"""dtrt.sty defines `\dtcolornote` once to print an author's margin note
+    and once to print nothing, in the two branches of `\ifdt@notes`. Reading
+    the source cannot choose: the branch is selected by a package option, and
+    the DEFAULT at line 127 is notes-on, which is the wrong one — spectre is
+    built `camera` and its PDF contains "NeedReference" zero times.
+
+    So the artefact is asked instead. One candidate prints its argument and
+    the other discards it; whichever prediction the paper contradicts is out.
+    """
+
+    NOTE = (r'\newcommand{\note}[3][]{\textbf{#3}}' '\n'
+            r'\newcommand{\note}[3][]{\ignorespaces}')
+    CALL = (r'\begin{document}' '\n'
+            r'buffer overflow \note[Paul]{red}{a citation is needed here}'
+            ' and more text\n' r'\end{document}')
+
+    def test_a_note_absent_from_the_paper_selects_the_silent_branch(self):
+        paper = 'buffer overflow and more text'
+        out, rep = pm.expand_in_source(self.CALL, [('d.sty', self.NOTE)],
+                                       paper_text=paper)
+        self.assertEqual(rep.get('decided', {}).get('note'), 'd.sty')
+        self.assertNotIn('citation is needed', out)
+        self.assertIn('buffer overflow', out)
+
+    def test_a_note_the_paper_prints_selects_the_printing_branch(self):
+        paper = 'buffer overflow a citation is needed here and more text'
+        out, rep = pm.expand_in_source(self.CALL, [('d.sty', self.NOTE)],
+                                       paper_text=paper)
+        self.assertEqual(rep.get('decided', {}).get('note'), 'd.sty')
+        self.assertIn('citation is needed here', out)
+
+    def test_without_the_paper_it_stays_refused(self):
+        out, rep = pm.expand_in_source(self.CALL, [('d.sty', self.NOTE)])
+        self.assertIn('note', rep['refused'])
+        self.assertIn(r'\note[Paul]{red}', out)
+
+    def test_a_wrapper_inherits_the_verdict(self):
+        # spectre never calls \dtcolornote in the body; all fourteen notes
+        # arrive through `\newcommand{\paul}[1]{\dtcolornote[Paul]{red}{#1}}`.
+        src = [('d.sty', self.NOTE),
+               ('flat.tex', r'\newcommand{\paul}[1]{\note[Paul]{red}{#1}}')]
+        tex = (r'\begin{document}' '\n'
+               r'overflow \paul{a citation is needed here} and more'
+               '\n' r'\end{document}')
+        out, rep = pm.expand_in_source(tex, src, paper_text='overflow and more')
+        self.assertNotIn('citation is needed', out)
+        self.assertNotIn(r'\paul', out)
+
+    def test_one_common_word_is_not_evidence(self):
+        # `\yval` is called with "processors", which occurs in spectre for
+        # reasons unrelated to the macro. Counting that as a hit turned a clear
+        # verdict into a mixed one and refused the macro.
+        tex = (r'\begin{document}' '\n' r'x \note[a]{red}{processors}'
+               '\n' r'\end{document}')
+        out, rep = pm.expand_in_source(tex, [('d.sty', self.NOTE)],
+                                       paper_text='the processors are fast')
+        self.assertIn('note', rep['refused'])
+
+    def test_mixed_evidence_refuses(self):
+        tex = (r'\begin{document}' '\n'
+               r'\note[a]{red}{alpha beta gamma delta}'
+               r'\note[a]{red}{epsilon zeta eta theta}'
+               '\n' r'\end{document}')
+        out, rep = pm.expand_in_source(
+            tex, [('d.sty', self.NOTE)],
+            paper_text='alpha beta gamma delta is printed but not the other')
+        self.assertIn('note', rep['refused'])
+
+
 if __name__ == '__main__':
     unittest.main()
