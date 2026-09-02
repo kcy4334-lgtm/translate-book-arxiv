@@ -70,6 +70,24 @@ _DECORATION_RE = re.compile(
 # one thing that is NOT invalid LaTeX and so passes every check.
 _ESCAPED_SPACE_RE = re.compile(r'\\ ')
 
+# A body that is nothing but horizontal space is INDENTATION, and deleting it
+# is the tabbing hazard wearing different clothes. `_TABBING_BODY_RE` only
+# knows the tabbing primitives, so `\newcommand{\tab}{\hspace{1em}}` fell past
+# it: `_GLUE_RE` ate the body, `_sets_no_glyph` saw nothing left, and the
+# macro resolved to the empty string. CafeQ ships `\spcin` as `\hspace{1.0in}`
+# and Shor writes his listing indentation as runs of `\ ` inline -- a paper
+# that puts either behind a name would have had it removed.
+_SPACING_TOKEN_RE = re.compile(
+    r'\\(?:hspace\*?|vspace\*?|hskip|vskip|kern|quad|qquad|thinspace'
+    r'|enspace|hfill|hfil|space)\s*\{?[^{}\s]*\}?'
+    r'|\\[,;:!]'
+    r'|\\ '
+    r'|\s')
+
+
+def _is_spacing_only(body):
+    return bool(body.strip()) and not _SPACING_TOKEN_RE.sub('', body).strip()
+
 # `\catcode13=10` -- an assignment, not text. Without this the digits survive
 # as "printable content" and a body that sets no glyph looks like one that does.
 _ASSIGN_RE = re.compile(
@@ -389,6 +407,9 @@ def resolve(name, defs, seen=None, depth=0):
         return None, 'pandoc reads this one; its own reader beats a substitution'
     if any(_TABBING_BODY_RE.match(d.body) for d in entries):
         return None, 'a tabbing control, handled where the tab stops are read'
+    if any(_is_spacing_only(d.body) for d in entries):
+        return None, ('the body is horizontal space; resolving it to nothing '
+                      'would delete indentation, not a name')
     bodies = set(d.body.strip() for d in entries)
     if len(bodies) > 1:
         return None, ('%d different definitions (%s); the source picks one '
@@ -500,8 +521,24 @@ _MATH_SPAN_RE = re.compile(
     r'|(?<!\\)\\\[.*?(?<!\\)\\\]'
     r'|(?<!\\)\\\(.*?(?<!\\)\\\)'
     r'|\\begin\{(equation|align|eqnarray|gather|multline|displaymath|array'
-    r'|split|cases|aligned|alignat|math)\*?\}.*?\\end\{\1\*?\}',
+    r'|split|cases|aligned|alignat|math|subequations|gathered|flalign'
+    r'|IEEEeqnarray|dmath|empheq)\*?\}.*?\\end\{\1\*?\}',
     re.DOTALL)
+
+# The same environments, for the case where a macro opens one. planck defines
+# `\be` as `\begin{equation}` and uses it 16 times, `\beglet` as
+# `\begin{subequations}` 19 times; `_MATH_SPAN_RE` sees no `\begin` at all and
+# the maths inside was rewritten as if it were prose. `\twoonesig` is worse
+# than an alias -- it CONSTRUCTS the display, so the formula arrives as an
+# argument in prose position and there is no `\begin` anywhere to find.
+_MATH_ENVS = ('equation', 'align', 'eqnarray', 'gather', 'multline',
+              'displaymath', 'array', 'split', 'cases', 'aligned', 'alignat',
+              'math', 'subequations', 'gathered', 'flalign', 'IEEEeqnarray',
+              'dmath', 'empheq')
+_MATH_OPEN_RE = re.compile(
+    r'^\s*\\begin\s*\{\s*(?:%s)\*?\s*\}' % '|'.join(_MATH_ENVS))
+_MATH_CLOSE_RE = re.compile(
+    r'^\s*\\end\s*\{\s*(?:%s)\*?\s*\}' % '|'.join(_MATH_ENVS))
 
 
 def _blank(text, spans):
@@ -514,11 +551,55 @@ def _blank(text, spans):
     return ''.join(out)
 
 
+def _alias_math_spans(tex, defs):
+    r"""Displays opened by a MACRO rather than by `\begin`.
+
+    An argument-free alias (`\be` -> `\begin{equation}`) is paired with its
+    closing alias. One that takes arguments builds the display around them, so
+    the whole call including its arguments is the formula.
+    """
+    openers, closers, builders = set(), set(), set()
+    for name, entries in defs.items():
+        if len(entries) != 1:
+            continue
+        body = entries[0].body
+        if _MATH_OPEN_RE.match(body):
+            (builders if entries[0].arity else openers).add(name)
+        elif _MATH_CLOSE_RE.match(body):
+            closers.add(name)
+
+    spans = []
+    if openers and closers:
+        pat = re.compile(r'\\(%s)(?![A-Za-z])'
+                         % '|'.join(re.escape(n)
+                                    for n in sorted(openers | closers,
+                                                    key=len, reverse=True)))
+        depth, opened_at = 0, None
+        for m in pat.finditer(tex):
+            if m.group(1) in openers:
+                if depth == 0:
+                    opened_at = m.start()
+                depth += 1
+            elif depth:
+                depth -= 1
+                if depth == 0 and opened_at is not None:
+                    spans.append((opened_at, m.end()))
+                    opened_at = None
+    for name in builders:
+        d = defs[name][0]
+        pat = re.compile(r'\\%s(?![A-Za-z])' % re.escape(name))
+        for m in pat.finditer(tex):
+            taken = _take_args(tex, m.end(), d.arity, d.optional)
+            spans.append((m.start(), taken[1] if taken else m.end()))
+    return spans
+
+
 def _protected_spans(tex, defs):
     """(start, end) ranges no rewrite may touch."""
     spans = []
     for m in _VERBATIM_RE.finditer(tex):
         spans.append((m.start(), m.end()))
+    spans.extend(_alias_math_spans(tex, defs))
     # A definition contains its own name. Rewriting there turns
     # `\newcommand{\etal}{et~al.\ }` into `\newcommand{et al. }{...}`.
     #

@@ -313,6 +313,82 @@ class AnOddDollarInAMacroBodyIsNotADocumentDelimiter(unittest.TestCase):
                              'formula: %r' % tex[start:end])
 
 
+class ADisplayCanBeOpenedByAMacro(unittest.TestCase):
+    r"""planck defines `\be` as `\begin{equation}` and uses it 16 times,
+    `\beglet` as `\begin{subequations}` 19 times. `_MATH_SPAN_RE` looks for
+    `\begin` and finds none, so the formula was rewritten as if it were prose.
+    `\twoonesig` is worse than an alias: it CONSTRUCTS the display, so the
+    maths arrives as an argument in prose position.
+    """
+
+    SRC = [('a.sty', r'\newcommand{\be}{\begin{equation}}' '\n'
+                     r'\newcommand{\ee}{\end{equation}}' '\n'
+                     r'\newcommand{\mk}[1]{\begin{equation}#1\end{equation}}' '\n'
+                     r'\newcommand{\ie}{i.e.}')]
+
+    def test_an_aliased_display_is_protected(self):
+        tex = (r'\begin{document}' '\n' r'prose \ie here' '\n'
+               r'\be' '\n' r'x = \ie' '\n' r'\ee' '\n' r'\end{document}')
+        out, rep = pm.expand_in_source(tex, self.SRC)
+        self.assertIn(r'x = \ie', out)
+        self.assertEqual(rep['expanded'].get('ie'), 1)
+
+    def test_the_prose_around_it_is_still_rewritten(self):
+        tex = (r'\begin{document}' '\n' r'prose \ie here' '\n'
+               r'\be' '\n' r'x = \ie' '\n' r'\ee' '\n' r'\end{document}')
+        out, _ = pm.expand_in_source(tex, self.SRC)
+        self.assertIn('prose i.e. here', out)
+
+    def test_a_display_built_from_an_argument_is_protected(self):
+        tex = (r'\begin{document}' '\n' r'see \mk{y = \ie} now' '\n'
+               r'\end{document}')
+        out, rep = pm.expand_in_source(tex, self.SRC)
+        self.assertIn(r'\mk{y = \ie}', out)
+        self.assertEqual(rep['expanded'].get('ie'), None)
+
+
+class HorizontalSpaceIsNotANameToResolve(unittest.TestCase):
+    r"""`_TABBING_BODY_RE` knows the tabbing primitives only, so
+    `\newcommand{\tab}{\hspace{1em}}` fell past it: `_GLUE_RE` ate the body,
+    `_sets_no_glyph` saw nothing left, and the macro resolved to the empty
+    string — the indentation deleted, which is the hazard that rule exists to
+    stop. CafeQ ships `\spcin` as `\hspace{1.0in}`, and Shor writes his
+    listing indentation as runs of `\ `.
+    """
+
+    def refuse(self, body):
+        defs = defs_of(r'\newcommand{\tab}{%s}' % body)
+        got, why = pm.resolve('tab', defs)
+        self.assertIsNone(got, 'resolved to %r' % (got,))
+        return why
+
+    def test_hspace_is_refused(self):
+        self.assertIn('horizontal space', self.refuse(r'\hspace{1em}'))
+
+    def test_starred_hspace_is_refused(self):
+        self.refuse(r'\hspace*{2em}')
+
+    def test_hskip_is_refused(self):
+        self.refuse(r'\hskip 1em')
+
+    def test_a_run_of_escaped_spaces_is_refused(self):
+        # The module's own docstring calls `\ ` load-bearing; it was being
+        # deleted whenever it was the WHOLE body.
+        self.refuse('\\ \\ \\ \\ ')
+
+    def test_a_tilde_run_still_resolves(self):
+        # Non-breaking spaces are content, and print.
+        self.assertEqual(pm.resolve('tab', defs_of(r'\newcommand{\tab}{~~~~}'))[0],
+                         '~~~~')
+
+    def test_a_real_abbreviation_is_unaffected(self):
+        # It keeps its trailing space: the body has text as well as space, so
+        # the spacing-only rule does not touch it, and the `tail` logic holds.
+        self.assertEqual(
+            pm.resolve('etal', defs_of(r'\newcommand{\etal}{et~al.\ }'))[0],
+            'et~al. ')
+
+
 class ThePrintedPaperSettlesAConditionalDefinition(unittest.TestCase):
     r"""dtrt.sty defines `\dtcolornote` once to print an author's margin note
     and once to print nothing, in the two branches of `\ifdt@notes`. Reading
