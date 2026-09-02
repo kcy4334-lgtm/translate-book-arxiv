@@ -504,12 +504,20 @@ _MATH_SPAN_RE = re.compile(
     re.DOTALL)
 
 
+def _blank(text, spans):
+    """Replace each span with spaces, keeping every offset intact."""
+    out = list(text)
+    for start, end in spans:
+        for i in range(start, min(end, len(out))):
+            if out[i] != '\n':
+                out[i] = ' '
+    return ''.join(out)
+
+
 def _protected_spans(tex, defs):
     """(start, end) ranges no rewrite may touch."""
     spans = []
     for m in _VERBATIM_RE.finditer(tex):
-        spans.append((m.start(), m.end()))
-    for m in _MATH_SPAN_RE.finditer(tex):
         spans.append((m.start(), m.end()))
     # A definition contains its own name. Rewriting there turns
     # `\newcommand{\etal}{et~al.\ }` into `\newcommand{et al. }{...}`.
@@ -518,13 +526,25 @@ def _protected_spans(tex, defs):
     # definition was read out of. In the pipeline those are the same string,
     # so a span taken from the other one happened to line up; when they differ
     # it protects an arbitrary stretch of prose instead, and the macros inside
-    # it are silently left alone.
+    # it are silently left alone (K140).
     clean = strip_comments(tex)
+    definitions = []
     for rx in (_NEWCOMMAND_RE, _DECLARE_RE, _DEF_RE):
         for m in rx.finditer(clean):
             close = _group_end(clean, m.end())
             if close > 0:
-                spans.append((m.start(), close))
+                definitions.append((m.start(), close))
+    spans.extend(definitions)
+    # Maths is paired on a text with the comments AND the definition bodies
+    # blanked out, because a `$` inside a macro BODY is not a document
+    # delimiter. planck defines `\Hunit` as `\ifmmode ...$\else ...\fi` — an
+    # ODD number of `$`, which TeX balances through the conditional and a
+    # regex cannot. Paired on the raw source, every later `$` paired inverted:
+    # 328 spans that contained a blank line, which no formula does, and 73
+    # rewrites landing INSIDE planck's formulas. Every other paper in the
+    # corpus was 0, so nothing but a whole-corpus sweep would have shown it.
+    spans.extend((m.start(), m.end())
+                 for m in _MATH_SPAN_RE.finditer(_blank(clean, definitions)))
     spans.sort()
     return spans
 

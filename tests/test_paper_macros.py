@@ -269,6 +269,50 @@ class OnlyTheProseIsRewritten(unittest.TestCase):
         self.assertIn(r'\note[a]{b}{c}', out)
 
 
+class AnOddDollarInAMacroBodyIsNotADocumentDelimiter(unittest.TestCase):
+    r"""planck defines `\Hunit` as `\ifmmode ...$\else ...\fi` — an odd number
+    of `$`, which TeX balances through the conditional and a regex cannot.
+
+    Paired on the raw source, that stray `$` opened a span that closed on the
+    first `$` in the body, and every `$` after it paired inverted: 328 spans
+    that contained a blank line, which no formula does. The cost was 73
+    rewrites landing INSIDE planck's formulas. Every other paper in the corpus
+    measured 0, so only a whole-corpus sweep could show it.
+
+    Both directions matter, and the test asserts both: prose outside the real
+    formula must still be rewritten, and the real formula must not be.
+    """
+
+    SRC = [('a.sty',
+            r'\newcommand{\unit}{\ifmmode \mathrm{km}$\else km\fi}' '\n'
+            r'\newcommand{\tag}{TAG}')]
+
+    def test_prose_before_the_first_formula_is_still_rewritten(self):
+        tex = (r'\begin{document}' '\n'
+               r'first \tag here and a formula $a \tag b$ end' '\n'
+               r'\end{document}')
+        out, rep = pm.expand_in_source(tex, self.SRC)
+        self.assertIn('first TAG here', out)
+        self.assertEqual(rep['expanded'].get('tag'), 1)
+
+    def test_the_real_formula_is_left_alone(self):
+        tex = (r'\begin{document}' '\n'
+               r'first \tag here and a formula $a \tag b$ end' '\n'
+               r'\end{document}')
+        out, _ = pm.expand_in_source(tex, self.SRC)
+        self.assertIn(r'$a \tag b$', out)
+
+    def test_no_span_swallows_a_paragraph_break(self):
+        tex = (r'\begin{document}' '\n'
+               r'one $x$ two' '\n\n' r'three $y$ four' '\n'
+               r'\end{document}')
+        defs = pm.read_definitions(self.SRC)
+        for start, end in pm._protected_spans(tex, defs):
+            self.assertNotIn('\n\n', tex[start:end],
+                             'a span reaching across a blank line is not a '
+                             'formula: %r' % tex[start:end])
+
+
 class ThePrintedPaperSettlesAConditionalDefinition(unittest.TestCase):
     r"""dtrt.sty defines `\dtcolornote` once to print an author's margin note
     and once to print nothing, in the two branches of `\ifdt@notes`. Reading
