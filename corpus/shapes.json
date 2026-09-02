@@ -1,0 +1,783 @@
+{
+ "papers": {
+  "1011.3027v7": {
+   "shapes": {
+    "bibliography": {
+     "bibitem": 84,
+     "cite": 103,
+     "thebibliography-inlined": 1
+    },
+    "front matter": {
+     "author": 1,
+     "footnote": 27,
+     "maketitle": 1
+    },
+    "math": {
+     "align": 2,
+     "equation": 49,
+     "gather": 3,
+     "old-font-switch": 87,
+     "setlength": 5
+    },
+    "other": {
+     "def": 25
+    },
+    "preamble": {
+     "documentclass": 1
+    }
+   },
+   "title": "Introduction to the non-asymptotic analysis of random matrices"
+  },
+  "1207.7214v2": {
+   "shapes": {
+    "bibliography": {
+     "bibitem": 141,
+     "cite": 125,
+     "thebibliography-inlined": 1
+    },
+    "caption": {
+     "caption": 19
+    },
+    "float": {
+     "figure": 12,
+     "table": 5,
+     "table*": 2
+    },
+    "front matter": {
+     "author": 1,
+     "footnote": 3
+    },
+    "math": {
+     "old-font-switch": 3044,
+     "setlength": 1
+    },
+    "other": {
+     "def": 53,
+     "newcommand": 213
+    },
+    "preamble": {
+     "documentclass": 1
+    },
+    "table": {
+     "multicolumn": 21,
+     "multirow": 22,
+     "resizebox": 1,
+     "scalebox": 5,
+     "tabular": 7
+    }
+   },
+   "title": "Introduction"
+  },
+  "1311.4600v3": {
+   "shapes": {
+    "bibliography": {
+     "bibliography-file": 1,
+     "cite": 15
+    },
+    "front matter": {
+     "address": 1,
+     "author": 1,
+     "bibliographystyle": 1,
+     "email": 1,
+     "footnote": 4,
+     "maketitle": 1
+    },
+    "math": {
+     "align": 37,
+     "equation": 74,
+     "setlength": 2,
+     "sideset": 8,
+     "substack": 74
+    },
+    "preamble": {
+     "documentclass": 1
+    }
+   },
+   "title": "Small gaps between primes"
+  },
+  "1406.2661v1": {
+   "shapes": {
+    "bibliography": {
+     "bibitem": 31,
+     "cite": 7,
+     "citep": 24,
+     "citet": 1,
+     "thebibliography-inlined": 1
+    },
+    "caption": {
+     "caption": 9
+    },
+    "disabled in place": {
+     "commented-float": 1
+    },
+    "float": {
+     "figure": 5,
+     "minipage": 2,
+     "table": 2
+    },
+    "front matter": {
+     "author": 1,
+     "bibliographystyle": 1,
+     "footnote": 1,
+     "maketitle": 1,
+     "thanks": 3
+    },
+    "math": {
+     "align": 2,
+     "equation": 4,
+     "old-font-switch": 8
+    },
+    "other": {
+     "algorithm": 1,
+     "algorithmic": 1,
+     "newcommand": 3
+    },
+    "preamble": {
+     "documentclass": 1
+    },
+    "table": {
+     "tabular": 4
+    }
+   },
+   "title": "Generative Adversarial Nets"
+  },
+  "1505.04597v1": {
+   "shapes": {
+    "bibliography": {
+     "bibitem": 14,
+     "cite": 21,
+     "thebibliography-inlined": 1
+    },
+    "caption": {
+     "caption": 6
+    },
+    "float": {
+     "figure": 4,
+     "table": 2
+    },
+    "front matter": {
+     "author": 1,
+     "bibliographystyle": 1,
+     "email": 1,
+     "footnote": 4,
+     "institute": 1,
+     "maketitle": 1,
+     "running-head": 2
+    },
+    "math": {
+     "equation": 2
+    },
+    "other": {
+     "newcommand": 2
+    },
+    "preamble": {
+     "documentclass": 1
+    },
+    "table": {
+     "tabular": 2
+    }
+   },
+   "title": "U-Net: Convolutional Networks for Biomedical Image Segmentation"
+  },
+  "1512.03385v1": {
+   "shapes": {
+    "bibliography": {
+     "bibitem": 50,
+     "cite": 136,
+     "thebibliography-inlined": 1
+    },
+    "caption": {
+     "caption": 21
+    },
+    "disabled in place": {
+     "commented-caption": 1,
+     "commented-float": 4
+    },
+    "float": {
+     "figure": 5,
+     "figure*": 2,
+     "table": 8,
+     "table*": 3
+    },
+    "front matter": {
+     "author": 1,
+     "bibliographystyle": 1,
+     "footnote": 6,
+     "maketitle": 1
+    },
+    "math": {
+     "equation": 2,
+     "setlength": 14
+    },
+    "other": {
+     "def": 1,
+     "newcommand": 6
+    },
+    "preamble": {
+     "documentclass": 1
+    },
+    "table": {
+     "multicolumn": 14,
+     "multirow": 11,
+     "resizebox": 5,
+     "tabular": 16
+    }
+   },
+   "title": "Deep Residual Learning for Image Recognition"
+  },
+  "1706.03762v7": {
+   "shapes": {
+    "bibliography": {
+     "bibitem": 40,
+     "cite": 14,
+     "citep": 49,
+     "thebibliography-inlined": 1
+    },
+    "caption": {
+     "caption": 9
+    },
+    "disabled in place": {
+     "commented-caption": 3,
+     "commented-float": 3
+    },
+    "float": {
+     "figure": 2,
+     "figure*": 3,
+     "minipage": 2,
+     "table": 4
+    },
+    "front matter": {
+     "author": 1,
+     "bibliographystyle": 1,
+     "footnote": 2,
+     "footnotemark": 8,
+     "maketitle": 1,
+     "thanks": 3
+    },
+    "math": {
+     "equation": 3,
+     "old-font-switch": 3
+    },
+    "other": {
+     "newcommand": 16
+    },
+    "preamble": {
+     "documentclass": 1
+    },
+    "table": {
+     "cmidrule": 2,
+     "multicolumn": 5,
+     "multirow": 13,
+     "tabular": 4
+    }
+   },
+   "title": "Attention Is All You Need"
+  },
+  "1801.01203v1": {
+   "shapes": {
+    "bibliography": {
+     "bibitem": 38,
+     "cite": 38,
+     "thebibliography-inlined": 1
+    },
+    "front matter": {
+     "author": 1,
+     "bibliographystyle": 1,
+     "footnote": 1,
+     "maketitle": 1,
+     "thanks": 1
+    },
+    "math": {
+     "old-font-switch": 43
+    },
+    "other": {
+     "def": 1,
+     "lstlisting": 3,
+     "newcommand": 6
+    },
+    "preamble": {
+     "documentclass": 1
+    }
+   },
+   "title": "Spectre Attacks: \\ Exploiting Speculative Execution"
+  },
+  "1806.07366v5": {
+   "shapes": {
+    "bibliography": {
+     "bibitem": 60,
+     "cite": 2,
+     "citep": 35,
+     "citet": 5,
+     "thebibliography-inlined": 1
+    },
+    "caption": {
+     "caption": 26,
+     "captionsetup": 1
+    },
+    "float": {
+     "figure": 6,
+     "subfigure": 82,
+     "wrapfigure": 4
+    },
+    "front matter": {
+     "author": 1,
+     "bibliographystyle": 1,
+     "footnote": 1,
+     "maketitle": 1
+    },
+    "math": {
+     "align": 20,
+     "equation": 16,
+     "old-font-switch": 1,
+     "setlength": 1
+    },
+    "other": {
+     "algorithm": 2,
+     "algorithmic": 2,
+     "def": 2,
+     "lstlisting": 1,
+     "newcommand": 62
+    },
+    "preamble": {
+     "documentclass": 1
+    },
+    "table": {
+     "multicolumn": 7,
+     "rotatebox": 7,
+     "scalebox": 2,
+     "tabular": 3
+    }
+   },
+   "title": "Neural Ordinary Differential Equations"
+  },
+  "1810.04805v2": {
+   "shapes": {
+    "bibliography": {
+     "bibitem": 56,
+     "cite": 60,
+     "citet": 14,
+     "thebibliography-inlined": 1
+    },
+    "caption": {
+     "caption": 13
+    },
+    "float": {
+     "figure": 1,
+     "figure*": 4,
+     "table": 7,
+     "table*": 1
+    },
+    "front matter": {
+     "author": 1,
+     "bibliographystyle": 1,
+     "footnote": 15,
+     "maketitle": 1
+    },
+    "math": {
+     "old-font-switch": 104,
+     "setlength": 1
+    },
+    "other": {
+     "def": 2,
+     "newcommand": 5,
+     "tikzpicture": 1
+    },
+    "preamble": {
+     "documentclass": 1
+    },
+    "table": {
+     "cmidrule": 5,
+     "multicolumn": 18,
+     "tabular": 7
+    }
+   },
+   "title": "BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding"
+  },
+  "2006.11239v2": {
+   "shapes": {
+    "bibliography": {
+     "bibliography-file": 1,
+     "cite": 6,
+     "citep": 61,
+     "citet": 2
+    },
+    "caption": {
+     "caption": 28,
+     "captionof": 3
+    },
+    "disabled in place": {
+     "commented-caption": 1,
+     "commented-float": 1
+    },
+    "float": {
+     "figure": 21,
+     "minipage": 8,
+     "subfigure": 4,
+     "table": 2
+    },
+    "front matter": {
+     "author": 1,
+     "bibliographystyle": 1,
+     "maketitle": 1
+    },
+    "math": {
+     "align": 16,
+     "setlength": 1
+    },
+    "other": {
+     "algorithm": 4,
+     "algorithmic": 4,
+     "newcommand": 36,
+     "tikzpicture": 5
+    },
+    "preamble": {
+     "documentclass": 1
+    },
+    "table": {
+     "tabular": 4
+    }
+   },
+   "title": "Denoising Diffusion Probabilistic Models"
+  },
+  "2409.12514v5": {
+   "shapes": {
+    "bibliography": {
+     "bibitem": 46,
+     "cite": 50,
+     "thebibliography-inlined": 1
+    },
+    "caption": {
+     "caption": 15
+    },
+    "float": {
+     "figure": 9,
+     "figure*": 1,
+     "table": 4,
+     "table*": 1
+    },
+    "front matter": {
+     "IEEEPARstart": 1,
+     "author": 1,
+     "bibliographystyle": 1,
+     "maketitle": 1,
+     "markboth": 1,
+     "thanks": 10
+    },
+    "math": {
+     "old-font-switch": 2
+    },
+    "other": {
+     "def": 1,
+     "newcommand": 22
+    },
+    "preamble": {
+     "documentclass": 1
+    },
+    "table": {
+     "multicolumn": 4,
+     "resizebox": 5,
+     "tabular": 5
+    }
+   },
+   "title": "TinyVLA: Towards Fast, Data-Efficient Vision-Language-Action Models for Robotic Manipulation"
+  },
+  "2411.02359v1": {
+   "shapes": {
+    "bibliography": {
+     "bibliography-file": 1,
+     "cite": 59
+    },
+    "caption": {
+     "caption": 15,
+     "captionof": 2,
+     "captionsetup": 17
+    },
+    "disabled in place": {
+     "commented-caption": 4,
+     "commented-float": 1
+    },
+    "float": {
+     "figure": 4,
+     "table": 6,
+     "wrapfigure": 2
+    },
+    "front matter": {
+     "author": 1,
+     "footnote": 1,
+     "footnotemark": 1
+    },
+    "math": {
+     "align": 1,
+     "equation": 7,
+     "nolimits": 4,
+     "old-font-switch": 15,
+     "setlength": 21,
+     "sideset": 1
+    },
+    "other": {
+     "newcommand": 11
+    },
+    "table": {
+     "multicolumn": 7,
+     "multirow": 19,
+     "resizebox": 1,
+     "scalebox": 1,
+     "tabular": 16
+    }
+   },
+   "title": "DeeR-VLA: Dynamic Inference of Multimodal Large Language Models for Efficient Robot Execution"
+  },
+  "2509.22944": {
+   "shapes": {
+    "bibliography": {
+     "bibitem": 29,
+     "cite": 51,
+     "thebibliography-inlined": 1
+    },
+    "caption": {
+     "caption": 38
+    },
+    "disabled in place": {
+     "commented-caption": 5,
+     "commented-float": 1
+    },
+    "float": {
+     "figure": 6,
+     "figure*": 3,
+     "subfigure": 9,
+     "subfloat": 4,
+     "table": 5,
+     "table*": 14
+    },
+    "front matter": {
+     "footnote": 1,
+     "icml-frontmatter": 8,
+     "twocolumn-title": 1
+    },
+    "math": {
+     "eqnarray": 1,
+     "equation": 6,
+     "old-font-switch": 1,
+     "setlength": 18
+    },
+    "other": {
+     "algorithm": 1,
+     "algorithmic": 1,
+     "def": 384,
+     "newcommand": 52
+    },
+    "preamble": {
+     "documentclass": 1
+    },
+    "table": {
+     "cmidrule": 50,
+     "multicolumn": 36,
+     "multirow": 26,
+     "repeat-column-spec": 12,
+     "rotatebox": 26,
+     "tabular": 19,
+     "tnote": 9
+    }
+   },
+   "title": "SINQ: Sinkhorn-Normalized Quantization for Calibration-Free Low-Precision LLM Weights"
+  },
+  "2511.19705": {
+   "shapes": {
+    "bibliography": {
+     "bibitem": 61,
+     "cite": 4,
+     "citep": 51,
+     "citet": 5,
+     "thebibliography-inlined": 1
+    },
+    "caption": {
+     "caption": 12,
+     "subcaption": 3
+    },
+    "float": {
+     "SCfigure": 1,
+     "figure": 1,
+     "figure*": 1,
+     "subfigure": 3,
+     "table": 8
+    },
+    "front matter": {
+     "author": 2,
+     "bibliographystyle": 1,
+     "footnote": 2,
+     "maketitle": 1
+    },
+    "math": {
+     "align": 3,
+     "equation": 2,
+     "old-font-switch": 54,
+     "setlength": 2
+    },
+    "other": {
+     "algorithm": 1,
+     "algorithmic": 1,
+     "def": 568,
+     "newcommand": 238
+    },
+    "preamble": {
+     "documentclass": 1
+    },
+    "table": {
+     "addlinespace": 2,
+     "cmidrule": 8,
+     "multicolumn": 11,
+     "multirow": 1,
+     "tabular": 8
+    }
+   },
+   "title": "CafeQ: Calibration-free Quantization via Learned Transformations and Adaptive Rounding"
+  },
+  "2606.04980": {
+   "shapes": {
+    "bibliography": {
+     "bibliography-file": 1,
+     "cite": 87,
+     "citep": 1
+    },
+    "caption": {
+     "caption": 28
+    },
+    "disabled in place": {
+     "commented-caption": 3,
+     "commented-float": 3
+    },
+    "float": {
+     "figure": 13,
+     "figure*": 1,
+     "minipage": 4,
+     "subfigure": 2,
+     "table": 5,
+     "table*": 5
+    },
+    "front matter": {
+     "author": 1,
+     "bibliographystyle": 1,
+     "footnote": 2,
+     "maketitle": 1
+    },
+    "math": {
+     "equation": 27,
+     "old-font-switch": 8,
+     "setlength": 10
+    },
+    "other": {
+     "def": 384,
+     "newcommand": 48
+    },
+    "preamble": {
+     "documentclass": 1
+    },
+    "table": {
+     "addlinespace": 7,
+     "cmidrule": 12,
+     "multicolumn": 6,
+     "multirow": 33,
+     "resizebox": 9,
+     "tabular": 12
+    }
+   },
+   "title": "AlphaQ: Calibration-Free Bit Allocation for Mixture-of-Experts Quantization"
+  },
+  "adam": {
+   "shapes": {
+    "preamble": {
+     "documentclass": 1
+    }
+   },
+   "title": ""
+  },
+  "planck": {
+   "shapes": {
+    "bibliography": {
+     "bibitem": 357,
+     "cite": 104,
+     "citep": 238,
+     "citet": 107,
+     "thebibliography-inlined": 1
+    },
+    "caption": {
+     "caption": 54
+    },
+    "disabled in place": {
+     "commented-float": 1
+    },
+    "float": {
+     "figure": 34,
+     "figure*": 12,
+     "table": 3,
+     "table*": 5
+    },
+    "front matter": {
+     "author": 2,
+     "footnote": 42,
+     "thanks": 1
+    },
+    "math": {
+     "align": 3,
+     "eqnarray": 20,
+     "equation": 40,
+     "old-font-switch": 543
+    },
+    "other": {
+     "def": 90,
+     "newcommand": 248
+    },
+    "preamble": {
+     "documentclass": 1
+    },
+    "table": {
+     "tabular": 7
+    }
+   },
+   "title": ""
+  },
+  "quant-ph/9508027v2": {
+   "shapes": {
+    "bibliography": {
+     "bibitem": 75,
+     "cite": 30,
+     "thebibliography-inlined": 1
+    },
+    "caption": {
+     "caption": 3
+    },
+    "float": {
+     "figure": 1,
+     "minipage": 4,
+     "table": 2
+    },
+    "front matter": {
+     "author": 1,
+     "footnote": 1,
+     "maketitle": 1,
+     "markboth": 1,
+     "thanks": 2
+    },
+    "math": {
+     "eqnarray": 1,
+     "equation": 47,
+     "old-font-switch": 112,
+     "setlength": 1
+    },
+    "other": {
+     "def": 7,
+     "newcommand": 3
+    },
+    "preamble": {
+     "documentstyle": 1
+    },
+    "table": {
+     "multicolumn": 14,
+     "tabular": 3
+    }
+   },
+   "title": "Polynomial-Time Algorithms for Prime Factorization and Discrete Logarithms on a Quantum Computer"
+  }
+ },
+ "version": 1
+}

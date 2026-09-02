@@ -1,0 +1,119 @@
+{
+ "runs": [
+  {
+   "checks": {},
+   "chunks": 28,
+   "failed": 0,
+   "lang": "ko",
+   "paper": "1011.3027v7"
+  },
+  {
+   "checks": {},
+   "chunks": 11,
+   "failed": 0,
+   "lang": "ko",
+   "paper": "1311.4600v3"
+  },
+  {
+   "checks": {},
+   "chunks": 16,
+   "failed": 0,
+   "lang": "ko",
+   "paper": "quant-ph/9508027v2"
+  },
+  {
+   "checks": {},
+   "chunks": 11,
+   "failed": 0,
+   "lang": "ko",
+   "paper": "2006.11239v2"
+  },
+  {
+   "checks": {},
+   "chunks": 6,
+   "failed": 0,
+   "lang": "ko",
+   "paper": "1505.04597v1"
+  },
+  {
+   "checks": {},
+   "chunks": 13,
+   "failed": 0,
+   "lang": "ko",
+   "paper": "1810.04805v2"
+  },
+  {
+   "checks": {},
+   "chunks": 12,
+   "failed": 0,
+   "lang": "ko",
+   "paper": "1806.07366v5"
+  },
+  {
+   "checks": {},
+   "chunks": 11,
+   "failed": 0,
+   "lang": "ko",
+   "paper": "1512.03385v1"
+  },
+  {
+   "checks": {},
+   "chunks": 15,
+   "failed": 0,
+   "lang": "ko",
+   "paper": "1801.01203v1"
+  },
+  {
+   "checks": {},
+   "chunks": 9,
+   "failed": 0,
+   "lang": "ko",
+   "paper": "1706.03762v7"
+  },
+  {
+   "checks": {},
+   "chunks": 7,
+   "failed": 0,
+   "lang": "ko",
+   "paper": "1406.2661v1"
+  },
+  {
+   "checks": {},
+   "chunks": 15,
+   "failed": 0,
+   "lang": "ko",
+   "paper": "2606.04980"
+  },
+  {
+   "checks": {},
+   "chunks": 12,
+   "failed": 0,
+   "lang": "ko",
+   "paper": "2509.22944"
+  },
+  {
+   "checks": {},
+   "chunks": 13,
+   "failed": 0,
+   "lang": "ko",
+   "paper": "2511.19705"
+  },
+  {
+   "checks": {
+    "meta_evidence": {
+     "chunks": [
+      "chunk0001",
+      "chunk0006",
+      "chunk0007"
+     ],
+     "severity": "fail"
+    }
+   },
+   "chunks": 9,
+   "failed": 3,
+   "lang": "ko",
+   "paper": "2409.12514v5"
+  }
+ ],
+ "version": 1
+}

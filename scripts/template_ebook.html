@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="$lang$">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>$title$</title>
+    <style>
+        /* Page setup for the PDF renderer. Values come from
+           layout.PRINT_PROFILES via merge_and_build.apply_template_to_html. */
+        @page {
+            size: $page_size$;
+            margin: $page_margin$;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            font-size: 16px;
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: $body_font$;
+            line-height: 1.7;
+            color: #2c3e50;
+            background-color: #ffffff;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem;
+            font-size: 1rem;
+        }
+
+        /* 标题样式 */
+        h1, h2, h3, h4, h5, h6 {
+            font-weight: 600;
+            margin-top: 2.5rem;
+            margin-bottom: 1rem;
+            color: #1a202c;
+            line-height: 1.3;
+        }
+
+        h1 {
+            font-size: 2.25rem;
+            border-bottom: 3px solid #3182ce;
+            padding-bottom: 0.75rem;
+            margin-top: 0;
+            margin-bottom: 2rem;
+        }
+
+        h2 {
+            font-size: 1.875rem;
+            border-bottom: 1px solid #e2e8f0;
+            padding-bottom: 0.5rem;
+            margin-top: 3rem;
+        }
+
+        h3 {
+            font-size: 1.5rem;
+            color: #2d3748;
+        }
+
+        h4 {
+            font-size: 1.25rem;
+            color: #4a5568;
+        }
+
+        h5 {
+            font-size: 1.125rem;
+            color: #4a5568;
+        }
+
+        h6 {
+            font-size: 1rem;
+            color: #718096;
+            font-weight: 500;
+        }
+
+        /* 段落样式 */
+        p {
+            margin-bottom: 1.25rem;
+            text-align: justify;
+            /* keep-all: Hangul breaks at spaces, never mid-word. break-word is
+               the emergency escape for space-less runs (URLs, long
+               identifiers), which keep-all alone would run off the page. */
+            word-break: keep-all;
+            overflow-wrap: break-word;
+        }
+
+        /* 链接样式 */
+        a {
+            color: #3182ce;
+            text-decoration: none;
+            transition: color 0.2s ease;
+        }
+
+        a:hover {
+            color: #2c5282;
+            text-decoration: underline;
+        }
+
+        /* 图片样式 - 居中显示 */
+        img {
+            max-width: 100%;
+            height: auto;
+            display: block;
+            margin: 2rem auto;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        /* 列表样式 */
+        ul, ol {
+            margin: 1.25rem 0;
+            padding-left: 2rem;
+        }
+
+        li {
+            margin-bottom: 0.5rem;
+        }
+
+        ul ul, ol ol, ul ol, ol ul {
+            margin: 0.5rem 0;
+        }
+
+        /* 代码样式 */
+        code {
+            font-family: Consolas, 'Cascadia Mono', 'D2Coding', DotumChe, 'Courier New', monospace;
+            background-color: #f7fafc;
+            color: #e53e3e;
+            padding: 0.125rem 0.375rem;
+            border-radius: 3px;
+            font-size: 0.875rem;
+        }
+
+        pre {
+            background-color: #f7fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 1.25rem;
+            margin: 1.5rem 0;
+            overflow-x: auto;
+            font-family: Consolas, 'Cascadia Mono', 'D2Coding', DotumChe, 'Courier New', monospace;
+            font-size: 0.875rem;
+            line-height: 1.5;
+        }
+
+        pre code {
+            background: none;
+            color: inherit;
+            padding: 0;
+            border-radius: 0;
+            font-size: inherit;
+        }
+
+        /* 引用样式 */
+        blockquote {
+            border-left: 4px solid #3182ce;
+            margin: 1.5rem 0;
+            padding: 1rem 1.5rem;
+            background-color: #f7fafc;
+            color: #4a5568;
+            font-style: italic;
+            border-radius: 0 6px 6px 0;
+        }
+
+        blockquote p:last-child {
+            margin-bottom: 0;
+        }
+
+        /* 表格样式 */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1.5rem 0;
+            background-color: #ffffff;
+            border-radius: 6px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        th, td {
+            padding: 0.75rem 1rem;
+            text-align: left;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        th {
+            background-color: #f7fafc;
+            font-weight: 600;
+            color: #2d3748;
+        }
+
+        tr:hover {
+            background-color: #f7fafc;
+        }
+
+        /* 分隔线 */
+        hr {
+            border: none;
+            border-top: 2px solid #e2e8f0;
+            margin: 3rem 0;
+        }
+
+        /* 页面分隔器 */
+        .page-separator {
+            border-top: 2px solid #e2e8f0;
+            margin: 3rem 0;
+            text-align: center;
+            position: relative;
+        }
+
+        .page-separator::after {
+            content: "• • •";
+            background-color: #ffffff;
+            color: #a0aec0;
+            padding: 0 1rem;
+            position: relative;
+            top: -0.75rem;
+        }
+
+        /* 强调样式 */
+        strong, b {
+            font-weight: 700;
+            color: #1a202c;
+        }
+
+        em, i {
+            font-style: italic;
+            color: #4a5568;
+        }
+
+        /* 响应式设计 */
+        @media screen and (max-width: 768px) {
+            body {
+                padding: 1rem;
+                font-size: 0.9rem;
+            }
+
+            h1 {
+                font-size: 1.875rem;
+            }
+
+            h2 {
+                font-size: 1.5rem;
+            }
+
+            h3 {
+                font-size: 1.25rem;
+            }
+
+            h4 {
+                font-size: 1.125rem;
+            }
+
+            table {
+                font-size: 0.875rem;
+            }
+
+            th, td {
+                padding: 0.5rem 0.75rem;
+            }
+
+            pre {
+                padding: 1rem;
+                font-size: 0.8rem;
+            }
+
+            blockquote {
+                padding: 0.75rem 1rem;
+                margin: 1rem 0;
+            }
+        }
+
+        @media screen and (max-width: 480px) {
+            body {
+                padding: 0.75rem;
+            }
+
+            h1, h2, h3, h4, h5, h6 {
+                margin-top: 1.5rem;
+            }
+
+            ul, ol {
+                padding-left: 1.5rem;
+            }
+        }
+
+
+        /* --- math (pandoc --mathml), figures, tables --------------------- */
+        math { font-size: 1.05em; }
+        math[display="inline"] { vertical-align: middle; }
+        /* flex, not text-align (measured): `text-align: center` on a block
+           <math> centres the inline content around the formula, not the
+           formula itself, so every display equation sat at the left margin
+           (x=51 against a 297pt centre). A flex container centres its one
+           child and, unlike `width: fit-content`, leaves the element full
+           width -- which is what the equation number's `right: 0` measures
+           against. */
+        math[display="block"] { display: flex; justify-content: center;
+                                margin: 1.2rem auto; }
+        /* A multi-row `aligned` block is one <mtable>; MathML Core has no
+           rowspacing, so the rows need CSS or they touch. The child
+           combinator keeps it off matrices, which are nested <mtable>s. */
+        math[display="block"] > semantics > mtable {
+            border-collapse: separate; border-spacing: 0 0.45em;
+        }
+        /* MathML Core dropped `columnspacing` and Chromium gives <mtd> no
+           default padding, so matrix columns TOUCH: [1 0; 0 0.6] printed as
+           [10; 00.6]. Space every matrix column, then take it back off the
+           top-level table of an `aligned` block, whose columns meet AT the
+           alignment point. Declared here as well as in the print sheet --
+           a rule that lives only in the print block never reaches the
+           EPUB (KNOWLEDGE K67). */
+        mtd + mtd { padding-left: 0.45em; }
+        math[display="block"] > semantics > mtable > mtr > mtd + mtd,
+        math > semantics > mtable > mtr > mtd + mtd { padding-left: 0; }
+        /* The equation number the original prints. Flush right, like LaTeX.
+           The padding is SYMMETRIC so the formula still centres on the text
+           column: with it only on the right, a numbered equation sat 17pt
+           left of centre. */
+        math[display="block"][data-eqno] { position: relative;
+                                           padding-left: 3em; padding-right: 3em; }
+        math[display="block"][data-eqno]::after {
+            content: attr(data-eqno);
+            position: absolute; right: 0; top: 50%;
+            transform: translateY(-50%);
+            font-family: inherit; font-size: 0.95rem;
+        }
+        span.math.tex-fallback {
+            font-family: 'Cambria Math', 'Latin Modern Math', serif;
+            font-style: italic;
+        }
+        figure { margin: 1.75rem auto; text-align: center; page-break-inside: avoid; }
+        figure img { margin: 0 auto 0.5rem; max-width: 100%; }
+        figcaption {
+            font-size: 0.9em;
+            color: #4a5568;
+            text-align: center;
+            line-height: 1.5;
+        }
+        table { table-layout: auto; word-break: keep-all; }
+        th, td { vertical-align: top; }
+
+        /* Table structure for the formats that never see a print sheet:
+           the web page, and the EPUB. Screen styling marks the header with a
+           background fill, which an e-reader in dark mode or an e-ink screen
+           may not render at all, and it says nothing whatever about the row
+           groups the source drew with \midrule and \addlinespace. Calibre
+           went further: with no active rule to match, `.rule-above` was not
+           merely invisible in the EPUB, it was removed from the markup.
+           Same two weights as the print sheet, in the web palette. */
+        /* Cross-references and citations. The original preprint draws
+           its own links in #001473 and this matches it, so a reader
+           scanning for "그림 3" has something to catch the eye -- which is
+           the whole reason the colour is there. Dark enough that a mono
+           printer renders it as near-black rather than washing it out. */
+        .xref { color: #001473; }
+        a.xref { text-decoration: none; }
+        a.xref:hover { text-decoration: underline; }
+
+        thead th { border-bottom: 1px solid #4a5568; }
+        thead th[colspan]:not(:empty) { border-bottom: 1px solid #4a5568; }
+        thead tr:not(:last-child) th:not([colspan]) { border-bottom: 0; }
+        tbody tr.rule-above > * { border-top: 1px solid #4a5568; }
+        tbody tr.rule-above-soft > * { border-top: 1px solid #cbd5e0; }
+
+        /* ==================================================================
+           PRINT SHEET - A4 single-sided, headless Chromium print-to-PDF.
+           Placed LAST in the stylesheet on purpose: at equal specificity the
+           later rule wins, and the math/figure/table block above used to
+           override the old print block that sat before it.
+           Geometry comes from the @page rule at the top of this file.
+           Page numbers are stamped into the bottom margin by
+           chromium_pdf.stamp_page_numbers() after rendering, because Chromium
+           implements no @page margin boxes.
+           No rule here depends on a background fill printing.
+           ================================================================== */
+        @media print {
+
+            /* font-family resolves PER CHARACTER, so a Latin-only face listed
+               first captures Latin while CJK falls through to the CJK face.
+               That buys real italics and real bold for the embedded English.
+               Switched on <html lang>, because this template serves 7
+               languages and must not hardcode one of them. */
+            :root {
+                --p-serif: 'Noto Serif', Georgia, 'Times New Roman', serif;
+                --p-sans:  'Noto Sans', 'Segoe UI', Arial, sans-serif;
+                --p-mono:  Consolas, 'Cascadia Mono', 'Courier New', monospace;
+                --p-math:  'Cambria Math', 'STIX Two Math', 'Latin Modern Math', math, serif;
+            }
+            /* HCR Batang, not Noto Serif KR: Chromium cannot subset-embed a
+               variable font and falls back to one Type3 object per glyph
+               (measured 258KB/page vs 33KB). See layout.py. */
+            html:lang(ko) {
+                --p-serif: 'Noto Serif', 'HCR Batang', '함초롬바탕', Batang, serif;
+                --p-sans:  'Noto Sans', 'Malgun Gothic', 'Hancom Gothic', sans-serif;
+                --p-mono:  Consolas, 'Cascadia Mono', 'D2Coding', DotumChe, monospace;
+                --p-math:  'Cambria Math', 'STIX Two Math', math, 'Noto Serif', 'HCR Batang', serif;
+            }
+            html:lang(ja) {
+                --p-serif: 'Noto Serif', 'Yu Mincho', 'MS Mincho', serif;
+                --p-sans:  'Noto Sans', 'Yu Gothic', 'Meiryo', sans-serif;
+                --p-mono:  Consolas, 'MS Gothic', 'Courier New', monospace;
+            }
+            html:lang(zh) {
+                --p-serif: 'Noto Serif', 'FangSong', 'STFangSong', 'SimSun', serif;
+                --p-sans:  'Noto Sans', 'Microsoft YaHei', 'SimHei', sans-serif;
+                --p-mono:  Consolas, 'NSimSun', 'Courier New', monospace;
+            }
+
+            /* Rebase rem to the print body size. The whole stylesheet is
+               already rem-based, so this one declaration rescales headings,
+               paragraph spacing, list indents and code size together. */
+            html { font-size: $print_font_size$; }
+
+            body {
+                font-family: var(--p-serif);
+                font-size: 1rem;
+                font-weight: 400;
+                line-height: $print_line_height$;
+                color: #000;
+                background: none;
+                max-width: none; width: auto;
+                margin: 0; padding: 0;
+                word-break: keep-all;
+                overflow-wrap: break-word;
+                line-break: strict;
+                hyphens: none; -webkit-hyphens: none;
+                orphans: 2; widows: 2;
+            }
+
+            /* Indent, no inter-paragraph space: the LaTeX article convention
+               the source papers use, and it recovers about one line per three
+               paragraphs. 1em = one Hangul; 2em would be the Chinese rule.
+               text-align: left because Chromium implements no text-justify and
+               cannot hyphenate under lang="ko", so every bit of justification
+               slack would land in word spaces and open rivers. */
+            p {
+                /* Indent alone marks a paragraph boundary too quietly at a
+                   44-character measure, and 1.75 leading makes consecutive
+                   paragraphs read as one block. Half a line of space is enough
+                   to separate them without the density cost of a full one. */
+                margin: 0 0 0.5em;
+                text-indent: 1em;
+                text-align: left;
+                orphans: 2; widows: 2;
+            }
+            h1 + p, h2 + p, h3 + p, h4 + p, h5 + p, h6 + p,
+            figure + p, table + p, pre + p, blockquote + p, hr + p,
+            .page-separator + p,
+            li > p:first-child, blockquote > p:first-child { text-indent: 0; }
+
+            /* Gothic headings over serif body: the standard modern Korean
+               pairing, and it carries hierarchy without the coloured rules
+               that print as grey slabs. Ratio 1.2, flat at h5/h6. */
+            h1, h2, h3, h4, h5, h6 {
+                font-family: var(--p-sans);
+                font-weight: 700;
+                color: #000;
+                border: 0; padding: 0;
+                text-indent: 0; text-align: left;
+                word-break: keep-all; overflow-wrap: break-word;
+                break-after: avoid;  page-break-after: avoid;
+                break-inside: avoid; page-break-inside: avoid;
+            }
+            h1 { font-size: 20pt;   line-height: 1.25; margin: 30pt 0 13pt;
+                 break-before: $h1_break_before$;
+                 page-break-before: $h1_page_break_before$; }
+            /* Never open on a blank page, and never with a gap at the top. */
+            h1:first-of-type { break-before: auto; page-break-before: auto;
+                               margin-top: 0; }
+            /* A section heading still never ends a page alone. */
+            h1 + *, h2 + * { break-before: avoid; }
+            h2 { font-size: 16.5pt; line-height: 1.30; margin: 24pt 0 9pt; }
+            h3 { font-size: 14pt;   line-height: 1.30; margin: 18pt 0 7pt; }
+            h4 { font-size: 12pt;   line-height: 1.35; margin: 13pt 0 4pt; }
+            h5 { font-size: 11.5pt; line-height: 1.40; margin: 12pt 0 3pt; }
+            h6 { font-size: 11.5pt; line-height: 1.40; margin: 12pt 0 3pt;
+                 letter-spacing: 0.04em; }
+
+            /* A translated paper is dense with cross-references; underlining
+               them all stripes the page. */
+            a { color: #000; text-decoration: none; overflow-wrap: anywhere; }
+            /* ...except a reference, which stays the colour the source
+               paper uses for the same thing. */
+            a.xref, span.xref { color: #001473; text-decoration: none; }
+            strong, b { font-weight: 700; color: #000; }
+            em, i { color: #000; }
+            /* Hangul has no italic; Chromium would synthesise an oblique.
+               Scoped to the class `mark_hangul_emphasis` puts on emphasis
+               that actually CONTAINS Hangul. A language selector matched
+               every <em> in the book, because the root is lang="ko" -- so
+               `\textit{16.67}` and `\textit{Wiki2}` printed BOLD, in tables
+               whose caption says the best result is the bold one. Ten of
+               SINQ's tables had their baseline row reading as the winner. */
+            em.hangul, i.hangul { font-style: normal; font-weight: 700; }
+            sup, sub { line-height: 0; }
+
+            ul, ol { margin: 8pt 0; padding-left: 1.6rem; }
+            li { margin-bottom: 3pt; orphans: 2; widows: 2; break-inside: avoid; }
+            li > p { text-indent: 0; }
+            ul ul, ol ol, ul ol, ol ul { margin: 3pt 0; }
+
+            /* Rule, not fill: a tint needs printBackground and prints as mush. */
+            blockquote {
+                margin: 11pt 0 11pt 1.5rem; padding: 0 0 0 9pt;
+                border: 0; border-left: 2pt solid #000; border-radius: 0;
+                background: none; color: #000; font-style: normal;
+                break-inside: avoid; page-break-inside: avoid;
+                orphans: 2; widows: 2;
+            }
+            blockquote p { text-indent: 0; }
+            blockquote p + p { text-indent: 1em; }
+
+            /* max-height keeps a full-page arXiv figure from overflowing:
+               200mm is 78% of the 257mm text height, leaving room for the
+               caption plus a few body lines. */
+            figure {
+                margin: 15pt 0 17pt; text-align: center;
+                break-inside: avoid; page-break-inside: avoid;
+            }
+            img, figure img {
+                display: block; margin: 0 auto;
+                max-width: 100%; max-height: 200mm; height: auto;
+                border-radius: 0; box-shadow: none;
+                break-inside: avoid; page-break-inside: avoid;
+            }
+            /* A caption printed in the body face at body size is
+               indistinguishable from the argument around it. Sans, a step
+               down, and a hairline above make the boundary unmistakable
+               without needing a tint that would not print. */
+            figcaption {
+                font-family: var(--p-sans); font-size: 9.3pt; line-height: 1.45;
+                color: #000; text-align: left; text-indent: 0;
+                margin: 6pt 0 0; padding-top: 4pt;
+                border-top: 0.4pt solid #000;
+                break-before: avoid; page-break-before: avoid;
+            }
+            /* pandoc's implicit_figures emits a plain <figure>; the label
+               is the leading <strong> of the caption. */
+            figcaption strong,
+            caption strong { font-weight: 700; }
+            /* Table captions match, but sit above the table. */
+            caption {
+                font-family: var(--p-sans); font-size: 9.3pt; line-height: 1.45;
+                caption-side: top; text-align: left; color: #000;
+                margin: 0 0 5pt; padding-bottom: 3pt;
+                border-bottom: 0.4pt solid #000;
+                break-after: avoid;
+            }
+
+            /* Booktabs: three rules, no verticals, no fills. NO
+               break-inside:avoid on <table> - Chromium ignores it once the
+               table is taller than a page and it fights header repetition.
+               avoid on <tr> is the one that stops rows splitting mid-cell. */
+            table {
+                width: 100%; table-layout: auto; border-collapse: collapse;
+                font-size: 10pt; line-height: 1.45; margin: 12pt 0;
+                border-top: 1pt solid #000; border-bottom: 1pt solid #000;
+                overflow: visible; border-radius: 0; box-shadow: none;
+                background: none; break-inside: auto;
+            }
+            /* break-after: a header with no rows under it is what happens
+               when every row group below refuses to break -- the head prints
+               alone at the foot of the page and the table starts again on
+               the next one. */
+            thead { display: table-header-group; break-after: avoid;
+                    page-break-after: avoid; }
+            tfoot { display: table-footer-group; }
+            tr { break-inside: avoid; page-break-inside: avoid; background: none; }
+            /* A row group carries its label once, on its first row. Break
+               inside one and the next page opens with numbers whose model
+               and bit budget stayed behind. Honoured while the group fits;
+               a group taller than the page splits regardless. */
+            tbody.rowgroup { break-inside: avoid; page-break-inside: avoid; }
+            /* The note under a table defines the marks its rows carry, so
+               it has to stay with the table it belongs to. */
+            .table-notes {
+                font-size: 9pt; line-height: 1.4; margin: -6pt 0 12pt;
+                break-before: avoid; page-break-before: avoid;
+            }
+            .table-notes p { margin: 0; text-indent: 0; }
+            th, td {
+                border: 0; padding: 3pt 5pt; vertical-align: top;
+                text-align: left; text-indent: 0; color: #000; background: none;
+                /* break-word, NOT anywhere: `anywhere` shredded every English
+                   header and every measurement mid-token ("Traina/ble",
+                   "53.3±0/.1"). break-word only kicks in when a single token
+                   cannot fit the cell at all. */
+                word-break: keep-all; overflow-wrap: break-word;
+                hyphens: none;
+            }
+            /* Paper tables run to ten columns. Step the size down rather than
+               let the text wrap into unreadable stacks -- this is what the
+               source's own \resizebox was doing. */
+            table.cols-wide { font-size: 9pt; }
+            table.cols-wide th, table.cols-wide td { padding: 2.5pt 4pt; }
+            table.cols-many { font-size: 7.8pt; line-height: 1.35; }
+            table.cols-many th, table.cols-many td { padding: 2pt 3pt; }
+            /* Measurements and short numeric cells should never split. */
+            table.cols-many td, table.cols-wide td { white-space: nowrap; }
+            thead th { border-bottom: 0.5pt solid #000; font-weight: 700; }
+            /* A spanning header cell is a column GROUP -- "Qwen3-1.7B" over
+               three columns. The source underlines it with \cmidrule, which
+               pandoc cannot carry, so without this the reader cannot tell
+               which three of nine numeric columns belong to which model.
+               A row of empty spacer cells must not draw one. */
+            thead th[colspan]:not(:empty) {
+                border-bottom: 0.5pt solid #000;
+            }
+            /* Header decks above the last one carry the group rule only. */
+            thead tr:not(:last-child) th:not([colspan]) { border-bottom: 0; }
+            /* Rows that opened a new group in the source. Two weights,
+               because papers mark two levels: a rule between models and mere
+               \addlinespace between the bit budgets nested inside each one.
+               Extra space cannot survive here -- every cell is one row tall
+               -- so the softer boundary becomes a hairline. The hierarchy is
+               the part worth keeping. */
+            tbody tr.rule-above > * { border-top: 0.5pt solid #000; }
+            tbody tr.rule-above-soft > * { border-top: 0.3pt solid #808080; }
+
+            /* Cambria Math is the only face with an OpenType MATH table on a
+               stock Windows install. The CJK tail catches \text{} content.
+               line-height:normal lets MathML compute its own box - the body
+               leading would throw off fraction and radical centring. */
+            math { font-family: var(--p-math); font-size: 1.05em;
+                   line-height: normal; }
+            math[display="inline"] { vertical-align: middle; }
+            /* flex, not text-align (measured): on a block <math>,
+               `text-align: center` centres the inline content around the
+               formula rather than the formula, and every display equation
+               printed hard against the left margin -- x=51 on a page whose
+               centre is 297. Flex centres the single child and keeps the
+               element full width, which the equation number needs. */
+            math[display="block"] {
+                display: flex; justify-content: center;
+                margin: 11pt auto; text-indent: 0;
+                break-inside: avoid; page-break-inside: avoid;
+            }
+            /* An algorithm is a boxed float in the paper: rule above the
+               caption, rule under it, rule at the foot. Rendered as bare
+               paragraphs it reads as body text and nothing shows the reader
+               where it starts or stops. */
+            /* One float, one caption. The panels of a multi-panel figure are
+               separate <figure> elements -- that is how the markdown reader
+               makes them -- so the group holds them side by side and the
+               float's own caption closes it. Printed under whichever panel
+               happened to carry it, the caption explained panel (a) from
+               beneath panel (c), a page later. */
+            .figuregroup {
+                display: flex; flex-wrap: wrap; justify-content: center;
+                align-items: flex-end; gap: 0 2%;
+                margin: 12pt 0; break-inside: avoid; page-break-inside: avoid;
+            }
+            .figuregroup > figure {
+                flex: 1 1 0; min-width: 0; margin: 4pt 0;
+            }
+            .figuregroup > figure img {
+                width: 100%; height: auto; max-height: 150mm;
+            }
+            .figuregroup > p {
+                flex: 1 0 100%; order: 99;
+                margin: 4pt 0 0; text-indent: 0; text-align: left;
+                font-size: 9.5pt; line-height: 1.45;
+            }
+            /* The byline under the title. A paper names its authors; these
+               books opened with a bare title while the names sat unused in
+               the metadata. */
+            .byline {
+                margin: -6pt 0 16pt; text-indent: 0; text-align: left;
+                font-size: 11pt; line-height: 1.5; color: #222;
+                break-after: avoid; page-break-after: avoid;
+            }
+            /* pandoc's footnote backlink. On screen it returns you to the
+               marker; on paper it is a bare ↩︎ printed after the last word
+               of every footnote. */
+            a.footnote-back { display: none; }
+            /* The `\thanks` block: submission dates, affiliations, funding,
+               DOI. It is a page-1 footnote in the original and reads as one
+               here — small, set off by a rule, no body indent. */
+            .titlenotes {
+                font-size: 8.5pt; line-height: 1.45; color: #333;
+                border-top: 0.5pt solid #999;
+                margin: 14pt 0 18pt; padding-top: 8pt;
+            }
+            .titlenotes p { margin: 0 0 4pt; text-indent: 0; }
+            .algorithm {
+                border-top: 1pt solid #000; border-bottom: 1pt solid #000;
+                padding: 5pt 0 6pt; margin: 12pt 0;
+                break-inside: avoid; page-break-inside: avoid;
+            }
+            .algorithm > p { margin: 0 0 2pt; text-indent: 0; }
+            .algorithm > p:first-child {
+                border-bottom: 0.4pt solid #000;
+                padding-bottom: 4pt; margin-bottom: 5pt;
+            }
+            mtable { break-inside: avoid; }
+            /* MathML Core dropped `columnspacing` and Chromium gives <mtd>
+               no default padding, so the columns of a matrix TOUCH: the
+               source's [1 0; 0 0.6] printed as [10; 00.6], and a reader
+               cannot see how many entries a row has. Space every matrix
+               column, then take it back off the top-level table of an
+               `aligned` block, whose two columns meet AT the alignment point
+               and are meant to be tight. */
+            mtd + mtd { padding-left: 0.45em; }
+            math[display="block"] > semantics > mtable > mtr > mtd + mtd,
+            math > semantics > mtable > mtr > mtd + mtd { padding-left: 0; }
+            /* Rows of an `aligned` block, measured 15.0/18.0pt apart by
+               default at 12pt math -- the second and third lines of a
+               three-line equation read as one. 0.45em takes them to
+               20.2/23.3pt. Scoped by the child combinator so a matrix, which
+               is a nested <mtable> between its fences, keeps its own tight
+               rows (measured unchanged at 15.8pt). */
+            math[display="block"] > semantics > mtable {
+                border-collapse: separate; border-spacing: 0 0.45em;
+            }
+            /* A matrix written inline gets Chromium's compact math style and
+               its rows close to 7.5pt at 12.1pt type -- the two rows of a
+               2x2 overlap, and the worked example that walks through a PQE
+               of 0.36 against 0.64 cannot be read at all. Display matrices
+               are already normal style and unaffected. */
+            math[display="inline"] mtable {
+                border-collapse: separate; border-spacing: 0 0.6em;
+            }
+            /* The equation number, flush right as LaTeX sets it (measured:
+               x=523pt against a right margin of 544pt). It lives in CSS rather
+               than in the formula so that selecting the equation does not pick
+               the number up; the DOCX copy, which never sees this sheet, gets
+               it inside the math instead. The padding reserves the room, and
+               is SYMMETRIC so the formula still centres on the text column:
+               with it only on the right, a numbered equation sat 17pt left of
+               centre (measured 280 against 297). */
+            math[display="block"][data-eqno] {
+                position: relative; padding-left: 3em; padding-right: 3em;
+            }
+            math[display="block"][data-eqno]::after {
+                content: attr(data-eqno);
+                position: absolute; right: 0; top: 50%;
+                transform: translateY(-50%);
+                font-family: var(--p-serif, serif); font-size: 11pt;
+            }
+            span.math.tex-fallback {
+                font-family: var(--p-math); font-style: italic;
+                overflow-wrap: anywhere;
+            }
+
+            /* pre-wrap is mandatory: the screen sheet's overflow-x:auto is a
+               scroll container, and a scroll container on paper has no
+               scrollbar - long code lines are silently TRUNCATED. */
+            code, kbd, samp { font-family: var(--p-mono); }
+            code {
+                font-size: 0.95em; color: #000; background: none;
+                padding: 0; border-radius: 0; overflow-wrap: anywhere;
+            }
+            pre {
+                font-family: var(--p-mono); font-size: 9.5pt; line-height: 1.45;
+                white-space: pre-wrap; overflow-wrap: anywhere;
+                word-break: break-all; overflow: visible;
+                background: none; border: 0; border-left: 2pt solid #000;
+                border-radius: 0; padding: 6pt 0 6pt 9pt; margin: 11pt 0;
+                color: #000; text-indent: 0;
+                break-inside: avoid; page-break-inside: avoid;
+                orphans: 2; widows: 2;
+            }
+            pre code {
+                font-size: inherit; background: none; color: inherit;
+                padding: 0; overflow-wrap: inherit; word-break: inherit;
+            }
+
+            hr { border: 0; border-top: 0.5pt solid #000; margin: 14pt 0; }
+            /* The old knockout used background:#fff to punch a hole in the
+               rule; with backgrounds off the dots printed ON TOP of the line. */
+            .page-separator {
+                border: 0; margin: 14pt 0; text-align: center;
+                position: static; break-after: avoid;
+            }
+            .page-separator::after {
+                content: "* * *"; background: none; color: #000;
+                letter-spacing: 0.4em; padding: 0; position: static; top: 0;
+            }
+
+
+            /* ---- Table of contents (print) --------------------------------
+               Chromium has no target-counter(), so the page numbers are filled
+               in by chromium_pdf after a first measuring pass. The dot leader
+               is a flexed border-bottom rather than a repeated character, so it
+               never wraps and never needs a fixed character count. */
+            nav.print-toc {
+                display: block;
+                break-after: page; page-break-after: always;
+                break-inside: auto;
+            }
+            .print-toc-title {
+                font-family: var(--p-sans); font-size: 18pt; font-weight: 700;
+                margin: 0 0 16pt; padding: 0; border: 0; color: #000;
+                break-after: avoid; break-before: auto; page-break-before: auto;
+            }
+            ul.print-toc-list { list-style: none; margin: 0; padding: 0; }
+            ul.print-toc-list li { margin: 0 0 2pt; padding: 0; break-inside: avoid; }
+            ul.print-toc-list a {
+                display: flex; align-items: baseline; gap: 4pt;
+                color: #000; text-decoration: none;
+            }
+            .print-toc .toc-text { flex: 0 1 auto; word-break: keep-all; }
+            .print-toc .toc-dots {
+                flex: 1 1 auto; min-width: 12pt;
+                border-bottom: 0.4pt dotted #000;
+                transform: translateY(-2pt);
+            }
+            .print-toc .toc-page {
+                flex: 0 0 auto; font-variant-numeric: tabular-nums;
+                font-family: var(--p-sans); font-size: 9.5pt;
+            }
+            .print-toc li.toc-l1 { font-weight: 700; margin-top: 7pt; }
+            .print-toc li.toc-l2 { padding-left: 5mm; }
+            .print-toc li.toc-l3 { padding-left: 10mm; font-size: 10.5pt; }
+            .print-toc li.toc-l4,
+            .print-toc li.toc-l5,
+            .print-toc li.toc-l6 { padding-left: 15mm; font-size: 10pt; }
+
+            /* Screen-only chrome. nav.print-toc is deliberately exempt. */
+            .toc, .toc-toggle, .toc-sidebar, .toc-overlay,
+            .back-to-top, .no-print { display: none !important; }
+            * {
+                box-shadow: none !important; text-shadow: none !important;
+                transition: none !important; animation: none !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    $body$
+</body>
+</html>

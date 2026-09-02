@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="$lang$">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>$title$</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            font-size: 16px;
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: $body_font$;
+            line-height: 1.8;
+            color: #333333;
+            background-color: #fefefe;
+            max-width: 700px;
+            margin: 0 auto;
+            padding: 3rem 2rem;
+            font-size: 1.1rem;
+            text-align: justify;
+        }
+
+        /* 浮动目录按钮 */
+        .toc-toggle {
+            position: fixed;
+            left: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 1000;
+            background: rgba(96, 165, 250, 0.5);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            width: 48px;
+            height: 48px;
+            font-size: 20px;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            transition: all 0.3s ease;
+        }
+
+        .toc-toggle:hover {
+            background: rgba(96, 165, 250, 0.8);
+            transform: translateY(-50%) scale(1.1);
+        }
+
+        /* 浮动目录面板 */
+        .toc-sidebar {
+            position: fixed;
+            left: -320px;
+            top: 0;
+            width: 300px;
+            height: 100vh;
+            background: #ffffff;
+            border-right: 1px solid #e2e8f0;
+            box-shadow: 4px 0 12px rgba(0, 0, 0, 0.1);
+            z-index: 999;
+            transition: left 0.3s ease;
+            overflow-y: auto;
+            padding: 2rem 1rem;
+        }
+
+        .toc-sidebar.active {
+            left: 0;
+        }
+
+        .toc-sidebar h3 {
+            font-size: 1.2rem;
+            color: #1a202c;
+            margin-bottom: 1rem;
+            text-align: center;
+            border-bottom: 2px solid #3182ce;
+            padding-bottom: 0.5rem;
+        }
+
+        /* 目录区域 - 用于插入目录内容 */
+        .toc-content {
+            /* 目录内容将插入到这里 */
+        }
+
+        /* 遮罩层 */
+        .toc-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.3);
+            z-index: 998;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .toc-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        /* 简洁的目录样式 */
+        .simple-toc ul {
+            list-style: none;
+            padding-left: 0;
+            margin: 0;
+        }
+
+        .simple-toc ul ul {
+            padding-left: 1rem;
+            margin-top: 0.25rem;
+        }
+
+        .simple-toc li {
+            margin-bottom: 0.25rem;
+        }
+
+        .simple-toc a {
+            display: block;
+            padding: 0.5rem 0.75rem;
+            color: #4a5568;
+            text-decoration: none;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+            font-size: 0.9rem;
+            line-height: 1.4;
+        }
+
+        .simple-toc a:hover {
+            background-color: #edf2f7;
+            color: #3182ce;
+            transform: translateX(4px);
+        }
+
+        /* 标题样式 */
+        h1, h2, h3, h4, h5, h6 {
+            font-family: $body_font$;
+            color: #2d3748;
+            margin-top: 2rem;
+            margin-bottom: 1.2rem;
+            line-height: 1.4;
+            font-weight: normal;
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 1.8rem;
+            border-bottom: 2px solid #718096;
+            padding-bottom: 0.8rem;
+            margin-top: 0;
+            margin-bottom: 2.5rem;
+        }
+
+        h2 {
+            font-size: 1.5rem;
+            border-bottom: 1px solid #cbd5e0;
+            padding-bottom: 0.6rem;
+            margin-top: 2.5rem;
+        }
+
+        h3 {
+            font-size: 1.3rem;
+            color: #4a5568;
+        }
+
+        h4 {
+            font-size: 1.2rem;
+            color: #4a5568;
+        }
+
+        h5 {
+            font-size: 1.1rem;
+            color: #4a5568;
+        }
+
+        h6 {
+            font-size: 1rem;
+            color: #718096;
+            font-weight: normal;
+        }
+
+        /* 段落样式 */
+        p {
+            margin-bottom: 1.5rem;
+            text-align: justify;
+            word-break: break-word;
+            text-indent: 2em;
+            font-family: $body_font$;
+        }
+
+        /* 链接样式 */
+        a {
+            color: #3182ce;
+            text-decoration: none;
+            transition: color 0.2s ease;
+        }
+
+        a:hover {
+            color: #2c5282;
+            text-decoration: underline;
+        }
+
+        /* 图片样式 - 居中显示 */
+        img {
+            max-width: 100%;
+            height: auto;
+            display: block;
+            margin: 2rem auto;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        /* 列表样式 */
+        ul, ol {
+            margin: 1.25rem 0;
+            padding-left: 2rem;
+        }
+
+        li {
+            margin-bottom: 0.5rem;
+        }
+
+        ul ul, ol ol, ul ol, ol ul {
+            margin: 0.5rem 0;
+        }
+
+        /* 代码样式 */
+        code {
+            font-family: 'Courier New', 'Monaco', 'Consolas', 'Ubuntu Mono', monospace;
+            background-color: #f8f9fa;
+            color: #d63384;
+            padding: 0.2rem 0.4rem;
+            border-radius: 3px;
+            font-size: 0.9rem;
+        }
+
+        pre {
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+            padding: 1.5rem;
+            margin: 2rem 0;
+            overflow-x: auto;
+            font-family: 'Courier New', 'Monaco', 'Consolas', 'Ubuntu Mono', monospace;
+            font-size: 0.9rem;
+            line-height: 1.6;
+        }
+
+        pre code {
+            background: none;
+            color: inherit;
+            padding: 0;
+            border-radius: 0;
+            font-size: inherit;
+        }
+
+        /* 引用样式 */
+        blockquote {
+            border-left: 4px solid #a0aec0;
+            margin: 2rem 0;
+            padding: 1.2rem 1.8rem;
+            background-color: #f7fafc;
+            color: #4a5568;
+            font-style: italic;
+            border-radius: 0 6px 6px 0;
+            font-family: $body_font$;
+        }
+
+        blockquote p:last-child {
+            margin-bottom: 0;
+        }
+
+        /* 表格样式 */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1.5rem 0;
+            background-color: #ffffff;
+            border-radius: 6px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        th, td {
+            padding: 0.75rem 1rem;
+            text-align: left;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        th {
+            background-color: #f7fafc;
+            font-weight: 600;
+            color: #2d3748;
+        }
+
+        tr:hover {
+            background-color: #f7fafc;
+        }
+
+        /* 分隔线 */
+        hr {
+            border: none;
+            border-top: 2px solid #e2e8f0;
+            margin: 3rem 0;
+        }
+
+        /* 页面分隔器 */
+        .page-separator {
+            border-top: 2px solid #e2e8f0;
+            margin: 3rem 0;
+            text-align: center;
+            position: relative;
+        }
+
+        .page-separator::after {
+            content: "• • •";
+            background-color: #ffffff;
+            color: #a0aec0;
+            padding: 0 1rem;
+            position: relative;
+            top: -0.75rem;
+        }
+
+        /* 强调样式 */
+        strong, b {
+            font-weight: 700;
+            color: #1a202c;
+        }
+
+        em, i {
+            font-style: italic;
+            color: #4a5568;
+        }
+
+        /* 目标标题高亮 */
+        h1:target, h2:target, h3:target, h4:target, h5:target, h6:target {
+            background-color: #fff3cd;
+            padding: 1rem;
+            border-radius: 6px;
+            margin: 1.5rem 0;
+            border-left: 4px solid #ffc107;
+            animation: highlight 2s ease-in-out;
+        }
+
+        @keyframes highlight {
+            0% {
+                background-color: #fff3cd;
+                transform: scale(1.02);
+            }
+            100% {
+                background-color: transparent;
+                transform: scale(1);
+            }
+        }
+
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            body {
+                padding: 1.5rem;
+                font-size: 1rem;
+                max-width: 100%;
+            }
+
+            .toc-toggle {
+                left: 10px;
+                width: 40px;
+                height: 40px;
+                font-size: 16px;
+            }
+
+            .toc-sidebar {
+                width: 280px;
+                left: -300px;
+                padding: 1rem;
+            }
+
+            h1 {
+                font-size: 1.6rem;
+            }
+
+            h2 {
+                font-size: 1.4rem;
+            }
+
+            h3 {
+                font-size: 1.2rem;
+            }
+
+            h4 {
+                font-size: 1.1rem;
+            }
+
+            table {
+                font-size: 0.9rem;
+            }
+
+            th, td {
+                padding: 0.6rem 0.8rem;
+            }
+
+            pre {
+                padding: 1.2rem;
+                font-size: 0.85rem;
+            }
+
+            blockquote {
+                padding: 1rem 1.2rem;
+                margin: 1.5rem 0;
+            }
+        }
+
+        @media (max-width: 480px) {
+            body {
+                padding: 1.2rem;
+                font-size: 0.95rem;
+            }
+
+            .toc-sidebar {
+                width: 260px;
+                left: -280px;
+            }
+
+            h1, h2, h3, h4, h5, h6 {
+                margin-top: 1.5rem;
+            }
+
+            ul, ol {
+                padding-left: 1.5rem;
+            }
+            
+            p {
+                text-indent: 1.5em;
+            }
+        }
+
+        /* 打印样式 */
+        @media print {
+            .toc-toggle,
+            .toc-sidebar,
+            .toc-overlay {
+                display: none !important;
+            }
+
+            body {
+                max-width: none;
+                padding: 0;
+                font-size: 12pt;
+                line-height: 1.5;
+                color: #000;
+            }
+
+            h1, h2, h3, h4, h5, h6 {
+                page-break-after: avoid;
+            }
+
+            img {
+                max-width: 100% !important;
+                page-break-inside: avoid;
+            }
+
+            blockquote, pre {
+                page-break-inside: avoid;
+            }
+
+            a {
+                color: #000;
+                text-decoration: underline;
+            }
+        }
+
+        /* --- math (pandoc --mathml), figures, tables --------------------- */
+        math { font-size: 1.05em; }
+        math[display="inline"] { vertical-align: middle; }
+        math[display="block"] { display: block; margin: 1.2rem auto; text-align: center; }
+        span.math.tex-fallback {
+            font-family: 'Cambria Math', 'Latin Modern Math', serif;
+            font-style: italic;
+        }
+        figure { margin: 1.75rem auto; text-align: center; page-break-inside: avoid; }
+        figure img { margin: 0 auto 0.5rem; max-width: 100%; }
+        figcaption {
+            font-size: 0.9em;
+            color: #4a5568;
+            text-align: center;
+            line-height: 1.5;
+        }
+        table { table-layout: auto; word-break: keep-all; }
+        th, td { vertical-align: top; }
+    </style>
+</head>
+<body>
+    <!-- 浮动目录按钮 -->
+    <button class="toc-toggle" onclick="toggleToc()" title="打开/关闭目录">
+        ☰
+    </button>
+
+    <!-- 浮动目录面板 -->
+    <div class="toc-sidebar" id="tocSidebar">
+        <h3>$toc_label$</h3>
+        <div class="toc-content simple-toc">
+            <!-- 目录内容将插入到这里 -->
+        </div>
+    </div>
+
+    <!-- 遮罩层 -->
+    <div class="toc-overlay" id="tocOverlay" onclick="closeToc()"></div>
+
+    <!-- 主要内容 -->
+    $body$
+
+    <script>
+        function toggleToc() {
+            const sidebar = document.getElementById('tocSidebar');
+            const overlay = document.getElementById('tocOverlay');
+            
+            if (sidebar.classList.contains('active')) {
+                closeToc();
+            } else {
+                openToc();
+            }
+        }
+
+        function openToc() {
+            const sidebar = document.getElementById('tocSidebar');
+            const overlay = document.getElementById('tocOverlay');
+            
+            sidebar.classList.add('active');
+            overlay.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeToc() {
+            const sidebar = document.getElementById('tocSidebar');
+            const overlay = document.getElementById('tocOverlay');
+            
+            sidebar.classList.remove('active');
+            overlay.classList.remove('active');
+            document.body.style.overflow = 'auto';
+        }
+
+        // ESC键关闭目录
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeToc();
+            }
+        });
+
+        // 点击目录链接后自动关闭目录（移动端）
+        document.addEventListener('click', function(e) {
+            if (e.target.matches('.simple-toc a') && window.innerWidth <= 768) {
+                setTimeout(closeToc, 300);
+            }
+        });
+    </script>
+</body>
+</html>
