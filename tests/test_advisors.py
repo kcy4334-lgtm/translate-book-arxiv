@@ -37,6 +37,41 @@ class _Store(unittest.TestCase):
 
 
 class SilenceIsVisible(_Store):
+    r"""These are about the CONSULTATION log, so the install state has to be
+    held still — `build_note` reports both, and an uninstalled advisor is the
+    louder of the two.
+
+    Left to inherit the machine, two of these passed here and failed on CI from
+    the first push: this developer's `~/.claude/agents/` has the four, a fresh
+    Ubuntu runner has none, and the note came back "NOT INSTALLED" where the
+    test expected silence. `NotInstalledIsLouderThanNotConsulted` below already
+    pins the opposite state; this is the same trick pointed the other way.
+    """
+
+    def setUp(self):
+        _Store.setUp(self)
+        self._home = os.path.expanduser
+        self._cwd = os.getcwd()
+        self._fake = tempfile.mkdtemp(prefix='tb-home-')
+        agents = os.path.join(self._fake, '.claude', 'agents')
+        os.makedirs(agents)
+        for name in advisors.KNOWN:
+            with io.open(os.path.join(agents, '%s.md' % name), 'w',
+                         encoding='utf-8') as fh:
+                fh.write('installed, for this test only\n')
+        os.path.expanduser = lambda p: p.replace('~', self._fake)
+        os.chdir(self._fake)
+
+    def tearDown(self):
+        os.path.expanduser = self._home
+        os.chdir(self._cwd)
+        _Store.tearDown(self)
+
+    def test_the_four_are_installed_for_these_tests(self):
+        # If this fails the rest of the class is measuring the wrong thing.
+        for name in advisors.KNOWN:
+            self.assertIsNotNone(advisors.installed_where(name))
+
     def test_an_advisor_with_no_rows_is_reported_as_never_consulted(self):
         lines = '\n'.join(advisors.status_lines())
         for name in advisors.KNOWN:
