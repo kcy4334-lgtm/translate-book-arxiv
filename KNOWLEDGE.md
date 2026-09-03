@@ -155,6 +155,7 @@ here; the test is the real record. This file is for the *reasoning*, the
 | A rewrite silently skips every macro in one stretch of prose | [K140](#k140) |
 | A macro definition nothing collects still prints its own name | [K141](#k141) |
 | A maths macro takes an argument, so nothing expands it | [K142](#k142) |
+| Two EPUBs from the same source differ in size | [K143](#k143) |
 | A float is in output.md but not in the book | [K78](#k78) |
 | A term lost its English between two versions | [K79](#k79) |
 | A label is printed twice: "3.2절 절을" | [K77](#k77) |
@@ -2023,6 +2024,20 @@ that is never expanded on purpose. One is a formula: ddpm's `\Eb`, twice.
 The definitions named as the cost — unet `\vec`, planck `\tens`, ddpm `\kl` —
 reach no artefact, so those formulas already render.
 *Status: measured 2026-09-03, not attempted — the trade is K121's maths path against two tokens.*
+
+---
+
+### K143
+**The EPUB is not byte-reproducible, and only the cover moves.**
+Three builds from identical inputs gave 770,118, 745,918 and 868,155 bytes.
+`book.pdf` came out byte-identical every time and so did every HTML, so the
+first reading — that the build is unstable — is wrong. Unzipped and compared
+entry by entry, 31 of the 32 are identical and the whole swing is
+`cover_image.jpg`, 198,149 against 101,048. `--cover` is optional and was not
+passed, so Calibre draws one from the metadata itself and its rasterisation
+varies run to run. Nothing a reader reads is affected. Worth knowing before
+someone checksums two EPUBs and goes hunting for a defect in the text.
+*Status: measured 2026-09-03. Pass `--cover` for a stable one.*
 
 ---
 

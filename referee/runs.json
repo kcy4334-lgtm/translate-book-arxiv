@@ -108,16 +108,9 @@
    "paper": "2409.12514v5"
   },
   {
-   "checks": {
-    "meta_evidence": {
-     "chunks": [
-      "chunk0006"
-     ],
-     "severity": "fail"
-    }
-   },
+   "checks": {},
    "chunks": 11,
-   "failed": 1,
+   "failed": 0,
    "lang": "ko",
    "paper": "1512.03385v1"
   }
