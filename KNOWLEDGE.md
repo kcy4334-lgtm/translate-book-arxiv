@@ -340,7 +340,7 @@ what its name suggests.*
 still applies backslash escapes inside a raw HTML block, so `<mi>\</mi>` became
 a literal `</mi>` on the page. Two causes worth knowing: pass `--mathml` to
 fragment conversions (without it pandoc emits raw TeX inside a span), and escape
-backslashes as `&#92;` in anything injected, MathML keeps the original TeX in
+backslashes as `&#92;` in anything injected: MathML keeps the original TeX in
 `<annotation>`, so the block is full of them.
 *Status: LOCKED, `test_backslashes_are_escaped_in_injected_html`.*
 

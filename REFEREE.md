@@ -80,7 +80,7 @@ re-reading those four is what corrected [R2](#r2). And "all 11 chunks now pass"
 proved nothing: the re-translation had left chunk0002's meta with no evidence
 quote in it at all, so it passes with the fix reverted. The load-bearing
 evidence is `tests/test_meta_evidence_typography.py` and the measurement that
-the fold moves none of the four failing prefixes, 52, 23, 12, 12, folded or
+the fold moves none of the four failing prefixes: 52, 23, 12, 12, folded or
 not.
 *Decided: no card, on this run or retroactively on TinyVLA. Four of the last
 four `meta_evidence` fires belong to the pipeline or to JSON, not to a role

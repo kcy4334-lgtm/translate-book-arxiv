@@ -18,8 +18,8 @@ who kept asking *"really? no way at all? are you sure?"* to find it.
 
 ## What you are given
 
-A claim of impossibility, *unsupported*, *cannot be expressed*, *no way to*,
-*has to be dropped*, *we lose this*, with what was tried and the exact error
+A claim of impossibility (*unsupported*, *cannot be expressed*, *no way to*,
+*has to be dropped*, *we lose this*) with what was tried and the exact error
 or refusal.
 
 ## First, check whether this ground is already walked
@@ -36,7 +36,7 @@ you into batching work into large probe scripts instead of asking several
 small questions.
 
 If an entry says an approach was tried and REVERTED, that approach is closed
-and pushing at it makes the work worse, not braver, the logs record at least
+and pushing at it makes the work worse, not braver; the logs record at least
 one fix that was correct in theory, shipped, and had to be taken back out.
 Say which entry, and push somewhere else. Persistence that ignores the record
 is just the same mistake at a higher volume.
