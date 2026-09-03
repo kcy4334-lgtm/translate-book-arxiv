@@ -215,9 +215,12 @@ class Definition(object):
     """One `\\newcommand` / `\\def`, with where it came from."""
 
     __slots__ = ('name', 'arity', 'optional', 'body', 'source', 'span',
-                 'evidenced', 'kind')
+                 'evidenced', 'kind', 'arg_suffix')
 
     def __init__(self, name, arity, optional, body, source, span, kind='def'):
+        # Punctuation the macro appends to its argument unless the argument
+        # already carries some. Set by `resolve` when it recognises the shape.
+        self.arg_suffix = ''
         self.name = name
         self.arity = arity
         self.optional = optional      # first argument is optional (LaTeX [n][d])
@@ -467,6 +470,22 @@ def _apply_font_groups(body):
     return body
 
 
+# `#1\ifdt@Punct \else .\fi` -- dtrt.sty line 699, and the shape of every
+# "add a stop unless one is there" helper: the argument, then a conditional
+# whose FALSE branch is a single punctuation mark. The flag is set by four
+# delimited-parameter `\def`s that `read_definitions` deliberately does not
+# read, so the conditional cannot be evaluated -- but it does not need to be.
+# Whether the argument already ends in punctuation is visible at the call
+# site, where `expand_in_source` holds the literal text.
+#
+# Confirmed against the artefact before it was written: all 13 of spectre's
+# run-in headings are printed WITH the period and none without, and not one
+# of them already ends in punctuation.
+_PUNCT_SUFFIX_RE = re.compile(
+    r'#1\s*\\if[a-zA-Z@]*\s*\\else\s*([.?!:;,])\s*\\fi')
+_ALREADY_PUNCTUATED_RE = re.compile(r'[.?!:;,]\s*$')
+
+
 def _unwrap_unresolved(body, defs):
     r"""`\dt@MaybeAddPunct{#1}` -> `#1` when that macro does print its argument.
 
@@ -477,6 +496,7 @@ def _unwrap_unresolved(body, defs):
     references the parameter, i.e. the macro is one that prints what it is
     given.
     """
+    suffix = ''
     for _ in range(MAX_DEPTH):
         target = None
         for m in re.finditer(r'\\([A-Za-z@]+)\s*\{', body):
@@ -490,12 +510,18 @@ def _unwrap_unresolved(body, defs):
                 break
         if not target:
             break
+        # Before dropping the wrapper, read what it was adding. A "stop unless
+        # one is there" helper is the difference between a heading that prints
+        # as the paper prints it and one that loses its period.
+        punct = _PUNCT_SUFFIX_RE.search(defs[target.group(1)][0].body)
+        if punct and not suffix:
+            suffix = punct.group(1)
         close = _group_end(body, target.end() - 1)
         if close < 0:
             break
         body = (body[:target.start()] + body[target.end():close - 1]
                 + body[close:])
-    return body
+    return body, suffix
 
 
 def resolve(name, defs, seen=None, depth=0):
@@ -601,7 +627,7 @@ def resolve(name, defs, seen=None, depth=0):
 
     body = _drop_no_glyph(body)
     body = _apply_font_groups(body)
-    body = _unwrap_unresolved(body, defs)
+    body, suffix = _unwrap_unresolved(body, defs)
     body = _drop_no_glyph(body)
 
     if _MACHINERY_RE.search(body):
@@ -629,6 +655,8 @@ def resolve(name, defs, seen=None, depth=0):
     # A trailing space survives on purpose. `\etal` is `et~al.\ ` because
     # LaTeX eats the space after a control word; strip it and the next word is
     # welded on ("et al.analyze").
+    if suffix:
+        d.arg_suffix = suffix
     tail = ' ' if body[-1:] in (' ', '\t') else ''
     return body.strip() + tail, None
 
@@ -1005,6 +1033,12 @@ def expand_in_source(tex, sources, paper_text=None):
         args, end = taken
         text = body
         for n, arg in enumerate(args, 1):
+            # The wrapper this macro dropped was adding a stop unless the
+            # argument already carried one. That question is answerable here
+            # and only here, where the literal argument is in hand.
+            if n == 1 and d.arg_suffix and arg.strip() \
+                    and not _ALREADY_PUNCTUATED_RE.search(arg):
+                arg = arg + d.arg_suffix
             text = text.replace('#%d' % n, arg)
         out.append(tex[i:m.start()])
         out.append(text)

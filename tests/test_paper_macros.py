@@ -318,6 +318,48 @@ class AnOddDollarInAMacroBodyIsNotADocumentDelimiter(unittest.TestCase):
                              'formula: %r' % tex[start:end])
 
 
+class AWrapperThatAddsAStopKeepsAddingIt(unittest.TestCase):
+    r"""dtrt.sty line 699 is `#1\ifdt@Punct \else .\fi` — the argument, then a
+    conditional whose FALSE branch is one punctuation mark. The flag is set by
+    four delimited-parameter `\def`s that `read_definitions` does not read, so
+    the conditional cannot be evaluated. It does not need to be: whether the
+    argument already ends in punctuation is visible at the CALL SITE, and
+    `expand_in_source` holds the literal text there.
+
+    Checked against the artefact before it was built: all 13 of spectre's
+    run-in headings are printed with the period and none without.
+    """
+
+    SRC = [('d.sty',
+            r'\def\dt@MaybeAddPunct#1{#1\ifdt@Punct \else .\fi}' '\n'
+            r'\newcommand{\parhead}[1]{{\bfseries \dt@MaybeAddPunct{#1}}}')]
+
+    def test_the_stop_is_added(self):
+        tex = (r'\begin{document}' '\n' r'\parhead{Our Results} text' '\n'
+               r'\end{document}')
+        out, _ = pm.expand_in_source(tex, self.SRC)
+        self.assertIn(r'\textbf{Our Results.}', out)
+
+    def test_an_argument_already_punctuated_is_left_alone(self):
+        tex = (r'\begin{document}' '\n' r'\parhead{Why?} text' '\n'
+               r'\end{document}')
+        out, _ = pm.expand_in_source(tex, self.SRC)
+        self.assertIn(r'\textbf{Why?}', out)
+        self.assertNotIn('Why?.', out)
+
+    def test_the_suffix_is_recorded_on_the_definition(self):
+        defs = pm.read_definitions(self.SRC)
+        pm.resolve('parhead', defs)
+        self.assertEqual(defs['parhead'][0].arg_suffix, '.')
+
+    def test_a_wrapper_that_adds_nothing_records_nothing(self):
+        src = [('d.sty', r'\def\wrap#1{#1}' '\n'
+                         r'\newcommand{\h}[1]{{\bfseries \wrap{#1}}}')]
+        defs = pm.read_definitions(src)
+        pm.resolve('h', defs)
+        self.assertEqual(defs['h'][0].arg_suffix, '')
+
+
 class LatexDecidesMostCompetingDefinitions(unittest.TestCase):
     r"""Source order alone must get one of these wrong, because two real cases
     resolve in OPPOSITE directions:
