@@ -154,6 +154,7 @@ here; the test is the real record. This file is for the *reasoning*, the
 | The book's author line reads "Unknown Author" | [K139](#k139) |
 | A rewrite silently skips every macro in one stretch of prose | [K140](#k140) |
 | A macro definition nothing collects still prints its own name | [K141](#k141) |
+| A maths macro takes an argument, so nothing expands it | [K142](#k142) |
 | A float is in output.md but not in the book | [K78](#k78) |
 | A term lost its English between two versions | [K79](#k79) |
 | A label is printed twice: "3.2절 절을" | [K77](#k77) |
@@ -2007,6 +2008,21 @@ documents, xparse in 2. Neither attempted, and the precedent is a caution —
 `read_math_macros` follows `\let` and needed an alias rule, because following
 one to a name nobody defined swaps an unreadable token for a different one.
 *Status: open, measured 2026-09-03. Both `gap` in `test_source_lint.py`.*
+
+---
+
+### K142
+**The argument-taking maths macro gap is two tokens in one paper.**
+`read_math_macros` drops any body containing `#` (`merge_and_build.py:1192`)
+and `paper_macros._take_args` is exactly the expander that gap asks for, so
+routing one into the other looks obvious. Measured over the finished
+artefacts instead: 219 such tokens survive, of which 188 are SINQ's
+`\ours`/`\others` — table-cell colour, already resolved — and the rest are
+`\url`, `\doi`, `\natexlab` and bibliography plumbing that pandoc reads or
+that is never expanded on purpose. One is a formula: ddpm's `\Eb`, twice.
+The definitions named as the cost — unet `\vec`, planck `\tens`, ddpm `\kl` —
+reach no artefact, so those formulas already render.
+*Status: measured 2026-09-03, not attempted — the trade is K121's maths path against two tokens.*
 
 ---
 
