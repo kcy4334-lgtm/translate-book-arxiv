@@ -142,6 +142,38 @@ def check_font(needles, why, fonts):
     return bool(hit), hit, why
 
 
+def check_advisors():
+    r"""The four advisor definitions, where a runtime will actually find them.
+
+    They ship at `<skill>/.claude/agents/`, and no runtime searches that path:
+    sub-agents are discovered in `~/.claude/agents/` and in a project's own
+    `.claude/agents/`. Left where they ship they cannot be called at all, and
+    until now nothing said so — `install_advisors.py` records that ten papers
+    were translated in exactly that state with no report anywhere.
+
+    `SKILL.md` names these four sixteen times and tells the orchestrator when
+    to call each. A skill whose instructions depend on something the install
+    step can silently skip is the shape this whole log is about, so the tool
+    whose job is "what is present" has to look here too.
+    """
+    why = ('the growth loop — old-man, question-monster, fast-finder and '
+           'referee — cannot be called until `python '
+           'scripts/install_advisors.py` copies them where the runtime looks')
+    shipped = os.path.join(os.path.dirname(os.path.dirname(
+        os.path.abspath(__file__))), '.claude', 'agents')
+    try:
+        names = sorted(n for n in os.listdir(shipped) if n.endswith('.md'))
+    except OSError:
+        return False, 'none shipped', why
+    if not names:
+        return False, 'none shipped', why
+    dest = os.path.join(os.path.expanduser('~'), '.claude', 'agents')
+    found = [n for n in names if os.path.isfile(os.path.join(dest, n))]
+    if len(found) == len(names):
+        return True, '%d of %d installed' % (len(found), len(names)), why
+    return False, '%d of %d installed' % (len(found), len(names)), why
+
+
 def probe(strict=False):
     fonts = _font_files()
     checks = [
@@ -150,6 +182,7 @@ def probe(strict=False):
         (REQUIRED, 'Chromium/Chrome/Edge', check_chromium()),
         (REQUIRED, 'Calibre ebook-convert', check_calibre()),
         (REQUIRED, 'PyMuPDF', check_pymupdf()),
+        (RECOMMENDED, 'advisor sub-agents', check_advisors()),
         (RECOMMENDED, 'pypandoc',
          check_module('pypandoc', 'used by the conversion path')),
         (OPTIONAL, 'beautifulsoup4',
