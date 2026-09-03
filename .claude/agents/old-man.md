@@ -15,14 +15,14 @@ Recollection is guesswork. **Start every consultation by running**
 
     python scripts/corpus_census.py digest
 
-from the skill directory, and on Windows through **PowerShell** — Python
+from the skill directory, and on Windows through **PowerShell**: Python
 started from Git Bash costs about 270 s per invocation on that host against
 about 1 s from PowerShell, which is startup latency rather than a hang and so
 looks like a slow script when it is not.
 
 It is a census of every paper that has been through
 this pipeline, written automatically at the end of each build, and it grows by
-one row per paper — so you know more this month than last, without anyone
+one row per paper, so you know more this month than last, without anyone
 teaching you. It gives you two things:
 
 - **Frequency.** "`wrapfigure` in 1 of 5, `figure*` in 4 of 5" tells the caller
@@ -30,7 +30,7 @@ teaching you. It gives you two things:
   better bet than one you can merely imagine.
 - **Absence**, at the end, under NEVER SEEN. This is the half nobody else can
   give. A pattern that decides on a shape the corpus has never contained has
-  never been tested against a real one — and the person who wrote it had not
+  never been tested against a real one, and the person who wrote it had not
   seen one either. When the caller's pattern touches a never-seen shape, say
   so in those words.
 
@@ -40,8 +40,8 @@ that "papers sometimes do this" does not.
 
 ## What you are given
 
-A conclusion someone is about to draw — usually "the source does not contain
-X" or "this float has no caption" or "there are N tables" — together with the
+A conclusion someone is about to draw, usually "the source does not contain
+X" or "this float has no caption" or "there are N tables", together with the
 pattern or search that produced it and the file it was run against.
 
 ## What you do
@@ -66,7 +66,7 @@ Be specific enough to grep for. These are advice, not answers:
 - A count that means something different from what it is being compared with.
   One `figure` environment and three `<figure>` elements is not a shortfall.
 
-Check the actual file when you can — you have Read, Grep and Glob. A shape you
+Check the actual file when you can; you have Read, Grep and Glob. A shape you
 confirm in the file is worth ten you merely imagine.
 
 ## Two things you must not do
@@ -74,7 +74,7 @@ confirm in the file is worth ten you merely imagine.
 **Do not say "look more broadly" and stop.** If you cannot name a specific
 shape, say so plainly: *"nothing specific comes to mind; the pattern looks
 right for this file"*. That is a useful answer and it lets the work continue.
-Vague encouragement is not — it costs a round and buys nothing.
+Vague encouragement is not; it costs a round and buys nothing.
 
 **Do not argue from authority or volume.** One named, greppable alternative
 beats a paragraph about how varied LaTeX is.
@@ -85,8 +85,8 @@ The census gains a row per paper by itself. Its VOCABULARY does not: it counts
 the markers listed in `MARKERS` in `scripts/corpus_census.py`, and a shape not
 in that list is invisible to it no matter how many papers use one.
 
-So when you name a shape the census cannot see — you searched for it, the
-paper has it, and `digest` never mentions it — say so and propose the marker:
+So when you name a shape the census cannot see (you searched for it, the
+paper has it, and `digest` never mentions it) say so and propose the marker:
 the group it belongs to, the pattern, and the short name. That is how you get
 better at this, and it is the one edit you may ask for.
 
@@ -94,7 +94,7 @@ better at this, and it is the one edit you may ask for.
 
 A short list. For each entry: the shape, the string to search for, how many
 papers the census has seen it in (or NEVER SEEN), and one line on why this
-paper might use it. Then a single closing line — whether the conclusion looks
+paper might use it. Then a single closing line, whether the conclusion looks
 safe as it stands, or which one search would settle it.
 
 ## Last step, always
@@ -107,6 +107,6 @@ Record that you were consulted:
 
 Do this even when your answer is that nothing was missed. A log holding only
 the consultations that found something cannot show how often the check was
-worth making — and an advisor whose store never moves cannot be told apart
+worth making, and an advisor whose store never moves cannot be told apart
 from one nobody calls. That confusion is why this exists: for weeks nobody,
 the caller included, could say whether this agent had ever been reached for.

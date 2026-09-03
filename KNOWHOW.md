@@ -1,4 +1,4 @@
-# KNOWHOW.md — working practice
+# KNOWHOW.md: working practice
 
 How to do this work thoroughly, efficiently, and without paying for the same
 mistake twice.
@@ -76,7 +76,7 @@ A finding about a tool goes there. A finding about the method goes here.
 ## Entries
 
 ### H1
-**Anything holding a backslash goes through a file, never a shell heredoc —
+**Anything holding a backslash goes through a file, never a shell heredoc,
 and never a `re.sub` replacement string.**
 A heredoc turns `\t` into a tab, `\b` into a backspace and `\a` into a bell
 before Python ever sees it, so a regex or a LaTeX example arrives silently
@@ -85,7 +85,7 @@ the same escapes: fixing a mangled `\b` with `re.sub(..., GOOD, ...)` mangles
 it again. Write the script with the Write tool, and substitute with a lambda
 (`re.sub(pat, lambda _m: GOOD, s)`). Then prove it: count control characters
 in the file you just wrote, and print the line back.
-*Cost when skipped: four recurrences in one session — `_LABEL_RE` silently
+*Cost when skipped: four recurrences in one session, `_LABEL_RE` silently
 became `\(?<BS>[a-z]...` and matched nothing, and SKILL.md documented
 `` `<TAB>oprule` `` for a week. See KNOWLEDGE K3/K24 for the mechanism.*
 
@@ -118,14 +118,14 @@ Search for each target string first and confirm which file and how many
 occurrences; then assert that count at edit time; then collect every edit in
 memory and write only after all of them matched. A partially applied batch is
 far worse than a failed one, because the failure is now spread across files.
-*Cost when skipped: nothing — this is why. Two batches this session named the
+*Cost when skipped: nothing; this is why. Two batches this session named the
 wrong chunk (a term edit and a drift fix) and both stopped dead with zero
 files touched, which a `sed` loop would have half-applied.*
 
 ### H5
 **Measure what you are benchmarking against; do not eyeball it.**
 "Match the original" is only actionable once you have the number. Open the
-reference and extract the actual value — the colour, the count, the geometry.
+reference and extract the actual value, the colour, the count, the geometry.
 *Cost when skipped: the reference colour for cross-references is `#001473`
 and the original preprint carries 332 link annotations. Both came from opening
 `ref_paper/AlphaQ.pdf` with PyMuPDF; guessing "blue" would have produced a
@@ -134,7 +134,7 @@ different document and no target to verify against.*
 ### H6
 **Find where a new pass sits in the pipeline before you write it.**
 List the stages it depends on and confirm each one has already run. A pass in
-the wrong position does not crash — it processes an earlier version of the
+the wrong position does not crash; it processes an earlier version of the
 data and reports a confident, wrong number.
 *Cost when skipped: the cross-reference pass ran at HTML step 4 and equations
 are numbered at step 6, so it anchored 0 of 27 equations and every "식 (7)"
@@ -143,7 +143,7 @@ stayed plain, while the log said it had linked 22 references.*
 ### H7
 **Write in the module's conventions, not your own.**
 Before adding a function, read a neighbouring one: how it opens files, names
-its regexes, returns its stats. Convention-matching is not aesthetics — it is
+its regexes, returns its stats. Convention-matching is not aesthetics; it is
 how you inherit the module's already-solved problems.
 *Cost when skipped: `merge_and_build.py` has no `io` import and reads with a
 plain `open()`. A new function using `io.open()` killed the build with a
@@ -156,14 +156,14 @@ throws away the whole translation and every review of it. The procedure is:
 edit `output_chunk*.md` → `verify_chunk.py --strict` → `run_state.py record`
 → confirm `plan` reports translate=0 → delete `book.{docx,epub,pdf}` →
 rebuild with `--force-html` → re-export. Editing a sidecar does NOT invalidate
-`output.md` (KNOWLEDGE K42) — delete it, or touch the chunk files.
+`output.md` (KNOWLEDGE K42), delete it, or touch the chunk files.
 *Cost when skipped: the whole translation, and every correction made to it.*
 
 ### H9
 **A sub-agent reports success by finishing, and so does a broken one.**
 Never accept the report; read the file it wrote. `SKILL.md` Step 4.4 is the
 gate and it is not optional. When a chunk fails, re-dispatch it with the
-findings quoted verbatim — a bare "try again" names nothing. Two rejected
+findings quoted verbatim, a bare "try again" names nothing. Two rejected
 attempts is the limit; then stop and report, rather than lowering the bar.
 *Cost when skipped: nothing asked whether a translated chunk was even in the
 target language. An agent that skipped a paragraph, pasted its neighbour's
@@ -178,7 +178,7 @@ discover` → `layout_probe --strict` and `--stress --strict` → per book:
 even when the change looks cosmetic; a CSS edit is how the EPUB lost its table
 rules. Report the numbers, not the word "passed".
 *Cost when skipped: a stale `book.html` from a previous run once made a broken
-build look like a green one — the crash had left the old file in place.*
+build look like a green one, the crash had left the old file in place.*
 
 ### H11
 **Ship a package by unpacking it somewhere else and running it there.**
@@ -192,7 +192,7 @@ will not be word-for-word reproducible.
 false for anyone without Noto Serif KR.*
 
 ### H12
-**When the choice is defensible either way, ask — but bring a recommendation
+**When the choice is defensible either way, ask, but bring a recommendation
 and the evidence for it.**
 Do not present a neutral menu; say which you would pick and why, put it first,
 and show the concrete before/after. Reserve the question for choices that are
@@ -206,9 +206,9 @@ terms better") or a menu that pushes the work back onto the user.*
 Grep every script and every check against the documents that claim to list
 them. Documentation drift is invisible from the inside: you remember writing
 it, so you do not look.
-*Cost when skipped: five scripts were missing from README's structure table —
+*Cost when skipped: five scripts were missing from README's structure table (
 including `doctor.py`, which the Prerequisites section tells the reader to run
-first — and the probes appeared only in the contributor document, so anyone
+first) and the probes appeared only in the contributor document, so anyone
 who received the package could not learn that they exist.*
 
 ### H14
@@ -229,7 +229,7 @@ reach for the original? The probes cover what is worth automating and nothing
 else. Every defect class this project checks for mechanically was found this
 way first.
 *Cost when skipped: the checks stay pointed at what already broke. Reading
-found the broken table, the 적합 collision, and the invisible references —
+found the broken table, the 적합 collision, and the invisible references,
 none of which any count would ever have flagged.*
 
 ### H16
@@ -278,9 +278,9 @@ away, and indistinguishable from sub-agents that observed nothing.*
 Nine agents ran at once and overwrote each other's `edit.py`, `dump.py` and
 `inspect.py`. The last is worse than a collision: `python <dir>/x.py` puts
 `<dir>` first on `sys.path`, so a scratch file named after a stdlib module
-breaks every tool run from there — PyMuPDF died inside `inspect.signature`.
+breaks every tool run from there, PyMuPDF died inside `inspect.signature`.
 Prefix each agent's filenames with the chunk it owns, and run your own tools
-with `python -P` — but `-P` drops the script's OWN directory too, so use it
+with `python -P`, but `-P` drops the script's OWN directory too, so use it
 only where nothing imports a sibling.
 *Cost when skipped: two dead-end debugging rounds mid-run, and a broken
 measurement that looked like a corrupt PDF.*
@@ -288,7 +288,7 @@ measurement that looked like a corrupt PDF.*
 ### H20
 **Calibrate a guard against the instructions it polices, not your memory.**
 The caption agents were told they MAY translate column headers and
-tablenotes — which live outside `\caption{}` — then met a guard that failed
+tablenotes, which live outside `\caption{}`, then met a guard that failed
 any change outside the caption. Four correct edits came back as defects. A
 guard stricter than its own brief spends the reviewer's attention on
 non-findings and teaches them to skip its output, which is how a real
@@ -300,13 +300,13 @@ in the middle of a nine-agent run.*
 ### H21
 **A rule and the check that polices it are ONE change, never two.**
 Adding "gloss a term's English on first use" to the prompt made
-`부합하도록(aligned)` correct — and `check_glossary`, which flags a source
+`부합하도록(aligned)` correct, and `check_glossary`, which flags a source
 term appearing in the output, failed three chunks that had followed the new
 rule exactly. Same shape as [H20](#h20) from the other side: there the guard
 was stricter than the brief, here the brief moved and the guard did not.
 Before shipping a prompt change, grep the checks for the thing it now makes
-legal. And when two places must agree on a judgement — "is this a gloss or a
-unit?" — have one import the other's predicate instead of writing it twice.
+legal. And when two places must agree on a judgement, "is this a gloss or a
+unit?", have one import the other's predicate instead of writing it twice.
 *Cost when skipped: three chunks marked for re-translation while being
 correct, and the second of two hours spent proving the translator was right.*
 ---
@@ -315,7 +315,7 @@ correct, and the second of two hours spent proving the translator was right.*
 **Run the measurement on a book you believe is fine before believing it.**
 Hunting a suspected content loss, I reduced page and source to a stream of
 Hangul with everything else stripped and looked for the source's windows in
-the page. It reported 42 of 60 sentences missing — and reported losses in a
+the page. It reported 42 of 60 sentences missing, and reported losses in a
 region I had no reason to doubt, because stripping tags and numbers glues
 Hangul from neighbouring table cells into strings that exist nowhere. I told
 the user "심각한 것을 발견했습니다" on the strength of it. The loss was real, but
@@ -329,7 +329,7 @@ measurement that could not have distinguished a defect from an artefact.*
 ### H23
 **Check what the original does before calling anything a defect.**
 Three of the last four items on a review's list needed no change at all. The
-headings carry no numbers because the PAPERS carry none — their own bodies
+headings carry no numbers because the PAPERS carry none, their own bodies
 say "Section 4.1" against unnumbered headings, so numbering ours would
 invent structure the source does not have. A unit prints italic because the
 source writes `96$tps$`. A rule reported missing from SINQ's table 7 is
@@ -344,10 +344,10 @@ looking like fixes, and the real defect still standing.*
 **Write the narrow case into the condition, or the rule widens by itself.**
 `\cref{lem:norm}` printed `정리 3` for a label sitting inside an equation, so
 I let the recorded kind win over the prefix. An appendix is a section as far
-as the counter is concerned — and every `부록 A.10` became `A.10절`, eleven of
+as the counter is concerned, and every `부록 A.10` became `A.10절`, eleven of
 them, in a book I had just verified. The rule was written for ONE shape: a
 prefix naming something structurally different from what it is attached to.
-Saying so in the condition — override only to `equation` or `algorithm` —
+Saying so in the condition, override only to `equation` or `algorithm`,
 keeps it that shape. Same failure as [H20](#h20) seen from the other side.
 *Cost when skipped: a fix for one reference that silently broke eleven.*
 ---
@@ -355,7 +355,7 @@ keeps it that shape. Same failure as [H20](#h20) seen from the other side.
 ### H25
 **Run the tool itself before concluding it will not tell you.**
 A check reported "1 raw LaTeX block lost" and, as far as I could see, named
-nothing — so I spent a round on two fingerprint faults that were real and
+nothing, so I spent a round on two fingerprint faults that were real and
 were not this one. The check had been naming it all along, one line per lost
 float; the wrapper I was running it through echoes only selected lines of its
 child's output. Calling `merge_and_build.py` directly printed the name at
@@ -367,13 +367,13 @@ the real one still standing at the end of it.*
 
 ### H26
 **Rebuild before you believe a probe's verdict on an old temp dir.**
-`leak_probe` reported one leak each in AlphaQ, CafeQ and TinyVLA — an
+`leak_probe` reported one leak each in AlphaQ, CafeQ and TinyVLA: an
 unresolved label, a spacing directive, an empty code span. All three are
 shapes the current code removes. The books were not defective; their
 `book_doc.html` was months of fixes old, and the probe was reading it
 faithfully. One rebuild took all three to zero. A probe reads an ARTIFACT,
 never the code that would produce it now, so its verdict is only as fresh as
-the file — and a stale one costs a hunt for a defect that is already fixed.
+the file, and a stale one costs a hunt for a defect that is already fixed.
 *Cost when skipped: three defects investigated that no longer existed, and
 very nearly three "fixes" for them.*
 ---
@@ -383,7 +383,7 @@ very nearly three "fixes" for them.*
 See SKILL.md, "Four advisors". `old-man` runs BEFORE you conclude something is
 absent, and argues from the corpus census rather than recollection.
 `question-monster` runs AFTER you write *unsupported*, checks the record for
-an approach already reverted, and hands back a candidate to test — never
+an approach already reverted, and hands back a candidate to test, never
 encouragement. `fast-finder` replaces reading the logs, which past 130 entries
 costs more than the answer, and returns entries verbatim: a status line saying
 an approach was tried and reverted is the value, and a summary loses it.
@@ -397,7 +397,7 @@ called impossible while its equivalent sat two lines below it.*
 ### H28
 **Widen the corpus before hardening the code.**
 Ten well-cited papers of deliberately different shape went through the front
-end in one sitting and produced five defects — three of which stopped a paper
+end in one sitting and produced five defects, three of which stopped a paper
 dead, and one of which had been quietly translating half of every
 bibliography. Three papers had hidden all five for weeks. The corpus was not
 small in pages; it was narrow in KIND, and every check written against it
@@ -414,7 +414,7 @@ The fidelity check reported "1 raw LaTeX block" for Neural ODE, and one line
 of output reads as a small problem. It was the entire appendix: six figures,
 every formula in it, a proof, a code listing. A wrapper environment with no
 reader makes ALL of its contents a single block, so the largest loss in the
-book arrives looking like its smallest finding — while a paper with three
+book arrives looking like its smallest finding, while a paper with three
 harmless leftovers reports three. Read what a finding CONTAINS before ranking
 it against the others; the number in the message is a count of containers.
 *Cost when skipped: an appendix triaged last because it was one line, behind
@@ -443,7 +443,7 @@ The cross-reference resolver printed nothing, which looked like the whole bug.
 It was the second half: the label index feeding it was ALSO wrong, by a
 constant, because a hardcoded environment list skipped five environments the
 paper declared. Had the resolver been fixed alone, 225 references would have
-started printing confidently wrong numbers instead of visibly raw keys — and a
+started printing confidently wrong numbers instead of visibly raw keys, and a
 wrong number is invisible, where a raw key is not. When a lookup produces
 nothing, verify what it would have produced before you make it produce it.
 *Cost when skipped: turning a visible failure into a silent one.*
@@ -471,7 +471,7 @@ The referee's briefing-fault threshold counts CHECK failures: a defect on a
 third of a run is the brief, not the agents. Nothing counts what the agents
 SAY. On randmat five translators independently flagged one rule as probably
 wrong before any check fired, and the rule was right for a reason the brief
-never gave — the objection was the brief failing to explain itself. Five of
+never gave, the objection was the brief failing to explain itself. Five of
 twenty-eight is under the line by count and past it by signal, since each
 instance is a fresh context reaching that conclusion alone. Treat n independent
 queries as n chunks failing one check, and fix it as R2 did: state WHY.
@@ -485,7 +485,7 @@ check later failing chunks for obeying it.*
 it.** `leak_probe` ranks by frequency, so its top row is whatever the failed
 formula uses most. Shor's list opened with `\\*[.5ex]` six times and I reported
 that as the cause; pandoc renders every variant of it. The real blockers were
-`\linebreak`, `\atop` and a `\multicolumn` inside an array — one occurrence
+`\linebreak`, `\atop` and a `\multicolumn` inside an array, one occurrence
 each, far down the list. One unreadable command costs the WHOLE formula, so
 the leaked tokens are that formula's entire vocabulary and the culprit is
 buried in it by definition. Rank by what makes a refused block render.
@@ -502,7 +502,7 @@ Seventeen papers were surveyed that way for zero translation agents, and the
 guesses they replaced were poor: three physics papers picked for their wide
 tables held no `sidewaysfigure` at all, and only one of four number-theory
 papers had the `\substack` all four were chosen for. A survey is a download
-and a regex; translating a paper is thirty agents. Record the misses too —
+and a regex; translating a paper is thirty agents. Record the misses too,
 "this construct is not where I assumed" is what stops the next wrong guess.
 *Cost when skipped: agents spent on a paper that exercises nothing new, and
 the construct still untested afterwards.*
@@ -511,19 +511,19 @@ the construct still untested afterwards.*
 ### H36
 **Probe a stage with the flags the pipeline gives it, not with bare pandoc.**
 Reader and writer extensions can cancel each other. Asked with a plain
-`-t markdown`, pandoc reported that its `smart` pass introduces nothing —
+`-t markdown`, pandoc reported that its `smart` pass introduces nothing,
 because the markdown writer un-smartens on the way out. `_WRITER` ends in
 `-smart`, so in this pipeline the reader's curly quotes survive, which was the
 whole effect under investigation. Import the spec (`arxiv_backend._WRITER`,
 `merge_and_build._MATH_SPAN_RE`) into the probe instead of retyping an
 approximation of it, and name in the docstring which stage you are measuring.
 *Cost when skipped: a confident "pandoc introduces nothing" that was the exact
-opposite of the truth — the fourth stage-mismatch measurement in one run,
+opposite of the truth, the fourth stage-mismatch measurement in one run,
 after `\thead`, the sideways floats, and the raw-span count.*
 ---
 
 ### H37
-**Before crediting a check with a catch, count what it has ever caught — over
+**Before crediting a check with a catch, count what it has ever caught, over
 the whole store, and print the denominator.**
 Glob the artefacts the check reads, run its own predicate, bucket the failures
 by cause. It answers "is this chronic" with a number instead of a feeling.
@@ -539,13 +539,13 @@ offered as the evidence for changing a check (K125, K129).*
 
 ### H38
 **When the source cannot say which of two definitions ran, ask the printed
-paper — with a phrase, gathered where the text actually enters.**
+paper, with a phrase, gathered where the text actually enters.**
 The candidates make opposite predictions about whether an argument reaches the
 page, and the artefact refutes one. Three things decide whether it works.
 Evidence must be a CONTIGUOUS multi-word phrase: asking whether a few of the
 words each occur somewhere answers yes for almost any English sentence, and one
 call whose entire argument was "processors" turned a clear verdict into a mixed
-one. The samples come through the WRAPPERS — spectre never calls
+one. The samples come through the WRAPPERS, spectre never calls
 `\dtcolornote` in its body, so the evidence sits at `\paul`. And the verdict
 must be inherited by a wrapper that only passes its argument along, or the
 caller is refused anyway.
@@ -566,8 +566,8 @@ both, but never the same entry twice.
 - An ordering that matters (what to read, run, or confirm before what).
 
 **What does not**
-- Facts about tool behaviour — those are KNOWLEDGE.
-- Anything a test now enforces — write the test, and keep one line here.
+- Facts about tool behaviour; those are KNOWLEDGE.
+- Anything a test now enforces, write the test, and keep one line here.
 - Generic advice that is true of all programming. If it would fit in any
   project unchanged, it is not knowhow, it is filler.
 
