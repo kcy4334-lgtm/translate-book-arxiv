@@ -273,14 +273,33 @@ def read(path):
     return io.open(path, encoding='utf-8', errors='replace').read()
 
 
+# An arXiv id carries a version suffix, and the same paper reaches this
+# module spelled both ways: `--arxiv-id 2509.22944` from a caller, and
+# `2509.22944v4` from detection. Keyed on the raw string the store holds two
+# rows for one paper, and since every fraction `digest` prints is `len(users)`
+# over `len(papers)`, both halves are then wrong: the paper is counted twice
+# in the numerator it appears in and twice in the denominator of every other.
+#
+# Only ids shaped like arXiv's are stripped, so a folder-derived name that
+# happens to end in a letter v and a digit is left exactly as it is.
+_ARXIV_VERSIONED = re.compile(
+    r'^(\d{4}\.\d{4,5}|[a-z-]+(?:\.[A-Z]{2})?/\d{7})v\d+$')
+
+
+def normalise_id(name):
+    """One paper, one key, however its id was spelled."""
+    match = _ARXIV_VERSIONED.match(name)
+    return match.group(1) if match else name
+
+
 def paper_id(temp_dir):
     """How this paper is named in the census, and never renamed after."""
     cfg = read(os.path.join(temp_dir, 'config.txt'))
     arxiv = re.search(r'(?m)^arxiv_id=(.+)$', cfg)
     if arxiv and arxiv.group(1).strip():
-        return arxiv.group(1).strip()
+        return normalise_id(arxiv.group(1).strip())
     name = os.path.basename(os.path.abspath(temp_dir))
-    return re.sub(r'_temp.*$', '', name)
+    return normalise_id(re.sub(r'_temp.*$', '', name))
 
 
 def read_style_files(temp_dir):

@@ -161,6 +161,7 @@ here; the test is the real record. This file is for the *reasoning*, the
 | A label is printed twice: "3.2절 절을" | [K77](#k77) |
 | A reference list is not detected, or prose is treated as one | [K74](#k74) |
 | Translation is slow and expensive on a paper that looks small | [K75](#k75) |
+| The census reports more papers than were ingested, or a fraction reads high | [K144](#k144) |
 
 ---
 
@@ -2004,11 +2005,11 @@ It recognises `\newcommand`, `\renewcommand`, `\providecommand`,
 resolve. `\let\foo\bar` binds one NAME to another and has no body; xparse's
 `\NewDocumentCommand` writes its signature as `{ s O{} m }`, not `[n][d]`.
 Neither is collected, so the name goes on printing at the reader (K135). The
-census says how often: `\let` in 16 of 24 shipped style files and 9
-documents, xparse in 2. Neither attempted, and the precedent is a caution,
+census says how often: `\let` in 14 of 21 shipped style files and 6
+documents, xparse in 1. Neither attempted, and the precedent is a caution,
 `read_math_macros` follows `\let` and needed an alias rule, because following
 one to a name nobody defined swaps an unreadable token for a different one.
-*Status: open, measured 2026-09-03. Both `gap` in `test_source_lint.py`.*
+*Status: open, measured 2026-09-04. Both `gap` in `test_source_lint.py`.*
 
 ---
 
@@ -2038,6 +2039,22 @@ passed, so Calibre draws one from the metadata itself and its rasterisation
 varies run to run. Nothing a reader reads is affected. Worth knowing before
 someone checksums two EPUBs and goes hunting for a defect in the text.
 *Status: measured 2026-09-03. Pass `--cover` for a stable one.*
+
+---
+
+### K144
+**A store keyed on a raw arXiv id holds two rows for one paper.** The census
+had 24 rows for 21 papers: a caller passing `--arxiv-id 2509.22944` and
+detection returning `2509.22944v4` each opened their own, and all three such
+pairs agreed marker for marker AND count for count. `digest` prints
+`len(users)/len(papers)`, so a doubled paper inflates the numerator of every
+shape it carries and the denominator of every shape it does not: `\let` read
+16 of 24 shipped style files and reads 14 of 21. `paper_id` strips the
+version only when the rest is shaped like an arXiv id, so `planck` and `adam`
+keep their names. The folder path already collapsed `_temp_dryrun` to one
+key; the arXiv path had been left out of the same rule.
+*Status: LOCKED, `test_both_spellings_of_one_id_are_one_paper`; store
+migrated 24 -> 21 rows, three merges, no count differed.*
 
 ---
 

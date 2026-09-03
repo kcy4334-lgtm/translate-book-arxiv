@@ -289,7 +289,7 @@ CONSTRUCT_DISPOSITION = {
     'providecommand': 'handled', 'DeclareRobustCommand': 'handled',
     'optional-argument': 'handled',
     # `\let\foo\bar` binds a name without a body, and `read_definitions` does
-    # not read it. 16 of 24 papers ship one. See K141.
+    # not read it. 14 of 21 papers ship one. See K141.
     'let-binding': 'gap',
     # The conditional-definition path. The flag is NOT evaluated — doing that
     # means executing package options — so a name defined once per branch is
@@ -328,7 +328,7 @@ CONSTRUCT_DISPOSITION = {
     # so a pattern looking for `\begin` finds nothing. `_alias_math_spans`.
     'math-env-alias': 'handled',
     # A name bound to horizontal space looks exactly like an abbreviation, and
-    # resolving it to nothing deletes indentation. 8 of 24 papers ship one.
+    # resolving it to nothing deletes indentation. 7 of 21 papers ship one.
     'glue-only-macro': 'handled',
     # xparse's signature is `{ s O{} m }`, not `[n][d]`; the definition is not
     # collected and the name prints. See K141.

@@ -1,6 +1,6 @@
 {
  "papers": {
-  "1011.3027v7": {
+  "1011.3027": {
    "shapes": {
     "bibliography": {
      "bibitem": 84,
@@ -31,7 +31,7 @@
    },
    "title": "Introduction to the non-asymptotic analysis of random matrices"
   },
-  "1207.7214v2": {
+  "1207.7214": {
    "shapes": {
     "bibliography": {
      "bibitem": 141,
@@ -86,7 +86,7 @@
    },
    "title": "Introduction"
   },
-  "1311.4600v3": {
+  "1311.4600": {
    "shapes": {
     "bibliography": {
      "bibliography-file": 1,
@@ -117,7 +117,7 @@
    },
    "title": "Small gaps between primes"
   },
-  "1406.2661v1": {
+  "1406.2661": {
    "shapes": {
     "bibliography": {
      "bibitem": 31,
@@ -172,7 +172,7 @@
    },
    "title": "Generative Adversarial Nets"
   },
-  "1505.04597v1": {
+  "1505.04597": {
    "shapes": {
     "bibliography": {
      "bibitem": 14,
@@ -215,7 +215,7 @@
    },
    "title": "U-Net: Convolutional Networks for Biomedical Image Segmentation"
   },
-  "1512.03385v1": {
+  "1512.03385": {
    "shapes": {
     "bibliography": {
      "bibitem": 50,
@@ -280,7 +280,7 @@
    },
    "title": "Deep Residual Learning for Image Recognition"
   },
-  "1706.03762v7": {
+  "1706.03762": {
    "shapes": {
     "bibliography": {
      "bibitem": 40,
@@ -342,7 +342,7 @@
    },
    "title": "Attention Is All You Need"
   },
-  "1801.01203v1": {
+  "1801.01203": {
    "shapes": {
     "bibliography": {
      "bibitem": 38,
@@ -390,7 +390,7 @@
    },
    "title": "Spectre Attacks: \\ Exploiting Speculative Execution"
   },
-  "1806.07366v5": {
+  "1806.07366": {
    "shapes": {
     "bibliography": {
      "bibitem": 60,
@@ -456,7 +456,7 @@
    },
    "title": "Neural Ordinary Differential Equations"
   },
-  "1810.04805v2": {
+  "1810.04805": {
    "shapes": {
     "bibliography": {
      "bibitem": 56,
@@ -515,7 +515,7 @@
    },
    "title": "BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding"
   },
-  "2005.14165v4": {
+  "2005.14165": {
    "shapes": {
     "bibliography": {
      "bibitem": 144,
@@ -575,7 +575,7 @@
    },
    "title": "Language Models are Few-Shot Learners"
   },
-  "2006.11239v2": {
+  "2006.11239": {
    "shapes": {
     "bibliography": {
      "bibliography-file": 1,
@@ -633,7 +633,7 @@
    },
    "title": "Denoising Diffusion Probabilistic Models"
   },
-  "2204.02311v5": {
+  "2204.02311": {
    "shapes": {
     "bibliography": {
      "bibitem": 176,
@@ -686,7 +686,7 @@
    },
    "title": "2em% height 4pt% 0.25in% - % PaLM: Scaling Language Modeling with Pathways 0.2in% - % height 1pt% 0.09in"
   },
-  "2409.12514v5": {
+  "2409.12514": {
    "shapes": {
     "bibliography": {
      "bibitem": 46,
@@ -749,7 +749,7 @@
    },
    "title": "TinyVLA: Towards Fast, Data-Efficient Vision-Language-Action Models for Robotic Manipulation"
   },
-  "2411.02359v1": {
+  "2411.02359": {
    "shapes": {
     "bibliography": {
      "bibliography-file": 1,
@@ -819,80 +819,6 @@
    "title": "DeeR-VLA: Dynamic Inference of Multimodal Large Language Models for Efficient Robot Execution"
   },
   "2509.22944": {
-   "shapes": {
-    "bibliography": {
-     "bibitem": 29,
-     "cite": 51,
-     "thebibliography-inlined": 1
-    },
-    "caption": {
-     "caption": 38
-    },
-    "disabled in place": {
-     "commented-caption": 5,
-     "commented-float": 1
-    },
-    "float": {
-     "figure": 6,
-     "figure*": 3,
-     "subfigure": 9,
-     "subfloat": 4,
-     "table": 5,
-     "table*": 14
-    },
-    "front matter": {
-     "footnote": 1,
-     "icml-frontmatter": 8,
-     "twocolumn-title": 1
-    },
-    "macro": {
-     "abbreviation-macro": 1,
-     "bfseries-group": 34,
-     "cellcolor": 2,
-     "let-binding": 3,
-     "newcommand-braced": 52,
-     "providecommand": 4
-    },
-    "macro in style files": {
-     "let-binding": 71,
-     "newcommand-bare": 22,
-     "newcommand-braced": 111,
-     "newcommand-starred": 1,
-     "newif": 11,
-     "optional-argument": 23,
-     "providecommand": 1,
-     "renewcommand": 16,
-     "tab-stop": 1,
-     "xparse-command": 5
-    },
-    "math": {
-     "eqnarray": 1,
-     "equation": 6,
-     "old-font-switch": 1,
-     "setlength": 18
-    },
-    "other": {
-     "algorithm": 1,
-     "algorithmic": 1,
-     "def": 384,
-     "newcommand": 52
-    },
-    "preamble": {
-     "documentclass": 1
-    },
-    "table": {
-     "cmidrule": 50,
-     "multicolumn": 36,
-     "multirow": 26,
-     "repeat-column-spec": 12,
-     "rotatebox": 26,
-     "tabular": 19,
-     "tnote": 9
-    }
-   },
-   "title": "SINQ: Sinkhorn-Normalized Quantization for Calibration-Free Low-Precision LLM Weights"
-  },
-  "2509.22944v4": {
    "shapes": {
     "bibliography": {
      "bibitem": 29,
@@ -1041,139 +967,7 @@
    },
    "title": "CafeQ: Calibration-free Quantization via Learned Transformations and Adaptive Rounding"
   },
-  "2511.19705v1": {
-   "shapes": {
-    "bibliography": {
-     "bibitem": 61,
-     "cite": 4,
-     "citep": 51,
-     "citet": 5,
-     "thebibliography-inlined": 1
-    },
-    "caption": {
-     "caption": 12,
-     "subcaption": 3
-    },
-    "float": {
-     "SCfigure": 1,
-     "figure": 1,
-     "figure*": 1,
-     "subfigure": 3,
-     "table": 8
-    },
-    "front matter": {
-     "author": 2,
-     "bibliographystyle": 1,
-     "footnote": 2,
-     "maketitle": 1
-    },
-    "macro": {
-     "abbreviation-macro": 4,
-     "ensuremath": 2,
-     "glue-only-macro": 2,
-     "let-binding": 1,
-     "newcommand-braced": 237,
-     "newcommand-starred": 1,
-     "providecommand": 6,
-     "renewcommand": 4,
-     "xspace": 4
-    },
-    "macro in style files": {
-     "DeclareRobustCommand": 17,
-     "futurelet": 2,
-     "glue-only-macro": 1,
-     "let-binding": 169,
-     "newcommand-bare": 77,
-     "newif": 16,
-     "optional-argument": 2,
-     "providecommand": 27,
-     "renewcommand": 38
-    },
-    "math": {
-     "align": 3,
-     "display-bracket": 6,
-     "equation": 2,
-     "inline-paren": 1,
-     "old-font-switch": 54,
-     "setlength": 2
-    },
-    "other": {
-     "algorithm": 1,
-     "algorithmic": 1,
-     "def": 568,
-     "newcommand": 238
-    },
-    "preamble": {
-     "documentclass": 1
-    },
-    "table": {
-     "addlinespace": 2,
-     "cmidrule": 8,
-     "multicolumn": 11,
-     "multirow": 1,
-     "tabular": 8
-    }
-   },
-   "title": "CafeQ: Calibration-free Quantization via Learned Transformations and Adaptive Rounding"
-  },
   "2606.04980": {
-   "shapes": {
-    "bibliography": {
-     "bibliography-file": 1,
-     "cite": 87,
-     "citep": 1
-    },
-    "caption": {
-     "caption": 28
-    },
-    "disabled in place": {
-     "commented-caption": 3,
-     "commented-float": 3
-    },
-    "float": {
-     "figure": 13,
-     "figure*": 1,
-     "minipage": 4,
-     "subfigure": 2,
-     "table": 5,
-     "table*": 5
-    },
-    "front matter": {
-     "author": 1,
-     "bibliographystyle": 1,
-     "footnote": 2,
-     "maketitle": 1
-    },
-    "macro": {
-     "abbreviation-macro": 1,
-     "let-binding": 2,
-     "newcommand-braced": 48,
-     "renewcommand": 11
-    },
-    "math": {
-     "equation": 27,
-     "old-font-switch": 8,
-     "setlength": 10
-    },
-    "other": {
-     "def": 384,
-     "newcommand": 48
-    },
-    "preamble": {
-     "documentclass": 1
-    },
-    "table": {
-     "addlinespace": 7,
-     "cmidrule": 12,
-     "multicolumn": 6,
-     "multirow": 33,
-     "resizebox": 9,
-     "tabular": 12
-    }
-   },
-   "title": "AlphaQ: Calibration-Free Bit Allocation for Mixture-of-Experts Quantization"
-  },
-  "2606.04980v1": {
    "shapes": {
     "bibliography": {
      "bibliography-file": 1,
@@ -1309,7 +1103,7 @@
    },
    "title": ""
   },
-  "quant-ph/9508027v2": {
+  "quant-ph/9508027": {
    "shapes": {
     "bibliography": {
      "bibitem": 75,

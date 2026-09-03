@@ -80,7 +80,29 @@ class Identity(unittest.TestCase):
 
     def test_the_arxiv_id_names_the_paper(self):
         self.write('config.txt', 'arxiv_id=2411.02359v1\n')
-        self.assertEqual(cc.paper_id(self.dir), '2411.02359v1')
+        self.assertEqual(cc.paper_id(self.dir), '2411.02359')
+
+    def test_both_spellings_of_one_id_are_one_paper(self):
+        """The store held 24 rows for 21 papers because this did not hold.
+
+        A caller passing `--arxiv-id 2509.22944` and detection returning
+        `2509.22944v4` are the same paper. Two rows for it corrupt both
+        halves of every fraction `digest` prints.
+        """
+        self.write('config.txt', 'arxiv_id=2509.22944v4\n')
+        versioned = cc.paper_id(self.dir)
+        self.write('config.txt', 'arxiv_id=2509.22944\n')
+        self.assertEqual(versioned, cc.paper_id(self.dir))
+
+    def test_the_old_style_id_normalises_too(self):
+        self.write('config.txt', 'arxiv_id=quant-ph/9508027v2\n')
+        self.assertEqual(cc.paper_id(self.dir), 'quant-ph/9508027')
+
+    def test_a_name_that_is_not_an_arxiv_id_keeps_its_v(self):
+        """`planck` and `adam` are in the store under names, not ids, and a
+        name is never rewritten by a rule meant for arXiv's numbering."""
+        for name in ('planck', 'adam', 'resnetv2', 'Paperv1'):
+            self.assertEqual(cc.normalise_id(name), name)
 
     def test_without_one_the_folder_does(self):
         self.assertEqual(cc.paper_id(os.path.join(self.dir, 'Paper_temp')),
