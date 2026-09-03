@@ -1,6 +1,10 @@
 # Translate Book — arXiv
 
-An agent skill for Codex, Claude Code, and OpenClaw that translates entire books (PDF/DOCX/EPUB) into any language using parallel subagents.
+An agent skill for Codex, Claude Code, and OpenClaw that turns an arXiv paper into a translated, printable book — reading the paper's **LaTeX source**, so the equations, figures, tables and the paper's own numbering survive the trip. PDF, DOCX and EPUB inputs are supported too, through Calibre.
+
+Translating a paper from its PDF means translating what a PDF reader can recover from it, and a formula is the first thing that does not survive: `pdftohtml` scatters every equation into positioned text spans, and no flag brings it back. This skill fetches the LaTeX the authors actually wrote.
+
+Target language is a flag — `zh`, `en`, `ja`, `ko`, `fr`, `de`, `es` and extensible. Korean is what it is measured against, and the print layout ships with Korean typography already tuned.
 
 > Lineage: [claude_translater](https://github.com/wizlijun/claude_translater) inspired [deusyu/translate-book](https://github.com/deusyu/translate-book), which restructured the workflow as an agent skill — subagents translating chunks in parallel, manifest-driven integrity checks, resumable runs, and multi-format output in one pipeline.
 
@@ -14,10 +18,15 @@ An agent skill for Codex, Claude Code, and OpenClaw that translates entire books
 ## How It Works
 
 ```
-Input (PDF/DOCX/EPUB)
-  │
-  ▼
-Calibre ebook-convert → HTMLZ → HTML → Markdown
+arXiv paper (PDF)                    │  any other book (PDF/DOCX/EPUB)
+  │  detected from the page-1 stamp   │
+  ▼                                   ▼
+Fetch /e-print → flatten the LaTeX    Calibre ebook-convert → HTMLZ → HTML
+  │  the paper's own macros resolved from the .sty files it ships
+  │  equation, theorem, section and float numbers read from the source
+  │  figures rasterised from the original vector PDFs, captions attached
+  ▼                                   ▼
+Markdown, with $...$ math intact  ←───┘
   │
   ▼
 Split into chunks (chunk0001.md, chunk0002.md, ...)
@@ -38,6 +47,9 @@ Each chunk gets its own independent subagent with a fresh context window. This p
 
 ## Features
 
+- **Numbers come from the paper** — equation, theorem, section, float and subfigure numbers are reconstructed from the LaTeX source and checked against the original PDF by `tests/source_probe.py`, not against the build's own output
+- **The paper's own shorthand is resolved** — a `.sty` is never `\input`, so pandoc never sees `\ie` or `\parhead` and the name prints at the reader. `scripts/paper_macros.py` reads the definitions the paper ships and expands them, refusing rather than guessing when it cannot — 4,099 calls across the 21 papers in the corpus, and a word-level diff of the produced markdown on six of them shows nothing lost but the macro names themselves
+- **Refusals are reported, never silent** — every macro it declines is named with its reason at conversion time
 - **Parallel subagents** — a work queue keeps 8 translators in flight, each with isolated context; the next chunk starts the moment a slot frees
 - **The reference list is never translated** — it is split into its own chunk and copied verbatim. Measured at 27–34% of a paper's characters, and usually its largest chunk
 - **Every chunk is checked before it counts** — `scripts/verify_chunk.py` compares each sub-agent's output against its source, the glossary it was handed, and the chunk it was told to quote from
@@ -48,6 +60,46 @@ Each chunk gets its own independent subagent with a fresh context window. This p
 - **Optional output controls** — explicit EPUB cover, custom temp root, and user-facing export aliases
 - **Multi-language** — zh, en, ja, ko, fr, de, es (extensible)
 - **PDF/DOCX/EPUB input** — Calibre handles the conversion heavy lifting
+- **It grows** — four advisor sub-agents and three logs ship with the skill, and a census of every LaTeX shape the corpus has met answers "has this ever been seen?" with a number instead of a guess. See [Growing the skill](#growing-the-skill)
+
+## Growing the skill
+
+Every paper is a new shape. A pipeline that meets one it has not seen either
+learns from it or meets it again next month at the same price. Four things
+ship with this skill so that the second time is cheaper than the first.
+
+| | what it holds |
+|---|---|
+| `KNOWLEDGE.md` | What a tool actually did, with the measurement that proved it. 143 entries |
+| `KNOWHOW.md` | What a way of working cost, so it is not paid twice. 38 entries |
+| `REFEREE.md` | Whether a repeated failure belongs to a tool, a briefing, or a role. 6 entries |
+| `corpus/shapes.json` | Every LaTeX construct each paper carried, written by the build itself. 24 papers |
+
+The census is the part that is easy to underrate. It answers *"has this ever
+been seen?"* with a number, and — more usefully — it names what has **never**
+been seen, so a pattern that has never met a real example says so instead of
+being trusted.
+
+Four advisor sub-agents read those stores rather than guessing:
+
+- **old-man** — before you conclude a paper does not contain something, or write a pattern whose match decides presence
+- **question-monster** — after you conclude something is impossible; it hands back candidates to test
+- **fast-finder** — instead of reading the logs; returns the few entries that bear on the question
+- **referee** — once a whole run is gated; separates a tool fault from a briefing fault from a role's
+
+`tests/test_source_lint.py` turns the census into an oracle: a construct the
+corpus has met but nobody has classified fails the test suite. New shapes have
+to be dealt with before they ship, not after a reader finds them.
+
+### What that looks like in practice
+
+One loop, from a single working session:
+
+1. `\ie` was found printing mid-sentence in a finished Korean book — five times, where the paper's own PDF prints "i.e." five times.
+2. Fixed by resolving the paper's macros from the `.sty` it ships (`scripts/paper_macros.py`).
+3. **old-man** was then asked what a pattern like that would miss, and found two more: a display opened by a macro (`\newcommand{\be}{\begin{equation}}`) that a `\begin`-hunting regex cannot see, and a name bound to `\hspace` that looks exactly like an abbreviation — resolving it would have deleted a listing's indentation.
+4. **question-monster** found a third: an odd `$` inside an `\ifmmode` body had destroyed `$`-parity for the rest of one paper, and 73 rewrites were landing *inside* its formulas.
+5. All three fixed, recorded, and **the census taught to count their shapes** — so the next paper carrying one is caught by a test, not by a two-hour consultation.
 
 ## Prerequisites
 
@@ -284,12 +336,16 @@ Then: merge → Pandoc HTML → inject TOC → Calibre generates DOCX, EPUB, PDF
 | `.claude/agents/referee.md` | Advisor called *once the whole run is gated* — reads the distribution of failures, separates a tool fault from a briefing fault from a role's, and cautions sparingly |
 | `REFEREE.md` | The referee's ledger, searchable with the other logs so a caution raised on one role is found when another repeats it |
 | `scripts/referee.py` | `tally` / `record` / `history` — counts failures across chunks and books; flags BRIEF (a third of a run) and CHRONIC (a third book) |
-| `scripts/kb.py` | Lookup over KNOWLEDGE/KNOWHOW: `find`, `list`, `show`, `check`, `stale`. No index file — parsed fresh, so it cannot drift |
+| `scripts/kb.py` | Lookup over KNOWLEDGE/KNOWHOW/REFEREE: `find`, `list`, `show`, `check`, `stale`. No index file — parsed fresh, so it cannot drift |
+| `scripts/advisors.py` | `record` / `status` — which advisor was consulted, on what, and what it answered. The log is local; an advisor whose store never moves cannot be told apart from one nobody calls |
+| `scripts/install_advisors.py` | Copies the four advisor definitions into the agent runtime's own directory |
 | `scripts/corpus_census.py` | What shape each paper was. Written by the build, so it grows on its own; `digest` gives frequency and, crucially, what has NEVER been seen |
 | `corpus/shapes.json` | The census itself — one row per paper, append-only |
 | `scripts/convert.py` | PDF/DOCX/EPUB → Markdown chunks via Calibre HTMLZ |
 | `scripts/backends.py` | Ingest backend selection (calibre / arXiv) and temp-dir provenance |
 | `scripts/arxiv_backend.py` | arXiv LaTeX-source ingest: real equations, figures rasterised from the originals |
+| `scripts/paper_macros.py` | The paper's own `\newcommand`s, resolved from the `.sty` files it ships — before pandoc reads the source, which never sees them. Refuses rather than guesses, and names every refusal |
+| `scripts/grid_table.py` | Grid-table construction for tables pandoc's markdown writer cannot express |
 | `scripts/manifest.py` | Chunk manifest: SHA-256 tracking and merge validation |
 | `scripts/math_guard.py` | Formula/citation placeholders (`⟦M0042⟧`) and their restoration |
 | `scripts/glossary.py` | Glossary management: per-chunk term tables for consistent terminology |
