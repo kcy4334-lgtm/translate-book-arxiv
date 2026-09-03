@@ -62,6 +62,23 @@ Each chunk gets its own independent subagent with a fresh context window. This p
 - **PDF/DOCX/EPUB input** — Calibre handles the conversion heavy lifting
 - **It grows** — four advisor sub-agents and three logs ship with the skill, and a census of every LaTeX shape the corpus has met answers "has this ever been seen?" with a number instead of a guess. See [Growing the skill](#growing-the-skill)
 
+## What this fork develops
+
+Upstream translates books with parallel sub-agents. This fork puts the work
+into the one input where the conversion itself is lossy — an arXiv paper —
+and into making the skill cheaper to work on next month than this month.
+
+| | |
+|---|---|
+| **Numbers read from the paper** | Equation, theorem, section, float and subfigure numbers reconstructed from `flat.tex` and checked against the source PDF by `tests/source_probe.py`, not against the build's own output |
+| **`scripts/paper_macros.py`** | The paper's own `\newcommand`s resolved from the `.sty` files it ships. 4,099 calls across the 21 papers in the corpus |
+| **Refusal over guessing** | It declines on TeX machinery, on a discarded argument, and on anything pandoc reads better — and names every refusal at conversion time instead of leaving it silent |
+| **Print path** | Headless Chromium against a real `@page` box (A4, 18/18/22/18 mm, 11.5 pt), page numbers stamped afterwards because Chrome implements no margin boxes. `scripts/layout.py` is the single source of page geometry and fonts |
+| **Growth stores that ship** | `KNOWLEDGE.md` 143 entries, `KNOWHOW.md` 38, `REFEREE.md` 6, and a census of every LaTeX shape the corpus has met across 24 papers |
+| **Four advisor sub-agents** | old-man, question-monster, fast-finder, referee — see below |
+| **The census as an oracle** | `tests/test_source_lint.py` fails when the corpus has met a construct nobody has classified |
+| **Tests** | 1,561, stdlib only, run in CI |
+
 ## Growing the skill
 
 Every paper is a new shape. A pipeline that meets one it has not seen either
@@ -235,7 +252,7 @@ python3 ../../scripts/merge_and_build.py --temp-dir standard-alice_temp --title 
 
 ## Feedback and Contributions
 
-Please open a detailed GitHub issue instead of starting with a pull request. This project is maintained as an AI-assisted skill pipeline, and changes need to be evaluated against the current orchestration rules, chunk/manifest contracts, baseline assets, and release flow in one maintainer-owned context.
+Please open a detailed GitHub issue instead of starting with a pull request. A change here has to be checked against the orchestration rules in `SKILL.md`, the chunk and manifest contracts, the baseline assets, and the release flow — and those only hold together when one person reads them side by side.
 
 Pull requests are not the preferred contribution path and may be closed in favor of an issue. If you already have a patch, include the idea, key diff, failing case, or verification notes in the issue; the maintainer may rework or split the implementation before merging.
 
@@ -436,18 +453,16 @@ Phase 1 grows the glossary as chunks land, so the earliest chunks see the smalle
 
 > Phase 4 remains gated on real-book evidence. The shipped schemas can still evolve under compatibility-aware migrations if production runs expose gaps.
 
-### Parallel track — Pipeline / UX backlog (partly shipped, separate from issue #7)
+### Parallel track — Pipeline / UX backlog (partly shipped, separate from [issue #7](https://github.com/deusyu/translate-book/issues/7))
 
 Recent PR discussions also surfaced several useful workflow improvements, but these are broader than one-off patches and touch repo contracts (artifact names, temp-dir behavior, cleanup semantics, or EPUB compatibility scope). Current status:
 
-- **Explicit EPUB cover support (shipped).** `merge_and_build.py --cover <image>` passes the image through the HTML -> EPUB Calibre step. `--cover-from <epub>` / EPUB cover auto-extraction remains out of scope until the project is ready to own EPUB parsing compatibility across different package layouts. (context: closed #3)
-- **Configurable temp workspace location (shipped).** `convert.py --temp-root <dir>` keeps the default cwd-local `{book_name}_temp/` behavior unless explicitly overridden. (context: closed #4)
-- **Safer Calibre/Pandoc artifact cleanup (partly shipped).** Page-number and Calibre-marker cleanup is regression-tested, preserving years, chapter numbers, and non-monotonic standalone numbers. Continue improving cleanup incrementally under tests. (context: closed #5)
-- **Optional user-facing export names (shipped).** `merge_and_build.py --export-name <stem>` creates alias copies while preserving canonical pipeline artifacts as `book.html`, `book_doc.html`, `book.docx`, `book.epub`, and `book.pdf`. (context: closed #6)
+- **Explicit EPUB cover support (shipped).** `merge_and_build.py --cover <image>` passes the image through the HTML -> EPUB Calibre step. `--cover-from <epub>` / EPUB cover auto-extraction remains out of scope until the project is ready to own EPUB parsing compatibility across different package layouts. (context: [upstream #3](https://github.com/deusyu/translate-book/issues/3), closed)
+- **Configurable temp workspace location (shipped).** `convert.py --temp-root <dir>` keeps the default cwd-local `{book_name}_temp/` behavior unless explicitly overridden. (context: [upstream #4](https://github.com/deusyu/translate-book/issues/4), closed)
+- **Safer Calibre/Pandoc artifact cleanup (partly shipped).** Page-number and Calibre-marker cleanup is regression-tested, preserving years, chapter numbers, and non-monotonic standalone numbers. Continue improving cleanup incrementally under tests. (context: [upstream #5](https://github.com/deusyu/translate-book/issues/5), closed)
+- **Optional user-facing export names (shipped).** `merge_and_build.py --export-name <stem>` creates alias copies while preserving canonical pipeline artifacts as `book.html`, `book_doc.html`, `book.docx`, `book.epub`, and `book.pdf`. (context: [upstream #6](https://github.com/deusyu/translate-book/issues/6), closed)
 
 ## Star History
-
-If you find this project helpful, please consider giving it a Star ⭐!
 
 [![Star History Chart](https://api.star-history.com/svg?repos=kcy4334-lgtm/translate-book-arxiv&type=Date)](https://star-history.com/#kcy4334-lgtm/translate-book-arxiv&Date)
 
