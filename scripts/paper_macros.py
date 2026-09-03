@@ -215,15 +215,16 @@ class Definition(object):
     """One `\\newcommand` / `\\def`, with where it came from."""
 
     __slots__ = ('name', 'arity', 'optional', 'body', 'source', 'span',
-                 'evidenced')
+                 'evidenced', 'kind')
 
-    def __init__(self, name, arity, optional, body, source, span):
+    def __init__(self, name, arity, optional, body, source, span, kind='def'):
         self.name = name
         self.arity = arity
         self.optional = optional      # first argument is optional (LaTeX [n][d])
         self.body = body
         self.source = source
         self.span = span              # (start, end) in its own source text
+        self.kind = kind              # provide | renew | new | declare | def
         # Set when the printed paper picked this definition over a competing
         # one. It licenses the argument-discarding case below: the evidence IS
         # that the argument does not appear in the paper.
@@ -293,6 +294,67 @@ _DEF_RE = re.compile(
     r'\\([A-Za-z@]+)\s*((?:#\d\s*)*)(?=\{)')
 
 
+# Which declaration was used. It decides the winner when one name is defined
+# twice, and LaTeX's rule is not "the last one": `\providecommand` on a name
+# that already exists does NOTHING.
+_KIND_PATTERNS = (
+    ('provide', re.compile(r'\\providecommand')),
+    ('renew', re.compile(r'\\renewcommand')),
+    ('new', re.compile(r'\\newcommand')),
+    ('declare', re.compile(r'\\DeclareRobustCommand')),
+)
+
+
+def _kind_of(head):
+    for name, rx in _KIND_PATTERNS:
+        if rx.match(head):
+            return name
+    return 'def'
+
+
+def _latex_order(entries):
+    r"""Processing order: a class or package is read before the preamble.
+
+    `shipped_sources` yields flat.tex first because that is the document, but
+    LaTeX loads `\usepackage` and `\documentclass` before reading a line of
+    the preamble, and which definition wins depends on that order.
+    """
+    return ([d for d in entries if d.source != 'flat.tex']
+            + [d for d in entries if d.source == 'flat.tex'])
+
+
+def settle_by_declaration(entries):
+    r"""The winner among competing definitions, where LaTeX itself decides.
+
+    Two of the corpus's cases resolve in OPPOSITE directions, so source order
+    alone must get one of them wrong:
+
+      * higgs_atlas `\ttbar` -- `\def` in atlasphysics.sty, `\renewcommand` in
+        flat.tex. The document preamble runs last, so flat.tex wins.
+      * planck `\apj` -- `\def` in aa.cls, `\providecommand` in flat.tex. The
+        provide is a no-op on a defined name, so aa.cls wins.
+
+    Returns None when LaTeX's rules do not decide, which is the case that
+    matters most: one name written once per branch of a conditional, where
+    only one branch ever runs. spectre's `\dtcolornote` and `\footnote` are
+    both that, and the printed paper (H38) is what settles them.
+    """
+    order = _latex_order(entries)
+    kinds = set(d.kind for d in order)
+    if kinds == {'provide'}:
+        return order[0]                 # later ones are no-ops
+    if len(set(d.source for d in order)) == 1 and len(kinds) == 1:
+        return None                     # same file, same declaration: branches
+    current = None
+    for d in order:
+        if d.kind == 'provide':
+            if current is None:
+                current = d
+        else:
+            current = d
+    return current
+
+
 def read_definitions(sources):
     r"""{name: [Definition, ...]} from (label, text) pairs, in reading order.
 
@@ -322,7 +384,8 @@ def read_definitions(sources):
                 body = text[open_at + 1:close - 1]
                 found.setdefault(name, []).append(
                     Definition(name, arity, optional, body, label,
-                               (m.start(), close)))
+                               (m.start(), close),
+                               _kind_of(clean[m.start():m.start() + 40])))
     return found
 
 
@@ -459,10 +522,17 @@ def resolve(name, defs, seen=None, depth=0):
                       'would delete indentation, not a name')
     bodies = set(d.body.strip() for d in entries)
     if len(bodies) > 1:
-        return None, ('%d different definitions (%s); the source picks one '
-                      'with a conditional this does not evaluate'
-                      % (len(bodies),
-                         ', '.join(sorted(set(d.source for d in entries)))))
+        # LaTeX decides most of these itself, and not by source order: a
+        # `\providecommand` on a defined name does nothing. Only when its
+        # rules are silent -- one name written once per conditional branch --
+        # is the printed paper asked instead (H38).
+        settled = settle_by_declaration(entries)
+        if settled is None:
+            return None, ('%d different definitions (%s); the source picks one '
+                          'with a conditional this does not evaluate'
+                          % (len(bodies),
+                             ', '.join(sorted(set(d.source for d in entries)))))
+        entries = [settled]
     d = entries[0]
     body = d.body
 

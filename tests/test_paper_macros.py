@@ -98,7 +98,12 @@ class ARefusalIsBetterThanAGuess(unittest.TestCase):
         # print nothing, in the two branches of \ifdt@notes. The default at
         # line 127 is notes-ON, and choosing it would be choosing wrong: the
         # paper is built `camera` and its PDF contains "NeedReference" 0 times.
-        d = defs_of(r'\newcommand{\dtcolornote}[3][]{\textbf{#3}}',
+        # Both in ONE file, which is what makes it undecidable: LaTeX's own
+        # rules settle a name declared in two DIFFERENT files, or with two
+        # different declarations, and `settle_by_declaration` applies them.
+        # Same file, same declaration is the branch case, and only the
+        # printed paper can answer it.
+        d = defs_of(r'\newcommand{\dtcolornote}[3][]{\textbf{#3}}' '\n'
                     r'\newcommand{\dtcolornote}[3][]{\ignorespaces}')
         body, why = pm.resolve('dtcolornote', d)
         self.assertIsNone(body)
@@ -311,6 +316,58 @@ class AnOddDollarInAMacroBodyIsNotADocumentDelimiter(unittest.TestCase):
             self.assertNotIn('\n\n', tex[start:end],
                              'a span reaching across a blank line is not a '
                              'formula: %r' % tex[start:end])
+
+
+class LatexDecidesMostCompetingDefinitions(unittest.TestCase):
+    r"""Source order alone must get one of these wrong, because two real cases
+    resolve in OPPOSITE directions:
+
+      * higgs_atlas `\ttbar` — `\def` in atlasphysics.sty, `\renewcommand` in
+        flat.tex. The document preamble runs last, so flat.tex wins.
+      * planck `\apj` — `\def` in aa.cls, `\providecommand` in flat.tex. A
+        `\providecommand` on a defined name does nothing, so aa.cls wins.
+
+    The declaration kind gets both right. What it must NOT do is answer for a
+    name written once per branch of a conditional, where only one branch runs
+    — that stays the printed paper's job (H38).
+    """
+
+    def kinds(self, *sources):
+        defs = pm.read_definitions(sources)
+        return defs['x']
+
+    def test_the_preamble_beats_the_package(self):
+        entries = self.kinds(('a.sty', r'\def\x{FROM_STY}'),
+                             ('flat.tex', r'\renewcommand{\x}{FROM_DOC}'))
+        self.assertEqual(pm.settle_by_declaration(entries).source, 'flat.tex')
+
+    def test_providecommand_loses_to_an_existing_definition(self):
+        entries = self.kinds(('a.cls', r'\def\x{FROM_CLS}'),
+                             ('flat.tex', r'\providecommand{\x}{FROM_DOC}'))
+        self.assertEqual(pm.settle_by_declaration(entries).source, 'a.cls')
+
+    def test_the_first_of_two_provides_wins(self):
+        entries = self.kinds(('flat.tex',
+                              r'\providecommand{\x}{ONE}' '\n'
+                              r'\providecommand{\x}{TWO}'))
+        self.assertEqual(pm.settle_by_declaration(entries).body, 'ONE')
+
+    def test_def_beats_provide_in_the_same_file(self):
+        entries = self.kinds(('flat.tex',
+                              r'\providecommand{\x}{PROVIDED}' '\n'
+                              r'\def\x{DEFINED}'))
+        self.assertEqual(pm.settle_by_declaration(entries).body, 'DEFINED')
+
+    def test_one_file_one_declaration_is_left_undecided(self):
+        entries = self.kinds(('d.sty',
+                              r'\newcommand{\x}{BRANCH_A}' '\n'
+                              r'\newcommand{\x}{BRANCH_B}'))
+        self.assertIsNone(pm.settle_by_declaration(entries))
+
+    def test_resolve_uses_it(self):
+        defs = pm.read_definitions((('a.sty', r'\def\x{FROM_STY}'),
+                                    ('flat.tex', r'\renewcommand{\x}{FROM_DOC}')))
+        self.assertEqual(pm.resolve('x', defs)[0], 'FROM_DOC')
 
 
 class TheOneConditionalThisModuleKnows(unittest.TestCase):
