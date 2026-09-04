@@ -2003,15 +2003,16 @@ again in the target.
 ### K141
 **Two definition forms `read_definitions` does not read, both silently.**
 It recognises `\newcommand`, `\renewcommand`, `\providecommand`,
-`\DeclareRobustCommand` and `\def`: every form ending in a `{body}` it can
-resolve. `\let\foo\bar` binds one NAME to another and has no body; xparse's
-`\NewDocumentCommand` writes its signature as `{ s O{} m }`, not `[n][d]`.
-Neither is collected, so the name goes on printing at the reader (K135). The
-census says how often: `\let` in 14 of 21 shipped style files and 6
-documents, xparse in 1. Neither attempted, and the precedent is a caution,
-`read_math_macros` follows `\let` and needed an alias rule, because following
-one to a name nobody defined swaps an unreadable token for a different one.
-*Status: open, measured 2026-09-04. Both `gap` in `test_source_lint.py`.*
+`\DeclareRobustCommand` and `\def`: every form ending in a `{body}`.
+`\let\foo\bar` binds a NAME to another and has no body; xparse writes its
+signature as `{ s O{} m }`, not `[n][d]`. Neither is collected.
+**Measured on the artefact and declined.** Five papers hold 399 `\let`
+bindings; 19 names are called in a body and 6 reach an artefact, every one a
+command pandoc reads itself, a layout directive correctly dropped, or front
+matter already handled. None is an author's shorthand: classes `\let` in
+PREAMBLE machinery, so the census reads 14 of 21 and the page cost is nil.
+*Status: declined on measurement 2026-09-04; xparse is 1 paper. Reopen only
+with a paper whose `\let` name reaches a page.*
 
 ---
 

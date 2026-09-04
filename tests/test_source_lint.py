@@ -296,7 +296,13 @@ CONSTRUCT_DISPOSITION = {
     'providecommand': 'handled', 'DeclareRobustCommand': 'handled',
     'optional-argument': 'handled',
     # `\let\foo\bar` binds a name without a body, and `read_definitions` does
-    # not read it. 14 of 21 papers ship one. See K141.
+    # not read it. 14 of 21 papers ship one, and that number is why it looks
+    # worth code. Measured on the artefact it is not: across five papers
+    # holding 399 bindings, 19 names are called in a body and 6 reach an
+    # artefact, every one of them a command pandoc reads itself, a layout
+    # directive correctly dropped, or front matter already handled. Classes
+    # `\let` in preamble machinery, not in prose. Still a gap, and still not
+    # worth closing. See K141 before reopening.
     'let-binding': 'gap',
     # The conditional-definition path. The flag is NOT evaluated — doing that
     # means executing package options — so a name defined once per branch is
