@@ -2302,7 +2302,7 @@ Facts that depend on this machine, not on the pipeline. Re-check on a new host.
   and the browser answered with Yu Gothic: the body set in a SANS, cleanly
   embedded, with every check passing and nothing saying so. `doctor.py` now
   reports the absence. Source Han Serif JP was installed and measured as the
-  portable answer and **rejected** — it is CFF and this Chromium emits it as
+  portable answer and **rejected**: it is CFF and this Chromium emits it as
   Type3, so naming it would trade a clean Gothic for a Type3 serif.
 - **Chinese: FangSong is absent outside China, SimSun is present** and is a
   real serif, so `zh` degrades acceptably. SimSun is now named in the stack
