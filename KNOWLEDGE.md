@@ -173,6 +173,10 @@ here; the test is the real record. This file is for the *reasoning*, the
 | A code comment became a top-level heading with a TOC entry | [K153](#k153) |
 | A table caption prints a label in brackets | [K154](#k154) |
 | A doubled label survives, but only in the appendix | [K155](#k155) |
+| A code listing's first line is typeset as body prose | [K156](#k156) |
+| A check reports findings against a book that is correct | [K157](#k157) |
+| The paper's own rows print like every baseline's | [K158](#k158) |
+| Text that should be on the page is in the stylesheet instead | [K159](#k159) |
 
 ---
 
@@ -2214,6 +2218,56 @@ check written in the same hour reported zero doubled labels for exactly the
 same reason. Accept `[A-Za-z]?\d`; the digit is still what separates a
 reference from a word that merely starts with the label word.
 *Status: LOCKED, `DoubledLabels`.*
+
+### K156
+**`\s*` after a stripped command eats the next line's indentation.**
+`strip_latex_cruft` removed a command plus `\s*`, and `\s` matches newlines.
+VLA-Adapter writes `{\small` above a `verbatim` listing; pandoc leaves
+`\small` alone on a line over an indented code block, and the match came out
+as `'\\small\n\n    '` -- twelve characters ending in the four spaces that
+made the next line code. At column zero the line is a paragraph, so the
+listing broke in two and `class MLPResNetBlock_Pro(nn.Module):` was typeset
+as body prose in a serif face beside its own code. Horizontal whitespace
+only; an argument may still sit on the next line, so that branch allows one
+newline before a brace.
+*Status: LOCKED, `CruftWhitespaceTests`.*
+
+### K157
+**A check that is not silent on a correct book is worse than no check.**
+`table_probe` reported six findings against a book whose fifteen tables were
+every one faithful, and all six were its own rules: `\rowcolor[rgb]{ .900,
+.900, .900}` read as a missing value `900`, `\ding{51}`/`\ding{55}` glyph ids
+read as values `51` and `55`, and `\multicolumn{3}{c|}{}` -- an empty header
+cell -- read as labelled because stripping the command and unwrapping the
+braces left `3 c|`. Each was verified false before being removed, not
+suppressed. The cost is not the noise: a probe with a 100% false-positive
+rate teaches its reader to skip the real finding, and this session's genuine
+table defect was dismissed on exactly that habit.
+*Status: LOCKED, `PrintedNumbers`, `BlankFirstCell`; 15/15 tables, 0 findings.*
+
+### K158
+**`\rowcolor` is content, not decoration.** It was stripped with
+`\cellcolor` and `\columncolor` as presentation-only, and with it went the
+one thing a results table cannot say otherwise: which rows are the authors'.
+VLA-Adapter shades five, and the book set the paper's own numbers exactly
+like the twenty baselines above them. The rule was written for `\cellcolor`,
+which sits between two `&` and overruns a simple table's ruler; `\rowcolor`
+sits before the first cell, and pandoc 3.10.2 drops it silently on both
+paths. `mark_shaded_rows` reads it out of the protected float and refuses
+when the source and rendered row counts disagree -- a band on the wrong row
+credits somebody else's result to the authors.
+*Status: LOCKED, `FindingTheShadedRows`, `MarkingThem`,
+`TheCommandHasToSurviveConversion`.*
+
+### K159
+**A document-wide regex will find your own comment.** The byline is inserted
+after the title heading, by searching the built HTML for that heading's
+closing tag. A CSS comment added to `<head>` -- explaining where the byline
+goes, and naming the tag -- matched first, and sixteen authors were written
+into the stylesheet, present in the file and rendering as nothing. The title
+page came out with no names on it. Search from `<body>`, and do not spell a
+tag out in a comment inside the document it will be searched in.
+*Status: LOCKED, `TheBylineCarriesEveryone`.*
 
 ---
 

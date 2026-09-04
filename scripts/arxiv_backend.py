@@ -824,7 +824,18 @@ _TEX_NOISE = (
     # everything inside.
     (re.compile(r'(?m)^[ \t]*\\(?:begin|end)\{(?:appendices|subappendices)\}'
                 r'[ \t]*$\n?'), ''),
-    (re.compile(r'\\(?:cell|row|column)color\s*(?:\[[^\]]*\])?\s*\{[^{}]*\}'), ''),
+    # `\rowcolor` is deliberately NOT in here. The damage described above is
+    # `\cellcolor`'s: it sits inside a row, between two `&`, where it overruns
+    # a simple table's ruler. `\rowcolor` sits in front of the first cell, and
+    # measured against pandoc 3.10.2 it is dropped silently on both the html
+    # and the markdown path, so nothing of it reaches a reader either way.
+    #
+    # Keeping it costs nothing and buys the one thing a results table cannot
+    # say without it: which rows are the authors' own. VLA-Adapter shades five,
+    # they were stripped here, and the book presented the paper's own numbers
+    # looking exactly like the twenty baselines above them. `mark_shaded_rows`
+    # reads the command out of the protected float and puts the band back.
+    (re.compile(r'\\(?:cell|column)color\s*(?:\[[^\]]*\])?\s*\{[^{}]*\}'), ''),
     (re.compile(r'\\printAffiliationsAndNotice\s*\{[^{}]*\}'), ''),
     # \cmidrule draws a partial rule under a few columns. pandoc consumes the
     # command name but not its argument, so the row's first cell ends up
@@ -1908,10 +1919,23 @@ def clean_raw_inline_latex(text):
 # star and stopped, so `\vspace*{-2.5mm}` lost its head and left `{-2.5mm}`
 # standing on the page — twelve times in Neural ODE, above every CNF figure.
 # The starred form is a different string, not a special case (K111).
+# The whitespace run is deliberately NOT `\s*`. `\s` matches newlines, so a
+# command with no argument ate everything up to the next word -- including the
+# indentation of the line below it. VLA-Adapter puts `{\small` in front of a
+# `verbatim` listing; pandoc leaves `\small` on its own line above an indented
+# code block, and the match came out as `'\\small\n\n    '`, twelve characters
+# ending in the four spaces that made the next line code. At column zero
+# `class MLPResNetBlock_Pro(nn.Module):` is a paragraph, so the listing broke
+# in two and its first line was typeset as prose.
+#
+# An argument may still sit on the following line, which is why the first
+# branch allows one newline before a brace; without an argument nothing but
+# spaces and tabs comes off. Blank lines left behind are expected -- that is
+# what `repair_display_math` and the `\n{4,}` collapse downstream are for.
 _LATEX_CRUFT_RE = re.compile(
     r'\\(?:label|vspace|hspace|centering|noindent|clearpage|newpage|FloatBarrier'
     r'|acks|small|footnotesize|scriptsize|normalsize|bigskip|medskip|smallskip)'
-    r'\*?\s*(?:\{[^{}]*\})?'
+    r'\*?(?:[ \t]*\r?\n?[ \t]*\{[^{}]*\}|[ \t]*)'
 )
 
 

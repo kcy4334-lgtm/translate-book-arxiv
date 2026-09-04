@@ -1132,7 +1132,7 @@ resolve, a math placeholder that a translator dropped, a translated chunk whose
 LaTeX skeleton no longer matches its source, or a display equation still printing
 underneath its own number at the smallest size tried.
 
-Four things are repaired automatically on the way through, and reported:
+Five things are repaired automatically on the way through, and reported:
 
 - **Raw LaTeX tables.** The arXiv backend keeps tables as
   `\resizebox{..}{\begin{tabular}...}`, often inside a `\begin{table*}` float.
@@ -1147,6 +1147,12 @@ Four things are repaired automatically on the way through, and reported:
   (localised per language) using the `\label` order in `flat.tex`. A `\ref` inside
   a protected table float is resolved too, number only, from the label index
   rather than from the key (K154).
+- **Shaded rows.** `\rowcolor` is how a results table says which rows are the
+  authors' own. It used to be stripped as presentation-only along with
+  `\cellcolor`, and the paper's own numbers printed like every baseline's.
+  The band is put back from the protected float, and NOT put back at all when
+  the source and rendered row counts disagree: shading the wrong line credits
+  somebody else's result to the authors (K158).
 - **Equation width.** A formula as wide as the text column shares ink with its
   own flush-right number, and no stylesheet prevents it: MathML compresses its
   spacing into the box instead of shrinking to fit. `equation_fit` renders,

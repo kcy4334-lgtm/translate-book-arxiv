@@ -131,13 +131,36 @@ def source_rows(body):
     return rows
 
 
+# A row colour carries no text but plenty of characters. Stripped by the
+# generic rule below, `\rowcolor[rgb]{ .900, .900, .900}` left `.900, .900,
+# .900` behind and the cell read as labelled -- so a blank row in the source
+# counted as a labelled one, the source total came out short, and the page's
+# genuinely blank rows were reported as stranded. Its whole argument goes,
+# unlike `\multirow{4}{*}{Method}`, whose last argument is the label itself.
+_CELL_DECOR_RE = re.compile(
+    r'\\(?:row|cell|column)color\s*(?:\[[^\]]*\])?\s*\{[^{}]*\}')
+
+# `\multicolumn` and `\multirow` put a span and a format in front of the text.
+# The generic rule below strips the command and then unwraps every brace, so
+# `\multicolumn{3}{c|}{}` -- an empty spanning cell -- came out as `3 c|` and
+# read as a labelled row. VLA-Adapter's table 6 lost one blank row that way,
+# and the page's genuinely blank rows were reported as stranded instead.
+# Only the leading arguments go; the last brace group is the visible text and
+# is what tells `\multirow{8}{*}{\textit{Large}}` from a continuation row.
+_SPAN_ARGS_RE = re.compile(
+    r'\\multicolumn\s*\{[^{}]*\}\s*\{[^{}]*\}'
+    r'|\\multirow\s*\{[^{}]*\}\s*(?:\[[^\]]*\])?\s*\{[^{}]*\}')
+
+
 def _blank_first_cell(row):
     r"""Does this source row start with an empty cell?
 
-    Empty means nothing a reader would see: a `\multirow` continuation, or a
-    cell holding only spacing and rules.
+    Empty means nothing a reader would see: a `\multirow` continuation, an
+    empty spanning cell, or a cell holding only spacing, colour and rules.
     """
     first = row.split('&')[0]
+    first = _CELL_DECOR_RE.sub(' ', first)
+    first = _SPAN_ARGS_RE.sub(' ', first)
     first = re.sub(r'\\[a-zA-Z]+\*?\s*(?:\[[^\]]*\])?', ' ', first)
     first = re.sub(r'[{}~$\\]', ' ', first)
     return not first.strip()
@@ -201,6 +224,15 @@ _ARG_NUM_RE = re.compile(
     r'|\\(?:cmidrule|cline)\s*(?:\([lr]{1,2}\))?\s*\{[^{}]*\}'
     r'|\\rotatebox\s*(?:\[[^\]]*\])?\s*\{[^{}]*\}'
     r'|\\(?:resizebox|scalebox)\s*\{[^{}]*\}\s*\{[^{}]*\}'
+    # A colour, not a value. `\rowcolor[rgb]{ .900, .900, .900}` shades the
+    # paper's own rows, and its three `.900`s read as a value `900` that the
+    # page had supposedly lost -- six of them across VLA-Adapter's tables 5,
+    # 6 and 7, on a book whose fifteen tables were all correct.
+    r'|\\(?:row|cell|column)color\s*(?:\[[^\]]*\])?\s*\{[^{}]*\}'
+    # A dingbat's argument is a glyph id. `\ding{51}` prints a tick and
+    # `\ding{55}` a cross; counted as values they were two more numbers
+    # nobody had lost.
+    r'|\\ding\s*\{[^{}]*\}'
     r'|\\setlength\s*\{[^{}]*\}\s*\{[^{}]*\}'
     r'|\\begin\{[^{}]*\}\s*(?:\[[^\]]*\])?\s*\{[^{}]*\}'
     r'|\\[a-zA-Z]+\s*\{\s*[-\d.]+\s*(?:em|ex|pt|cm|mm|in|bp)\s*\}'

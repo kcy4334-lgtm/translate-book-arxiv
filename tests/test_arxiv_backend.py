@@ -280,6 +280,57 @@ class EmptyCodeSpanTests(unittest.TestCase):
         self.assertEqual(arxiv_backend.strip_latex_cruft(text), text)
 
 
+class CruftWhitespaceTests(unittest.TestCase):
+    r"""The whitespace after a stripped command must not cross a newline.
+
+    It was `\s*`, which matches newlines, so a command with no argument ate
+    everything up to the next word. VLA-Adapter writes `{\small` in front of
+    a `verbatim` listing; pandoc leaves `\small` alone on a line above an
+    indented code block, and the match came out as twelve characters ending
+    in the four spaces that made the next line code. At column zero that line
+    is a paragraph, so the listing broke in two and its first line was
+    typeset as body prose in a serif face beside the code it belongs to.
+    """
+
+    def strip(self, text):
+        return arxiv_backend.strip_latex_cruft(text)
+
+    def test_the_shipped_listing_keeps_its_indentation(self):
+        text = ("below:\n\n" + BS + "small\n\n"
+                "    class MLPResNetBlock_Pro(nn.Module):\n"
+                "        pass\n")
+        got = self.strip(text)
+        self.assertIn("\n    class MLPResNetBlock_Pro", got)
+        self.assertNotIn(BS + "small", got)
+
+    def test_indentation_survives_for_every_stripped_command(self):
+        for name in ('small', 'noindent', 'centering', 'bigskip',
+                     'clearpage', 'footnotesize'):
+            text = BS + name + "\n\n    indented line\n"
+            self.assertIn("\n    indented line", self.strip(text), name)
+
+    def test_an_argument_on_the_same_line_still_comes_off(self):
+        self.assertEqual(self.strip(BS + "vspace{-2.5mm}"), "")
+        self.assertEqual(self.strip(BS + "vspace {-2.5mm}"), "")
+        self.assertEqual(self.strip(BS + "vspace*{-2.5mm}"), "")
+
+    def test_an_argument_on_the_next_line_still_comes_off(self):
+        r"""K111: the starred form once lost its head and left `{-2.5mm}`
+        standing on the page. A brace left behind is the failure that branch
+        exists to prevent, so it has to survive the newline restriction."""
+        self.assertEqual(self.strip(BS + "vspace\n{-2.5mm}"), "")
+
+    def test_a_trailing_space_still_comes_off(self):
+        self.assertEqual(self.strip(BS + "noindent   text"), "text")
+
+    def test_the_paragraph_break_is_left_where_it_was(self):
+        r"""Downstream expects it: `repair_display_math` and the `\n{4,}`
+        collapse both run after this and read the paragraph breaks."""
+        got = self.strip("a\n\n" + BS + "centering\n\nb\n")
+        self.assertTrue(got.startswith('a\n\n'))
+        self.assertTrue(got.endswith('\n\nb\n'))
+
+
 class ColumnSpecTests(unittest.TestCase):
     """pandoc understands `*{9}{r}` perfectly well, and that is the problem:
     reading the tabular it expands the repeat, and writing the raw block back

@@ -64,6 +64,29 @@ class PrintedNumbers(unittest.TestCase):
     def test_a_real_value_survives(self):
         self.assertEqual(tp.printed_numbers('a & 46.6 & 47.6')['46.6'], 1)
 
+    def test_a_row_colour_is_not_a_value(self):
+        r"""`\rowcolor[rgb]{ .900, .900, .900}` shades the paper's own rows.
+        Its three `.900`s read as a value `900` the page had lost -- six of
+        them across VLA-Adapter's tables 5, 6 and 7, on a book whose fifteen
+        tables were every one correct."""
+        nums = tp.printed_numbers(
+            r'\rowcolor[rgb]{ .900,  .900,  .900} Ours & 79.6')
+        self.assertNotIn('900', nums)
+        self.assertIn('79.6', nums)
+
+    def test_cell_and_column_colours_too(self):
+        for cmd in (r'\cellcolor[rgb]{ .900, .900, .900}',
+                    r'\columncolor{gray}'):
+            self.assertNotIn('900', tp.printed_numbers(cmd + ' x & 1.0'))
+
+    def test_a_dingbat_argument_is_not_a_value(self):
+        r"""`\ding{51}` prints a tick and `\ding{55}` a cross. Counted as
+        values they were two more numbers nobody had lost."""
+        nums = tp.printed_numbers(r'\ding{51} & \ding{55} & 88.2')
+        self.assertNotIn('51', nums)
+        self.assertNotIn('55', nums)
+        self.assertIn('88.2', nums)
+
 
 class BlankFirstCell(unittest.TestCase):
 
@@ -75,6 +98,30 @@ class BlankFirstCell(unittest.TestCase):
 
     def test_a_cell_holding_only_spacing_is_blank(self):
         self.assertTrue(tp._blank_first_cell(r'\addlinespace & 1 & 2'))
+
+    def test_an_empty_spanning_cell_is_blank(self):
+        r"""`\multicolumn{3}{c|}{}` is an empty header continuation. Stripping
+        the command and then unwrapping every brace left `3 c|`, so the row
+        read as labelled, the source total came out one short, and a page row
+        that was correctly blank was reported as a stranded label."""
+        self.assertTrue(tp._blank_first_cell(r'\multicolumn{3}{c|}{} & 1'))
+
+    def test_a_spanning_cell_with_text_is_not_blank(self):
+        self.assertFalse(tp._blank_first_cell(r'\multicolumn{2}{c}{Method} & 1'))
+
+    def test_a_multirow_label_is_not_blank(self):
+        self.assertFalse(
+            tp._blank_first_cell(r'\multirow{8}{*}{\textit{Large}} & 1'))
+
+    def test_a_nested_span_keeps_its_text(self):
+        self.assertFalse(tp._blank_first_cell(
+            r'\multicolumn{2}{c}{\multirow{2}{*}{CALVIN}} & 1'))
+
+    def test_a_coloured_continuation_row_is_still_blank(self):
+        r"""The colour carries no text but plenty of characters, and left
+        `.900, .900, .900` behind for the generic rule to read as a label."""
+        self.assertTrue(tp._blank_first_cell(
+            r'\rowcolor[rgb]{ .900,  .900,  .900} & 79.6 & 80.1'))
 
 
 SOURCE = ('\\begin{tabular}{lcc}\n'

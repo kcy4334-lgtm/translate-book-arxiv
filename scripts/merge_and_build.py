@@ -4713,6 +4713,74 @@ def mark_body_rules(html, latex):
             + html[body.end():])
 
 
+_ROWCOLOR_RE = re.compile(r'\\rowcolor\s*(?:\[[^\]]*\])?\s*\{[^{}]*\}')
+
+
+def shaded_body_rows(latex):
+    r"""({row index}, row count) for the body rows the paper shades.
+
+    `\rowcolor[rgb]{ .900, .900, .900}` is how a results table says which
+    rows are the authors' own. pandoc drops it, so VLA-Adapter's five
+    `(Ours)` rows sat in the book looking like every competitor's. Indexed
+    the way `body_rule_rows` indexes, because the same `<tbody>` rows are
+    what both of them mark.
+
+    The count comes back too: shading the wrong row would credit somebody
+    else's numbers to the authors, so the caller can refuse when the source
+    and the rendered table disagree about how many rows there are.
+    """
+    body = _header_body(latex)
+    end = _first_body_rule(body)
+    if end is None:
+        return set(), 0
+    after = body[end:]
+    after = after[_HEADER_END_RE.match(after).end():] \
+        if _HEADER_END_RE.match(after) else after
+    pieces = _ROW_BREAK_RE.split(after)[:-1]
+    return ({i for i, piece in enumerate(pieces) if _ROWCOLOR_RE.search(piece)},
+            len(pieces))
+
+
+def _add_row_class(row, name):
+    """Add a class to a `<tr>`, keeping any it already carries."""
+    m = re.match(r'<tr\b([^>]*)>', row)
+    if not m:
+        return row
+    attrs = m.group(1)
+    if 'class="' in attrs:
+        attrs = re.sub(r'class="([^"]*)"',
+                       lambda x: 'class="%s %s"' % (x.group(1), name),
+                       attrs, count=1)
+    else:
+        attrs += ' class="%s"' % name
+    return '<tr' + attrs + '>' + row[m.end():]
+
+
+def mark_shaded_rows(html, latex):
+    """Give the paper's own rows back the shading it marked them with.
+
+    Returns (html, count). Runs before `split_row_groups`, which turns the
+    single `<tbody>` into several and would leave the indices meaning
+    something else.
+    """
+    marked, total = shaded_body_rows(latex)
+    if not marked:
+        return html, 0
+    body = _TBODY_RE.search(html)
+    if not body:
+        return html, 0
+    rows = _TR_RE.findall(body.group(1))
+    if len(rows) != total:
+        # Refuse rather than guess. A band on the wrong row is a claim about
+        # whose result is whose, and it is not one this can make on a count
+        # it already knows to be wrong.
+        return html, 0
+    out = [_add_row_class(row, 'row-shaded') if i in marked else row
+           for i, row in enumerate(rows)]
+    return (html[:body.start()] + '<tbody>\n' + '\n'.join(out) + '\n</tbody>'
+            + html[body.end():]), len(marked)
+
+
 def labelled_group_starts(latex):
     r"""Body row indices where a group carrying a label begins.
 
@@ -5271,6 +5339,7 @@ def expand_raw_latex_tables(md_text, pandoc=None, math_mode='mathml',
         cite_labels = build_citation_labels_from_bib(temp_dir)
     ref_numbers = fragment_reference_numbers(temp_dir)
     refs_done, refs_missed = 0, []
+    shaded_rows = 0
     pieces, cursor = [], 0
     with tempfile.TemporaryDirectory(prefix='tb-tex-') as work:
         for n, t in enumerate(tables):
@@ -5326,6 +5395,8 @@ def expand_raw_latex_tables(md_text, pandoc=None, math_mode='mathml',
                 continue
             html = promote_header_rows(html, t['bare'])
             html = mark_body_rules(html, t['bare'])
+            html, _shaded = mark_shaded_rows(html, t['bare'])
+            shaded_rows += _shaded
             html, _groups = split_row_groups(html, t['bare'])
             html, _symbols = simplify_symbol_math(html)
             # A paper table can carry ten columns; at body size that wraps every
@@ -5372,6 +5443,9 @@ def expand_raw_latex_tables(md_text, pandoc=None, math_mode='mathml',
         # the reader meets `[TableD1]` where a number belongs.
         print("  %d key(s) had no number and will print raw: %s"
               % (len(set(refs_missed)), ', '.join(sorted(set(refs_missed)))))
+    if shaded_rows:
+        print("Raw LaTeX tables: %d row(s) the paper shades marked as its own"
+              % shaded_rows)
     return ''.join(pieces), converted, failed
 
 
@@ -5577,14 +5651,49 @@ def convert_with_basic_regex(md_file, html_file, title):
 
 
 _TEMPLATE_TOKEN_RE = re.compile(
-    r'\$(body|title|lang|body_font|toc_label'
+    r'\$(body|title|title_page|lang|body_font|toc_label'
     r'|page_size|page_margin|print_font_size|print_line_height'
     r'|h1_break_before|h1_page_break_before)\$')
 
 
+def build_title_page(title, source=''):
+    r"""The page a paper opens with, or '' when there is nothing to put on it.
+
+    The book opened on its table of contents: no title, no authors, no
+    affiliations. VLA-Adapter names sixteen people in its title block and the
+    book credited one of them, in a `<meta>` tag no reader sees.
+
+    Carries no byline of its own on purpose. `apply_template_to_html` already
+    puts one after the first `</h1>`, which is now this heading -- a second
+    one here printed both, the short metadata form above the full list. The
+    names reach it through the `byline` argument instead.
+
+    Returns '' without a title, so a source that never had one does not gain
+    a blank leaf.
+    """
+    if not (title or '').strip():
+        return ''
+    parts = ['<section class="title-page">',
+             '<h1 class="title-page-title">%s</h1>'
+             % _html_lib.escape(title.strip())]
+    if (source or '').strip():
+        parts.append('<p class="title-page-source">%s</p>'
+                     % _html_lib.escape(source.strip()))
+    parts.append('</section>')
+    return '\n'.join(parts)
+
+
 def apply_template_to_html(html_content, template_file, output_file, title, lang_cfg,
-                           author=None, print_cfg=None):
-    """Apply a template to HTML content with language-aware substitutions"""
+                           author=None, print_cfg=None, title_page='',
+                           byline=None):
+    """Apply a template to HTML content with language-aware substitutions.
+
+    `author` is the metadata form and goes in the `<meta>` tag. `byline` is
+    what the reader sees under the title; it defaults to `author` and is
+    given the full list when one is known, because the metadata form is a
+    catalogue entry -- "Yihao Wang et al." -- and a title page that credits
+    one of sixteen people is not a title page.
+    """
     if not template_file or not os.path.exists(template_file):
         print(f"Warning: Template {template_file} not found")
         return False
@@ -5606,6 +5715,7 @@ def apply_template_to_html(html_content, template_file, output_file, title, lang
         values = {
             'body': html_content,
             'title': title,
+            'title_page': title_page,
             'lang': lang_cfg['lang_attr'],
             'body_font': lang_cfg['font_family'],
             'toc_label': lang_cfg['toc_label'],
@@ -5639,11 +5749,21 @@ def apply_template_to_html(html_content, template_file, output_file, title, lang
             # there, so all three books opened with a bare title and no byline
             # anywhere -- a paper that does not say who wrote it. The title is
             # the body's first <h1>; the contents page is added after this.
-            byline = '<p class="byline">%s</p>' % _html_lib.escape(
-                author.replace(';', ',').replace('  ', ' ').strip())
-            full_html = re.sub(r'</h1>',
-                               lambda m: m.group(0) + '\n' + byline,
-                               full_html, count=1)
+            shown = (byline or author).replace(';', ',')
+            byline_html = '<p class="byline">%s</p>' % _html_lib.escape(
+                re.sub(r'\s{2,}', ' ', shown).strip())
+            # Searched from <body>, not from the top of the file. The old
+            # `re.sub(r'</h1>', ..., count=1)` matched the whole document,
+            # and a CSS comment in <head> that merely NAMED the tag took the
+            # byline: sixteen authors went into the stylesheet, where they
+            # rendered as nothing at all and the title page came out bare.
+            body_at = re.search(r'<body[^>]*>', full_html, re.IGNORECASE)
+            start = body_at.end() if body_at else 0
+            heading = re.search(r'</h1>', full_html[start:])
+            if heading:
+                at = start + heading.end()
+                full_html = (full_html[:at] + '\n' + byline_html
+                             + full_html[at:])
 
         with open(output_file, 'w', encoding='utf-8') as f:
             f.write(full_html)
@@ -6584,8 +6704,17 @@ def convert_md_to_html(temp_dir, title, lang_cfg, author=None,
     book_doc_file = os.path.join(temp_dir, 'book_doc.html')
     ebook_cfg = {**lang_cfg,
                  'font_family': lang_cfg.get('font_family_ebook', lang_cfg['font_family'])}
+    # The names have been in config.txt under `creator=` since conversion,
+    # with nowhere to go: the book opened on its table of contents and
+    # credited one of sixteen authors, in a <meta> tag no reader sees.
+    book_cfg = load_config(temp_dir) or {}
+    arxiv_id = (book_cfg.get('arxiv_id') or '').strip()
+    title_page = build_title_page(
+        title, source='arXiv:%s' % arxiv_id if arxiv_id else '')
+    full_byline = (book_cfg.get('creator') or '').strip() or author
     apply_template_to_html(body_content, template_ebook, book_doc_file, title,
-                           ebook_cfg, author, print_cfg=print_cfg)
+                           ebook_cfg, author, print_cfg=print_cfg,
+                           title_page=title_page, byline=full_byline)
 
     # Generate book.html with web template
     template_web = os.path.join(SCRIPT_DIR, 'template.html')
@@ -6834,7 +6963,16 @@ def build_print_toc(html_content, toc_label='Contents', max_level=3):
     rows.append('</ul></nav>')
     toc_html = '\n'.join(rows)
 
-    if re.search(r'<body[^>]*>', html_content, re.IGNORECASE):
+    # After the title page, when there is one. Pinned to the opening <body>
+    # tag the contents came first and the title page second, so the book
+    # opened on its own table of contents with the title on the leaf behind
+    # it -- which is how the title page looked absent even once it was built.
+    title_page = re.search(r'<section class="title-page">.*?</section>',
+                           html_content, re.DOTALL)
+    if title_page:
+        at = title_page.end()
+        html_content = html_content[:at] + '\n' + toc_html + html_content[at:]
+    elif re.search(r'<body[^>]*>', html_content, re.IGNORECASE):
         html_content = re.sub(r'(<body[^>]*>)', lambda mm: mm.group(1) + '\n' + toc_html,
                               html_content, count=1, flags=re.IGNORECASE)
     else:
