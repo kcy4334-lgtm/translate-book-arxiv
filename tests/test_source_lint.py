@@ -258,12 +258,19 @@ CONSTRUCT_DISPOSITION = {
     # 2.09; the backend accepts it since Shor 1995, which it had rejected.
     'documentclass': 'handled', 'documentstyle': 'handled',
     # The affiliation family (K123). `unwrap_front_matter` keeps the prose in
-    # the first, deletes the second as a directive. The rest of the family —
-    # institute, running-head, class-affiliation, icml-frontmatter — has
-    # markers in the census but no entry here on purpose: this table describes
-    # what the corpus has MET, and saying NEVER SEEN is the census's job.
+    # the first, deletes the second as a directive. Every member of the family
+    # now has an entry, each added the round the corpus first met it, which is
+    # what this table is for.
     'address': 'handled', 'email': 'handled', 'institute': 'handled',
     'running-head': 'handled',
+    # revtex/aastex spelling, first met in 2609.02090, a collaboration with
+    # 115 `\affiliation` calls. `paper_macros` refuses to expand it and is
+    # right to: the argument IS the text, so resolving it to nothing would
+    # delete what the author wrote. Measured on the artefact rather than on
+    # the conversion log, all 24 distinct affiliation phrases reach input.md
+    # verbatim, carried through as prose. Nothing reads it AS an affiliation,
+    # which is why this is counted and not handled.
+    'class-affiliation': 'counted',
     'maketitle': 'handled', 'bibliographystyle': 'handled',
     # `\icmlauthor{Name}{key}` keeps its FIRST argument and
     # `\icmlaffiliation{key}{Org}` its SECOND — read out of icml2026.sty. SINQ's

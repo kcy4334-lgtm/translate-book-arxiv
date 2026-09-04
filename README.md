@@ -48,7 +48,7 @@ Each chunk gets its own independent subagent with a fresh context window. This p
 ## Features
 
 - **Numbers come from the paper**: equation, theorem, section, float and subfigure numbers are reconstructed from the LaTeX source and checked against the original PDF by `tests/source_probe.py`, not against the build's own output
-- **The paper's own shorthand is resolved**: a `.sty` is never `\input`, so pandoc never sees `\ie` or `\parhead` and the name prints at the reader. `scripts/paper_macros.py` reads the definitions the paper ships and expands them, refusing rather than guessing when it cannot, 4,099 calls across the 21 papers in the corpus, and a word-level diff of the produced markdown on six of them shows nothing lost but the macro names themselves
+- **The paper's own shorthand is resolved**: a `.sty` is never `\input`, so pandoc never sees `\ie` or `\parhead` and the name prints at the reader. `scripts/paper_macros.py` reads the definitions the paper ships and expands them, refusing rather than guessing when it cannot, 4,099 calls across 21 papers, and a word-level diff of the produced markdown on six of them shows nothing lost but the macro names themselves
 - **Refusals are reported, never silent**: every macro it declines is named with its reason at conversion time
 - **Parallel subagents**: a work queue keeps 8 translators in flight, each with isolated context; the next chunk starts the moment a slot frees
 - **The reference list is never translated**; it is split into its own chunk and copied verbatim. Measured at 27–34% of a paper's characters, and usually its largest chunk
@@ -71,10 +71,10 @@ and into making the skill cheaper to work on next month than this month.
 | | |
 |---|---|
 | **Numbers read from the paper** | Equation, theorem, section, float and subfigure numbers reconstructed from `flat.tex` and checked against the source PDF by `tests/source_probe.py`, not against the build's own output |
-| **`scripts/paper_macros.py`** | The paper's own `\newcommand`s resolved from the `.sty` files it ships. 4,099 calls across the 21 papers in the corpus |
+| **`scripts/paper_macros.py`** | The paper's own `\newcommand`s resolved from the `.sty` files it ships. 4,099 calls across 21 papers |
 | **Refusal over guessing** | It declines on TeX machinery, on a discarded argument, and on anything pandoc reads better, and names every refusal at conversion time instead of leaving it silent |
 | **Print path** | Headless Chromium against a real `@page` box (A4, 18/18/22/18 mm, 11.5 pt), page numbers stamped afterwards because Chrome implements no margin boxes. `scripts/layout.py` is the single source of page geometry and fonts |
-| **Growth stores that ship** | `KNOWLEDGE.md` 144 entries, `KNOWHOW.md` 38, `REFEREE.md` 6, and a census of every LaTeX shape the corpus has met across 21 papers |
+| **Growth stores that ship** | `KNOWLEDGE.md` 146 entries, `KNOWHOW.md` 38, `REFEREE.md` 6, and a census of every LaTeX shape the corpus has met across 23 papers |
 | **Four advisor sub-agents** | old-man, question-monster, fast-finder, referee; see below |
 | **The census as an oracle** | `tests/test_source_lint.py` fails when the corpus has met a construct nobody has classified |
 | **Tests** | 1,570, stdlib only, run in CI |
@@ -87,10 +87,10 @@ ship with this skill so that the second time is cheaper than the first.
 
 | | what it holds |
 |---|---|
-| `KNOWLEDGE.md` | What a tool actually did, with the measurement that proved it. 144 entries |
+| `KNOWLEDGE.md` | What a tool actually did, with the measurement that proved it. 146 entries |
 | `KNOWHOW.md` | What a way of working cost, so it is not paid twice. 38 entries |
 | `REFEREE.md` | Whether a repeated failure belongs to a tool, a briefing, or a role. 6 entries |
-| `corpus/shapes.json` | Every LaTeX construct each paper carried, written by the build itself. 21 papers |
+| `corpus/shapes.json` | Every LaTeX construct each paper carried, written by the build itself. 23 papers |
 
 The census is the part that is easy to underrate. It answers *"has this ever
 been seen?"* with a number, and, more usefully, it names what has **never**

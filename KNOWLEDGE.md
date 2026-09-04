@@ -162,6 +162,8 @@ here; the test is the real record. This file is for the *reasoning*, the
 | A reference list is not detected, or prose is treated as one | [K74](#k74) |
 | Translation is slow and expensive on a paper that looks small | [K75](#k75) |
 | The census reports more papers than were ingested, or a fraction reads high | [K144](#k144) |
+| No book at all, and pandoc exited 25 on a bibliography file | [K145](#k145) |
+| `--arxiv-id` was passed and the calibre backend ran anyway | [K146](#k146) |
 
 ---
 
@@ -2055,6 +2057,36 @@ keep their names. The folder path already collapsed `_temp_dryrun` to one
 key; the arXiv path had been left out of the same rule.
 *Status: LOCKED, `test_both_spellings_of_one_id_are_one_paper`; store
 migrated 24 -> 21 rows, three merges, no count differed.*
+
+---
+
+### K145
+**A syntax error in the paper's own `.bib` stops the whole conversion, and
+that paper still builds on arXiv.** 2609.02862 ships `cas-refs.bib` whose
+line 3001 opens `Title = {` and never closes it; line 3002 ends in an escaped
+`\}`, which cannot close it either, so pandoc meets the next entry's `@`
+where a field belongs and exits 25. BibTeX forgives this, which is why the
+paper is published. It is not a stray template file: of the 50 keys the body
+cites, 22 are in that file and nowhere else. The outcome is no book at all,
+where K10 shows the pipeline already has a shape for a book whose citations
+merely go unresolved.
+*Status: open, measured 2026-09-04, pandoc 3.10.2. Not attempted: dropping
+the file costs 22 citations, so the trade wants deciding before code.*
+
+---
+
+### K146
+**`--arxiv-id` implies `--backend arxiv`, and that backend's two failures
+answer differently.** When the source exists but conversion fails, the run
+refuses to continue and says why: the calibre path cannot recover equations,
+so it would answer a different question. When arXiv returns a PDF because the
+authors submitted no LaTeX, the same explicit request downgrades to calibre
+and finishes, with a note. 2609.02668 came out that way, 13 chunks and 26
+display spans off pdftohtml with no inline maths at all. `--help` says the
+arxiv backend fails loudly instead of silently downgrading, so one of the two
+paths is not what the flag promises.
+*Status: open, measured 2026-09-04. Which way to make them agree is a call
+about what a caller who typed the id wanted.*
 
 ---
 

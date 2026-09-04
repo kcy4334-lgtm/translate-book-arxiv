@@ -1024,6 +1024,112 @@
    },
    "title": "AlphaQ: Calibration-Free Bit Allocation for Mixture-of-Experts Quantization"
   },
+  "2609.02090": {
+   "shapes": {
+    "bibliography": {
+     "bibliography-file": 1,
+     "cite": 5,
+     "citep": 18
+    },
+    "caption": {
+     "caption": 20
+    },
+    "disabled in place": {
+     "commented-caption": 6,
+     "commented-float": 6
+    },
+    "float": {
+     "figure": 16,
+     "figure*": 3,
+     "table": 1
+    },
+    "front matter": {
+     "author": 95,
+     "bibliographystyle": 1,
+     "class-affiliation": 115,
+     "email": 1,
+     "footnote": 1
+    },
+    "macro": {
+     "newcommand-bare": 1,
+     "newcommand-braced": 2
+    },
+    "macro in style files": {
+     "bfseries-group": 5,
+     "futurelet": 5,
+     "glue-only-macro": 2,
+     "let-binding": 269,
+     "newcommand-bare": 133,
+     "newcommand-braced": 12,
+     "newcommand-starred": 1,
+     "newif": 66,
+     "optional-argument": 1,
+     "renewcommand": 52,
+     "tabbing-kill": 1
+    },
+    "math": {
+     "equation": 9,
+     "old-font-switch": 10
+    },
+    "other": {
+     "newcommand": 3,
+     "tikzpicture": 1
+    },
+    "preamble": {
+     "documentclass": 1
+    },
+    "table": {
+     "tabular": 1
+    }
+   },
+   "title": "BICEP/Keck XXII: Analysis of the South Pole Atmosphere for CMB Observations"
+  },
+  "2609.02642": {
+   "shapes": {
+    "bibliography": {
+     "bibitem": 17,
+     "cite": 11,
+     "thebibliography-inlined": 1
+    },
+    "caption": {
+     "caption": 5
+    },
+    "float": {
+     "figure": 3,
+     "table": 1
+    },
+    "front matter": {
+     "author": 1,
+     "bibliographystyle": 1,
+     "maketitle": 1,
+     "thanks": 3
+    },
+    "macro": {
+     "newcommand-braced": 20,
+     "providecommand": 8,
+     "renewcommand": 1
+    },
+    "math": {
+     "align": 1,
+     "equation": 13,
+     "setlength": 1
+    },
+    "other": {
+     "algorithm": 1,
+     "algorithmic": 1,
+     "newcommand": 20,
+     "tikzpicture": 1
+    },
+    "preamble": {
+     "documentclass": 1
+    },
+    "table": {
+     "multicolumn": 3,
+     "tabular": 1
+    }
+   },
+   "title": "Active Inference for Joint Port Selection and Pilot Allocation in Fluid Antenna Systems Under Partial CSI"
+  },
   "adam": {
    "shapes": {
     "preamble": {
