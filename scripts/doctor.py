@@ -195,6 +195,25 @@ def probe(strict=False):
         (RECOMMENDED, 'Noto Sans KR font',
          check_font(('notosanskr', 'noto sans kr', 'notosanscjk'),
                     'Korean headings', fonts)),
+        # Only Korean was checked here, so a run targeting Japanese or
+        # Chinese got no word about its own body face. Measured on this
+        # machine: with no Mincho installed the Japanese stack falls through
+        # the generic `serif` keyword, and for that script the browser
+        # answers with Yu GOTHIC -- the body sets in a sans and every check
+        # passes. Source Han Serif JP is not accepted as a pass: it is CFF,
+        # and this Chromium emits it as a Type3 font, which is the failure
+        # the Korean rule ("static, 0 Type3") already exists to refuse.
+        (RECOMMENDED, 'Japanese serif (Mincho)',
+         check_font(('mincho', 'hiragino', 'notoserifjp'),
+                    'Japanese body text; without one the stack reaches the '
+                    'generic serif, which resolves to a GOTHIC face -- the '
+                    'body prints in a sans where the design says serif',
+                    fonts)),
+        (RECOMMENDED, 'Chinese serif (FangSong/SimSun)',
+         check_font(('simfang', 'fangsong', 'simsun', 'notoserifsc'),
+                    'Chinese body text; FangSong is absent on a stock '
+                    'Windows outside China and SimSun is the named fallback',
+                    fonts)),
         (RECOMMENDED, 'a math font',
          check_font(('cambria', 'stix', 'latinmodern-math', 'lmmath',
                      'notosansmath', 'xits'),

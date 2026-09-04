@@ -2297,6 +2297,16 @@ Facts that depend on this machine, not on the pipeline. Re-check on a new host.
   serif, ships with Hancom Office), NanumBarunGothic, Hancom Gothic,
   NanumGothic, Malgun Gothic. Batang and Gulim embed but have no bold face.
 - Korean faces that **fail** (variable): Noto Serif KR, Noto Sans KR.
+- **Japanese: no Mincho at all on this Korean Windows.** Only Gothic ships
+  (msgothic, YuGoth*), so the `ja` stack reached the generic `serif` keyword
+  and the browser answered with Yu Gothic: the body set in a SANS, cleanly
+  embedded, with every check passing and nothing saying so. `doctor.py` now
+  reports the absence. Source Han Serif JP was installed and measured as the
+  portable answer and **rejected** — it is CFF and this Chromium emits it as
+  Type3, so naming it would trade a clean Gothic for a Type3 serif.
+- **Chinese: FangSong is absent outside China, SimSun is present** and is a
+  real serif, so `zh` degrades acceptably. SimSun is now named in the stack
+  rather than left for the generic keyword to guess at.
 - Latin partner faces present: Noto Serif / Noto Sans (with real italic + bold),
   Cambria Math (the only face with an OpenType `MATH` table on stock Windows).
 - Monospace: Consolas is installed; **Fira Code and Monaco are not**. DotumChe

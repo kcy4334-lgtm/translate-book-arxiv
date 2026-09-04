@@ -276,6 +276,59 @@ class DisplayMathCenteringTests(unittest.TestCase):
             self.assertIn("padding-right: 3em", rule)
 
 
+class CjkSerifStackTests(unittest.TestCase):
+    r"""What a CJK stack falls back to when the local face is absent.
+
+    Measured on a Korean Windows: the Japanese stack named three Mincho
+    faces, all of them tied to a platform or a language pack -- Hiragino is
+    macOS, Yu Mincho wants a Japanese Windows, MS Mincho ships with the
+    pack. With none installed the stack reached the generic `serif` keyword,
+    and for Japanese the browser answered with Yu GOTHIC. The body set in a
+    sans where the design says serif, and nothing anywhere said so.
+
+    Source Han Serif JP was tried as the portable answer and rejected on
+    measurement: it is CFF, and this Chromium emits it as a Type3 font.
+    Naming it would make a machine without a Mincho choose a Type3 serif
+    over a cleanly embedded Gothic -- worse than the problem. The rule this
+    project already holds for Korean is "static, 0 Type3", and it applies to
+    every script.
+    """
+
+    def stack(self, code):
+        return layout.LANG_CONFIG[code]['font_family']
+
+    def ebook_stack(self, code):
+        return layout.LANG_CONFIG[code]['font_family_ebook']
+
+    def test_japanese_names_a_portable_serif(self):
+        stack = self.stack('ja')
+        self.assertIn('Noto Serif JP', stack)
+        self.assertLess(stack.index('Noto Serif JP'), stack.index('serif,')
+                        if 'serif,' in stack else len(stack))
+
+    def test_chinese_names_a_face_a_stock_windows_has(self):
+        """FangSong is absent outside China; SimSun is the named fallback,
+        rather than leaving the generic keyword to guess."""
+        self.assertIn('SimSun', self.stack('zh'))
+
+    def test_no_cjk_stack_names_a_type3_producer(self):
+        for code in ('ja', 'zh', 'ko'):
+            for stack in (self.stack(code), self.ebook_stack(code)):
+                self.assertNotIn('Source Han', stack, code)
+                self.assertNotIn('Noto Serif CJK', stack, code)
+
+    def test_every_cjk_stack_still_ends_at_the_generic_keyword(self):
+        """The last resort has to stay, or a machine with none of the named
+        faces gets no font at all rather than an imperfect one."""
+        for code in ('ja', 'zh', 'ko'):
+            self.assertTrue(self.stack(code).rstrip().endswith('serif'), code)
+
+    def test_the_portable_entries_come_after_the_local_ones(self):
+        """A machine that HAS the paper's own typeface must keep using it."""
+        stack = self.stack('ja')
+        self.assertLess(stack.index('MS Mincho'), stack.index('Noto Serif JP'))
+
+
 class TableRuleStyleTests(unittest.TestCase):
     """A dense results table is unreadable without its rules. SINQ's main
     table printed nine numeric columns with no line under the header and

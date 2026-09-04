@@ -39,8 +39,18 @@ Two tables live here:
 LANG_CONFIG = {
     'zh': {
         'lang_attr': 'zh-CN',
-        'font_family': "'FangSong', '仿宋', 'STFangSong', '华文仿宋', serif",
-        'font_family_ebook': '"FangSong", "FangSong_GB2312", "仿宋", "仿宋_GB2312", "STFangSong", "SimSun", serif',
+        # SimSun and Noto Serif SC are named rather than left to the generic
+        # `serif`. FangSong is absent on a stock Windows outside China, and
+        # what the generic keyword resolves to for Han script is the
+        # browser's guess -- for Japanese on this machine it guessed a sans.
+        # Naming a real serif makes the fallback a decision instead of luck.
+        # The CFF Source Han faces are left out for the reason given under
+        # `ja`: this Chromium emits them as Type3.
+        'font_family': "'FangSong', '仿宋', 'STFangSong', '华文仿宋', "
+                       "'Noto Serif SC', 'SimSun', serif",
+        'font_family_ebook': '"FangSong", "FangSong_GB2312", "仿宋", '
+                             '"仿宋_GB2312", "STFangSong", "Noto Serif SC", '
+                             '"SimSun", serif',
         'figure_label': '图',
         'table_label': '表',
         'equation_label': '公式',
@@ -78,8 +88,26 @@ LANG_CONFIG = {
     },
     'ja': {
         'lang_attr': 'ja',
-        'font_family': "'Hiragino Mincho ProN', 'Yu Mincho', 'MS Mincho', serif",
-        'font_family_ebook': '"Hiragino Mincho ProN", "Yu Mincho", "MS Mincho", serif',
+        # The first three Mincho faces are not portable: Hiragino is macOS,
+        # Yu Mincho wants a Japanese Windows, MS Mincho ships with the
+        # language pack. Measured on a Korean Windows with none of them
+        # installed, the stack fell through to the generic `serif` and that
+        # resolved to Yu GOTHIC -- a sans. A different serif is a matter of
+        # preference; a sans where the design says serif is the wrong kind of
+        # typeface for the script.
+        #
+        # The two added after them are TrueType-flavoured. Source Han Serif
+        # JP was tried here and deliberately left out: it is CFF, and this
+        # Chromium emits it as a Type3 font -- the failure this project
+        # already refuses for Korean, where the rule is "static, 0 Type3".
+        # Naming it would have made a machine WITHOUT a Mincho pick a Type3
+        # serif over a cleanly embedded Gothic, which is worse than the
+        # problem it was added to solve.
+        'font_family': "'Hiragino Mincho ProN', 'Yu Mincho', 'MS Mincho', "
+                       "'BIZ UDMincho', 'Noto Serif JP', serif",
+        'font_family_ebook': '"Hiragino Mincho ProN", "Yu Mincho", '
+                             '"MS Mincho", "BIZ UDMincho", "Noto Serif JP", '
+                             'serif',
         'figure_label': '図',
         'table_label': '表',
         'equation_label': '式',
