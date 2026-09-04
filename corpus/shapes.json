@@ -818,6 +818,66 @@
    },
    "title": "DeeR-VLA: Dynamic Inference of Multimodal Large Language Models for Efficient Robot Execution"
   },
+  "2509.09372": {
+   "shapes": {
+    "bibliography": {
+     "bibliography-file": 1,
+     "citep": 146
+    },
+    "caption": {
+     "caption": 29
+    },
+    "float": {
+     "figure": 12,
+     "table": 15,
+     "wrapfigure": 2
+    },
+    "front matter": {
+     "author": 1,
+     "bibliographystyle": 1,
+     "footnote": 3,
+     "maketitle": 1
+    },
+    "macro": {
+     "abbreviation-macro": 1,
+     "let-binding": 1,
+     "newcommand-braced": 47,
+     "renewcommand": 38,
+     "rowcolor": 5
+    },
+    "macro in style files": {
+     "DeclareRobustCommand": 17,
+     "futurelet": 1,
+     "glue-only-macro": 1,
+     "let-binding": 181,
+     "newcommand-bare": 78,
+     "newcommand-braced": 20,
+     "newif": 12,
+     "optional-argument": 2,
+     "providecommand": 26,
+     "renewcommand": 40
+    },
+    "math": {
+     "equation": 4,
+     "nolimits": 4,
+     "old-font-switch": 22,
+     "setlength": 5
+    },
+    "other": {
+     "def": 384,
+     "newcommand": 47
+    },
+    "preamble": {
+     "documentclass": 1
+    },
+    "table": {
+     "multicolumn": 111,
+     "multirow": 18,
+     "tabular": 15
+    }
+   },
+   "title": "0.15 [height=0.6cm]Figures/facon1.png0.25em VLA-Adapter: An Effective Paradigm for Tiny-Scale Vision-Language-Action Model"
+  },
   "2509.22944": {
    "shapes": {
     "bibliography": {

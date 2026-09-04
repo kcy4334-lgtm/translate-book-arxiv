@@ -70,6 +70,7 @@ A finding about a tool goes there. A finding about the method goes here.
 | probe a stage with bare pandoc instead of the pipeline's flags | [H36](#h36) |
 | treat a check firing as proof the check is working | [H37](#h37) |
 | accept a package default when two definitions compete | [H38](#h38) |
+| skip a step's probe because every other check is green | [H39](#h39) |
 
 ---
 
@@ -551,6 +552,22 @@ must be inherited by a wrapper that only passes its argument along, or the
 caller is refused anyway.
 *Cost when skipped: fourteen of the authors' private editing notes printed in a
 finished book, under a package default the paper itself had switched off.*
+---
+
+### H39
+**Run the probe a step tells you to run, especially the one whose defect
+every other check is blind to.**
+Step 4.6 exists because a table's `\caption` sits inside a `⟦T####⟧`
+placeholder that no translator ever sees, and the dry run says so as it ends.
+Skipping it left VLA-Adapter with fifteen English captions in a Korean book,
+and nothing else noticed: tables present, counts agreed, numbers right,
+`verify_chunk` passed all fourteen chunks, referee reported nothing fired.
+`format_probe --lang` is the only check that reads the LANGUAGE of a caption.
+When a step exists to cover a region the other checks cannot see, its probe is
+not a formality, and a green board is what that gap looks like from every
+other angle.
+*Cost when skipped: fifteen captions, found only because the probe was run
+afterwards anyway, and seven sub-agents to repair.*
 ---
 
 ## Maintenance protocol

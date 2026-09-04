@@ -110,5 +110,61 @@ class MathFontScope(unittest.TestCase):
         self.assertEqual(stats['fonts'], 1)
 
 
+class AccentArgumentBraces(unittest.TestCase):
+    r"""`\widetilde\mathbf{A}` reaches the page as literal TeX.
+
+    LaTeX takes the following command as the accent's argument. texmath wants
+    a brace, gives up on the WHOLE span, and pandoc emits the formula as text.
+    VLA-Adapter shipped six equations that way and `leak_probe` counted 75
+    fragments of them.
+
+    Measured against pandoc 3.10.2 before the rule was written: `\widetilde`,
+    `\widehat`, `\bar`, `\vec` and `\tilde` each fail on `\accent\style{x}`
+    and each render on `\accent{\style{x}}`.
+    """
+
+    def rewrite(self, text):
+        out, _stats = mb.normalize_math_commands(text)
+        return out
+
+    def test_the_shipped_formula(self):
+        self.assertEqual(self.rewrite(r'$\widetilde\mathbf{A}^0_t$'),
+                         r'$\widetilde{\mathbf{A}}^0_t$')
+
+    def test_the_rest_of_the_family(self):
+        for accent in ('widehat', 'bar', 'vec', 'tilde', 'overline'):
+            src = '$\\%s\\mathcal{C}$' % accent
+            self.assertEqual(self.rewrite(src),
+                             '$\\%s{\\mathcal{C}}$' % accent, src)
+
+    def test_a_nested_brace_is_kept_whole(self):
+        r"""`\mathbf{A_{t}}` must not be cut at its inner brace."""
+        self.assertEqual(self.rewrite(r'$\bar\mathbf{A_{t}}$'),
+                         r'$\bar{\mathbf{A_{t}}}$')
+
+    def test_an_already_braced_accent_is_left_alone(self):
+        text = r'$\widetilde{\mathbf{A}}^0_t$'
+        self.assertEqual(self.rewrite(text), text)
+
+    def test_it_runs_after_the_font_rules(self):
+        r"""`\bar\cal{C}` only becomes `\bar\mathcal{C}` in the font pass, so
+        the accent rule has to see the output of that pass, not the input."""
+        self.assertEqual(self.rewrite(r'$\bar\cal{C}$'),
+                         r'$\bar{\mathcal{C}}$')
+
+    def test_an_accent_over_a_plain_letter_is_untouched(self):
+        text = r'$\bar{x} + \vec v$'
+        self.assertEqual(self.rewrite(text), text)
+
+    def test_code_is_not_rewritten(self):
+        text = '`\\widetilde\\mathbf{A}`'
+        self.assertEqual(self.rewrite(text), text)
+
+    def test_the_count_is_reported(self):
+        _out, stats = mb.normalize_math_commands(
+            r'$\widetilde\mathbf{A}$ and $\bar\mathcal{C}$')
+        self.assertEqual(stats['accents'], 2)
+
+
 if __name__ == '__main__':
     unittest.main()

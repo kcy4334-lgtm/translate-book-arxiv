@@ -1347,6 +1347,30 @@ _MATH_REGION_RE = re.compile(
     re.DOTALL)
 
 
+# An accent whose argument is another command, written without braces:
+# `\widetilde\mathbf{A}`. LaTeX takes the following command as the argument
+# and typesets it; texmath wants a brace there, gives up on the WHOLE span,
+# and the formula reaches the page as literal TeX. VLA-Adapter printed six
+# equations that way, and `leak_probe` then counted 75 fragments of them.
+#
+# Measured against pandoc 3.10.2: `\widetilde\mathbf{A}^0_t`,
+# `\widehat\mathbf{B}`, `\bar\mathcal{C}`, `\vec\boldsymbol{d}` and
+# `\tilde\mathrm{e}` all fail, and every one renders once the argument is
+# braced. So the fix is the brace, and it belongs to the family rather than
+# to the one command this paper happened to use.
+_MATH_ACCENTS = ('widetilde', 'widehat', 'overline', 'overrightarrow',
+                 'underline', 'bar', 'hat', 'tilde', 'vec', 'dot', 'ddot',
+                 'check', 'breve', 'acute', 'grave', 'mathring')
+_MATH_STYLES = ('mathbf', 'mathrm', 'mathcal', 'mathbb', 'mathsf', 'mathtt',
+                'mathit', 'mathfrak', 'mathscr', 'boldsymbol', 'bm', 'symbf')
+# One level of nesting inside the style's argument, so `\mathbf{A_{t}}` is
+# still matched whole and never cut in half.
+_ACCENT_ON_COMMAND_RE = re.compile(
+    r'\\(' + '|'.join(_MATH_ACCENTS) + r')\s*'
+    r'(\\(?:' + '|'.join(_MATH_STYLES) + r')'
+    r'\{(?:[^{}]|\{[^{}]*\})*\})')
+
+
 def normalize_math_commands(md_text):
     """Modernise the pre-LaTeX2e font switches. Returns (text, stats).
 
@@ -1367,7 +1391,7 @@ def normalize_math_commands(md_text):
     A table is a region this module can find exactly, which is why the line
     is drawn there.
     """
-    stats = {'fonts': 0}
+    stats = {'fonts': 0, 'accents': 0}
 
     def rewrite_font(m):
         stats['fonts'] += 1
@@ -1396,7 +1420,15 @@ def normalize_math_commands(md_text):
         # Last, the bare switch with no group either side. It has to run after
         # both, or it would rewrite the command inside `{\rm x}` before the
         # group rule could recognise that shape.
-        return _OLD_FONT_BARE_RE.sub(rewrite_call, text)
+        text = _OLD_FONT_BARE_RE.sub(rewrite_call, text)
+        # Then brace an accent's command argument, AFTER the font rules and
+        # not before: `\bar\cal{C}` only becomes `\bar\mathcal{C}` above, and
+        # the accent rule has to be shown that form to catch it. A callable,
+        # never a replacement string: the replacement carries a backslash.
+        text, braced = _ACCENT_ON_COMMAND_RE.subn(
+            lambda m: '\\%s{%s}' % (m.group(1), m.group(2)), text)
+        stats['accents'] += braced
+        return text
 
     held = sorted([(m.start(), m.end(), 'code')
                    for m in _CODE_REGION_RE.finditer(md_text)]
@@ -2347,6 +2379,43 @@ def _in_latex_comment(text, pos):
         scan = at + 1
 
 
+_THE_COUNTER_RE = re.compile(
+    r'\\(?:re)?newcommand\s*\{?\s*\\the(figure|table)\s*\}?\s*'
+    r'(\{(?:[^{}]|\{[^{}]*\})*\})')
+_SETCOUNTER_RE = re.compile(r'\\setcounter\s*\{(figure|table)\}\s*\{(-?\d+)\}')
+
+
+def counter_events(tex):
+    r"""Explicit counter declarations, in source order.
+
+    A paper can letter its appendix floats by hand instead of scoping the
+    counter to a section. VLA-Adapter gives each of its nine appendix
+    sections a `\renewcommand{\thefigure}{A\arabic{figure}}` and a
+    `\setcounter{figure}{0}`, lettering A through I, so what it prints as
+    Figure A1 is this counter's ninth figure. Numbering straight through
+    sent seventeen cross-references to the wrong float, and `source_probe`
+    caught it by reading the number off the original PDF.
+
+    Returns [(position, kind, 'prefix'|'set', value)]. A redefinition whose
+    prefix is itself a command is skipped rather than guessed at: the point
+    is to read what the source declares, not to evaluate TeX.
+    """
+    events = []
+    for m in _THE_COUNTER_RE.finditer(tex):
+        kind, body = m.group(1), m.group(2)
+        inner = re.search(r'\\arabic\s*\{\s*' + kind + r'\s*\}', body)
+        if not inner:
+            continue          # not `<prefix>\arabic{kind}`; leave it alone
+        prefix = body[1:inner.start()].strip()
+        if '\\' in prefix:
+            continue          # the prefix is a command; do not evaluate it
+        events.append((m.start(), kind, 'prefix', prefix))
+    for m in _SETCOUNTER_RE.finditer(tex):
+        events.append((m.start(), m.group(1), 'set', int(m.group(2))))
+    events.sort(key=lambda e: e[0])
+    return events
+
+
 def float_units(tex):
     """One entry per figure/table number the paper actually issues.
 
@@ -2386,6 +2455,11 @@ def float_units(tex):
                 depth0 += 1
                 sections.append((m.start(), str(depth0)))
     section_head, next_section = '', 0
+    # The other way a paper letters its floats: by declaring it, rather than
+    # by scoping the counter to a section. Walked alongside the floats for the
+    # same reason the sections are.
+    events, next_event = counter_events(tex), 0
+    prefixes = {'figure': '', 'table': ''}
 
     for float_match in _FLOAT_ENV_RE.finditer(tex):
         while next_section < len(sections) \
@@ -2394,6 +2468,14 @@ def float_units(tex):
             for name in scoped:
                 counters[name] = 0
             next_section += 1
+        while next_event < len(events) \
+                and events[next_event][0] < float_match.start():
+            _at, event_kind, action, value = events[next_event]
+            if action == 'prefix':
+                prefixes[event_kind] = value
+            else:
+                counters[event_kind] = value
+            next_event += 1
         kind = 'table' if 'table' in float_match.group(1).lower() else 'figure'
         body, base = float_match.group(2), float_match.start(2)
         panels = _panel_spans(body)
@@ -2408,12 +2490,19 @@ def float_units(tex):
             if captions:
                 counters[kind] += 1
             region = tex[base + bounds[index]:base + bounds[index + 1]]
+            if not captions:
+                number = None                 # a float that numbers nothing
+            elif kind in scoped:
+                number = _counter_label(kind, counters[kind], parents,
+                                        section_head)
+            elif prefixes[kind]:
+                # The paper declared the prefix itself: `A\arabic{figure}`.
+                number = '%s%d' % (prefixes[kind], counters[kind])
+            else:
+                number = counters[kind]
             units.append({
                 'kind': kind,
-                'number': (_counter_label(kind, counters[kind], parents,
-                                          section_head)
-                           if captions and kind in scoped
-                           else counters[kind] if captions else None),
+                'number': number,
                 'start': base + bounds[index],
                 'stop': base + bounds[index + 1],
                 'labels': [l.strip() for l in
@@ -3523,8 +3612,14 @@ def drop_doubled_labels(md_text, words, formats, lang_cfg=None):
     Same wound as the particle fix below. The translator wrote its own '절'
     after the placeholder, never having seen that this pass would substitute
     a reference which already ends in one, and CafeQ shipped "4.1절 절과 4.2
-    절 절에서는". Only suffix-style formats can double: where the label comes
-    first, the reference and the translator's word do not collide.
+    절 절에서는".
+
+    A prefix label doubles too, and the note that once stood here said it
+    could not. The source writes `Figure (Figure_teaser)`, the resolver
+    replaces the parenthesised key alone, and the label word the translator
+    put in front of it survives: VLA-Adapter shipped `그림 그림 1` and `표 표
+    2` twenty times over. The old assumption held only while translators left
+    that word in English, where the two forms did not match each other.
     """
     lang_cfg = lang_cfg or {}
     total = 0
@@ -3533,11 +3628,17 @@ def drop_doubled_labels(md_text, words, formats, lang_cfg=None):
         tail = r'(?=(?:%s)?(?!\w))' % '|'.join(_KO_PARTICLES)
     for slot, label in words.items():
         template = formats.get(slot, '{label} {number}')
-        _head, _sep, after = template.partition('{number}')
-        if '{label}' not in after:
-            continue                     # label is a prefix; nothing to double
+        head, _sep, after = template.partition('{number}')
         esc = re.escape(label)
-        pattern = re.compile(r'(\d[\d.]*' + esc + r')\s*' + esc + tail)
+        if '{label}' in after:
+            # Suffix style: `4.1절 절과` -> `4.1절과`.
+            pattern = re.compile(r'(\d[\d.]*' + esc + r')\s*' + esc + tail)
+        elif '{label}' in head:
+            # Prefix style: `그림 그림 1` -> `그림 1`. Anchored on the number,
+            # so a sentence that merely repeats the word is left alone.
+            pattern = re.compile(esc + r'\s+(' + esc + r'\s*\d)')
+        else:
+            continue
         md_text, n = pattern.subn(r'\1', md_text)
         total += n
     return md_text, total
@@ -5903,6 +6004,11 @@ def convert_md_to_html(temp_dir, title, lang_cfg, author=None,
     if math_stats['fonts']:
         print("Math: %d legacy font switch(es) rewritten (\\rm -> \\mathrm)"
               % math_stats['fonts'])
+    if math_stats['accents']:
+        print("Math: %d accent argument(s) braced "
+              "(\\widetilde\\mathbf{X} -> \\widetilde{\\mathbf{X}}); texmath "
+              "drops the whole formula over one"
+              % math_stats['accents'])
 
     md_text, unboxed = unwrap_text_boxed_math_fonts(md_text)
     if unboxed:

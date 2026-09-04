@@ -313,6 +313,41 @@ class YearShapeTests(ChunkCase):
                         'a chunk of nothing but entries must be exempt, or it '
                         'gets dispatched to a translator')
 
+
+class NothingToTranslateTests(unittest.TestCase):
+    """Identical output is a defect only where there was a word to render.
+
+    VLA-Adapter's last chunk is three footnote definitions holding one bare
+    URL each. `untranslated` failed it and asked for a re-translation that
+    could only produce the same bytes and fail again.
+    """
+
+    FOOTNOTES = ('[^1]: <https://example.invalid/datasets>\n\n'
+                 '[^2]: <http://example.invalid/>\n\n'
+                 '[^3]: <https://example.invalid/a/b/c.py>\n')
+
+    def test_footnote_definitions_holding_only_urls_are_exempt(self):
+        self.assertTrue(vc.has_nothing_to_translate(self.FOOTNOTES))
+        self.assertEqual(
+            vc.check_translated(self.FOOTNOTES, self.FOOTNOTES, 'ko'), [],
+            'a chunk with no word in it can only come back identical')
+
+    def test_a_footnote_carrying_prose_is_not_exempt(self):
+        """The exemption is about words, not about the footnote syntax."""
+        chunk = '[^1]: The benchmark suite is described in the appendix.\n'
+        self.assertFalse(vc.has_nothing_to_translate(chunk))
+        self.assertTrue(vc.check_translated(chunk, chunk, 'ko'),
+                        'prose left untranslated must still fail')
+
+    def test_ordinary_prose_is_not_exempt(self):
+        chunk = 'The policy network receives the action latent.\n'
+        self.assertFalse(vc.has_nothing_to_translate(chunk))
+        self.assertTrue(vc.check_translated(chunk, chunk, 'ko'))
+
+    def test_digits_and_symbols_alone_are_not_words(self):
+        self.assertTrue(vc.has_nothing_to_translate('224 x 224\n\n1. 2. 3.\n'))
+
+
 class NeighborLeakTests(ChunkCase):
     """Read-only context, pasted into the output as if it were content."""
 

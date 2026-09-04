@@ -60,6 +60,37 @@ class DoubledLabels(unittest.TestCase):
         self.assertEqual(got, text)
         self.assertEqual(n, 0)
 
+    def test_a_prefix_label_doubles_in_front_of_the_number(self):
+        r"""The other prefix shape, which the note above said could not exist.
+
+        The source writes `Figure (Figure_teaser)`. `resolve_references`
+        replaces the parenthesised key alone, so the label word the translator
+        put in front of it survives and meets the one the resolver supplies.
+        VLA-Adapter shipped `그림 그림 1` and `표 표 2` twenty times.
+
+        The number is what separates this from the case above: there the
+        second `그림` opens an ordinary word, here it heads a reference.
+        """
+        got, n = mb.drop_doubled_labels('그림 그림 1 에서 보듯',
+                                        {'figure': '그림'}, PREFIX, KO)
+        self.assertEqual(got, '그림 1 에서 보듯')
+        self.assertEqual(n, 1)
+
+    def test_the_same_for_a_table(self):
+        got, n = mb.drop_doubled_labels('표 표 2에 제시했다',
+                                        {'table': '표'},
+                                        {'table': '{label} {number}'}, KO)
+        self.assertEqual(got, '표 2에 제시했다')
+        self.assertEqual(n, 1)
+
+    def test_a_word_starting_with_the_label_is_still_safe(self):
+        """`표현` must survive: the guard is the digit, not the word."""
+        text = '표 표현을 바꾼다'
+        got, n = mb.drop_doubled_labels(text, {'table': '표'},
+                                        {'table': '{label} {number}'}, KO)
+        self.assertEqual(got, text)
+        self.assertEqual(n, 0)
+
     def test_without_particle_agreement_only_word_boundaries_count(self):
         got, n = mb.drop_doubled_labels('第4.1节 节。', {'section': '节'},
                                         {'section': '第{number}{label}'},

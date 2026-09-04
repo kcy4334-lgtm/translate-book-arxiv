@@ -164,6 +164,10 @@ here; the test is the real record. This file is for the *reasoning*, the
 | The census reports more papers than were ingested, or a fraction reads high | [K144](#k144) |
 | No book at all, and pandoc exited 25 on a bibliography file | [K145](#k145) |
 | `--arxiv-id` was passed and the calibre backend ran anyway | [K146](#k146) |
+| A formula prints as literal TeX and pandoc warned it could not convert it | [K147](#k147) |
+| An appendix figure is numbered 9 where the paper prints A1 | [K148](#k148) |
+| A reference reads "그림 그림 1" | [K149](#k149) |
+| A chunk of only URLs or footnote markers fails as untranslated | [K150](#k150) |
 
 ---
 
@@ -2088,6 +2092,64 @@ maths at all. Two places were deciding one judgement; now `backends` owns the
 predicate and `convert.py` asks it.
 *Status: LOCKED, `ArxivWasExplicitTests`; the same command now exits 1 and
 writes nothing. Fixed 2026-09-04.*
+
+---
+
+### K147
+**texmath drops a whole formula over an accent whose argument is a command.**
+`\widetilde\mathbf{A}` is what LaTeX accepts and typesets; pandoc wants a
+brace, refuses the entire span, and prints it as literal TeX. Measured
+against pandoc 3.10.2: `\widetilde`, `\widehat`, `\bar`, `\vec` and `\tilde`
+each fail on `\accent\style{x}` and each render on `\accent{\style{x}}`, so
+the fault is the missing brace and not the one command a paper happened to
+use. VLA-Adapter printed six equations that way and `leak_probe` counted 75
+fragments of them. The rule runs AFTER the legacy font pass, because
+`\bar\cal{C}` only becomes `\bar\mathcal{C}` there.
+*Status: LOCKED, `AccentArgumentBraces`; VLA-Adapter 6 raw spans to 0, 12
+arguments braced, `leak_probe` PASS.*
+
+---
+
+### K148
+**A paper can letter its appendix floats by declaring it, not by scoping the
+counter.** VLA-Adapter gives each of its nine appendix sections a
+`\renewcommand{\thefigure}{A\arabic{figure}}` and a `\setcounter{figure}{0}`,
+lettering A to I, so its Figure A1 is that counter's ninth figure. Section
+scoping, which prints `Table 3.1`, was already read; this shape was not.
+Numbering straight through sent 17 cross-references at the wrong float while
+the book stayed self-consistent: only `source_probe`, reading the number off
+the original PDF, could see it. Read what the source declares, never evaluate
+TeX: a prefix that is itself a command is skipped. Blast radius measured, 0
+floats move in the 9 other papers on disk.
+*Status: LOCKED, `tests/test_appendix_float_numbers.py`; source_probe went
+41 agree / 17 disagree to 58 / 0.*
+
+---
+
+### K149
+**A prefix label doubles too, and the code said it could not.**
+`drop_doubled_labels` handled `4.1절 절과` and skipped every prefix format on
+a note claiming the two could not collide. The source writes `Figure
+(Figure_teaser)`, `resolve_references` replaces the parenthesised key alone,
+and the label word in front of it survives: VLA-Adapter shipped `그림 그림 1`
+and `표 표 2` twenty times. The old note held only while translators left
+that word in English. The digit is what separates a real doubling from
+`그림 1 그림자`, so the prefix rule anchors on it. K33's shape, in the half
+that was never covered.
+*Status: LOCKED, `test_a_prefix_label_doubles_in_front_of_the_number`;
+20 to 0, and the old guard still passes.*
+
+---
+
+### K150
+**A chunk of machine tokens can only come back identical.** VLA-Adapter's
+last chunk is three footnote definitions holding one bare URL each. Nothing
+in it is prose, so `untranslated` failed it and asked for a re-translation
+that could only produce the same bytes and fail again. Third instance of one
+rule: `is_all_references` and `has_no_prose` already encode it, and
+`_strip_verbatim` already knows which regions are correctly Latin, so what it
+leaves is what a translator was actually asked to render.
+*Status: LOCKED, `NothingToTranslateTests`.*
 
 ---
 

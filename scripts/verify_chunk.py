@@ -419,6 +419,32 @@ def has_no_prose(source):
     return bool(_DRAWN_ONLY_RE.match(source or ''))
 
 
+_FOOTNOTE_MARKER_RE = re.compile(r'(?m)^\s*\[\^[^\]\s]+\]:')
+# Two or more letters of ANY script: Latin, Hangul, CJK. Digits and
+# underscores are excluded, so `[^1]:` and `224x224` are not words.
+_WORD_RE = re.compile(r'[^\W\d_]{2,}', re.UNICODE)
+
+
+def has_nothing_to_translate(source):
+    r"""A chunk that is machine tokens end to end, with no word in it.
+
+    VLA-Adapter's last chunk is three footnote definitions holding one bare
+    URL each. Nothing in it is prose, so byte-identical output is the only
+    faithful answer, and `untranslated` failed it and asked for a
+    re-translation that could only produce the same bytes and fail again.
+
+    The same rule `is_all_references` and `has_no_prose` already encode,
+    applied to a third shape: identical output is a defect only where there
+    was something to translate. `_strip_verbatim` already blanks every region
+    where Latin is the right answer (URLs, code, maths, raw LaTeX, labels,
+    image paths), so what it leaves is what a translator was actually asked
+    to render.
+    """
+    left = _strip_verbatim(_prose_only(source or ''))
+    left = _FOOTNOTE_MARKER_RE.sub(' ', left)
+    return not _WORD_RE.search(left)
+
+
 def check_translated(source, output, lang):
     """Did anything happen at all, and is it in the target language?"""
     out = []
@@ -427,6 +453,8 @@ def check_translated(source, output, lang):
             return out          # the reference list is kept in the original
         if has_no_prose(source):
             return out          # a drawing has nothing to translate
+        if has_nothing_to_translate(source):
+            return out          # machine tokens only: no word to render
         return [{'check': 'untranslated', 'severity': 'fail',
                  'detail': 'the output is byte-identical to the source',
                  'evidence': output.strip()[:80]}]
