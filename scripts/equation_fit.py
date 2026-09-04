@@ -246,6 +246,22 @@ def apply_scales(html, scales):
     return _MATH_OPEN_RE.sub(patch, html), applied[0]
 
 
+def pymupdf_available():
+    """Can the finished PDF be measured on this machine?
+
+    The renderer around this treats PyMuPDF as optional -- it warns and
+    carries on when page numbers cannot be stamped -- and this pass has to
+    match, or installing the pipeline without one Python package turns a
+    cosmetic check into no PDF at all. `except Exception`, not ImportError:
+    a half-installed build raises other things on import.
+    """
+    try:
+        import fitz                                       # noqa: F401
+    except Exception:                                     # noqa: BLE001
+        return False
+    return True
+
+
 def _write_if_changed(path, text):
     with open(path, encoding='utf-8') as fh:
         if fh.read() == text:
@@ -284,6 +300,15 @@ def fit_equations(html_path, pdf_path, render, print_cfg,
     eqnos = [eqno for _key, eqno, _el in equations]
 
     if not eqnos:
+        return render(html_path, pdf_path), []
+
+    if measure is None and not pymupdf_available():
+        # One render and no measuring, exactly as before this pass existed.
+        # The alternative is to raise on the import and take the whole PDF
+        # with it, which would make a formula's spacing a hard dependency.
+        log('  equation fit: PyMuPDF is not installed, so equation numbers '
+            'are not measured. `pip install pymupdf` to have a formula that '
+            'is as wide as the text column fitted clear of its number.')
         return render(html_path, pdf_path), []
 
     level = {}

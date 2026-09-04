@@ -290,6 +290,63 @@ class TheColumn(unittest.TestCase):
                          ef.column_bounds(595.0, CFG))
 
 
+class WithoutAPdfReader(unittest.TestCase):
+    r"""A machine that cannot measure the PDF must still get a PDF.
+
+    The renderer treats PyMuPDF as optional -- it warns and carries on when
+    page numbers cannot be stamped -- and this pass imported it flat. On a
+    fresh clone without that one package the import raised inside the PDF
+    branch and took the whole file with it: a book that used to build,
+    stopped, because a formula's spacing could not be checked.
+    """
+
+    def setUp(self):
+        self.dir = tempfile.mkdtemp()
+        self.path = os.path.join(self.dir, 'book_doc.html')
+        self.pdf = os.path.join(self.dir, 'book.pdf')
+        with io.open(self.path, 'w', encoding='utf-8') as fh:
+            fh.write(HTML)
+        self.real = ef.pymupdf_available
+        ef.pymupdf_available = lambda: False
+        self.addCleanup(setattr, ef, 'pymupdf_available', self.real)
+
+    def test_the_book_is_still_rendered(self):
+        calls = []
+        ok, stuck = ef.fit_equations(
+            self.path, self.pdf,
+            lambda s, o: calls.append(s) or True, CFG,
+            log=lambda _m: None)
+        self.assertEqual((ok, stuck), (True, []))
+        self.assertEqual(calls, [self.path], 'exactly one render')
+
+    def test_it_says_what_is_missing_and_how_to_get_it(self):
+        notes = []
+        ef.fit_equations(self.path, self.pdf, lambda s, o: True, CFG,
+                         log=notes.append)
+        joined = ' '.join(notes)
+        self.assertIn('PyMuPDF', joined)
+        self.assertIn('pip install pymupdf', joined)
+
+    def test_the_document_is_not_touched(self):
+        before = io.open(self.path, encoding='utf-8').read()
+        ef.fit_equations(self.path, self.pdf, lambda s, o: True, CFG,
+                         log=lambda _m: None)
+        self.assertEqual(io.open(self.path, encoding='utf-8').read(), before)
+
+    def test_an_injected_measurer_still_runs(self):
+        """The absence of the reader is only a reason to skip the DEFAULT
+        measurement; a caller that brought its own is unaffected."""
+        seen = []
+
+        def measure(_pdf, eqnos, _cfg, _gap):
+            seen.append(tuple(eqnos))
+            return [(e, True, 'x') for e in eqnos]
+
+        ef.fit_equations(self.path, self.pdf, lambda s, o: True, CFG,
+                         measure=measure, log=lambda _m: None)
+        self.assertEqual(seen, [('(1)', '(2)')])
+
+
 class ADocumentWithNoNumberedEquations(unittest.TestCase):
     """Most books. The pass must cost them exactly the one render the build
     was doing anyway."""
