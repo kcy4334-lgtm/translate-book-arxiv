@@ -1006,9 +1006,13 @@ it and keeps plain text.
 KNOWLEDGE.md [K66](KNOWLEDGE.md#k66), disabling `grid_tables` makes pandoc
 write the literal text `[TABLE]` and lose the table entirely.
 
-**Display equations are centred** by `display: flex; justify-content: center`,
-not `text-align`, which Chromium ignores on a block `<math>`. The element stays
-full width so a right-margin `(N)` number still lands in the margin.
+**Display equations are centred** by giving the inner `<semantics>` box
+`width: fit-content` and `margin: 0 auto`. Not by `text-align`, which Chromium
+ignores on a block `<math>`, and no longer by `display: flex`: a formula wider
+than the flex container loses its FIRST CHILD outright, which cost equation (3)
+of VLA-Adapter its left-hand side with nothing on the page to show it
+([K151](KNOWLEDGE.md#k151)). The `<math>` element stays full width either way,
+so a right-margin `(N)` number still lands in the margin.
 
 Check the result in the built HTML, not in the markdown:
 

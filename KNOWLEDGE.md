@@ -177,6 +177,7 @@ here; the test is the real record. This file is for the *reasoning*, the
 | A check reports findings against a book that is correct | [K157](#k157) |
 | The paper's own rows print like every baseline's | [K158](#k158) |
 | Text that should be on the page is in the stylesheet instead | [K159](#k159) |
+| The book opens on its table of contents, with no title page | [K160](#k160) |
 
 ---
 
@@ -1092,7 +1093,7 @@ and nothing counted the float. Two papers shipped without the algorithm that
 is the point of the paper. A check that counts what it knows about cannot
 see what it does not; its replacement asks the artifact whether each
 raw-LaTeX block still has prose on the page.
-*Status: LOCKED, `test_algorithm_float.py`, 30 tests; fires on both real
+*Status: LOCKED, `test_algorithm_float.py`, 35 tests; fires on both real
 books before the fix, silent on all three after.*
 
 ### K79
@@ -1330,7 +1331,10 @@ authors were known the entire time: `apply_template_to_html` wrote them into
 a `<meta name="author">` and nothing ever laid them out, because the template
 spends `$title$` on `<head>` alone. A paper that does not say who wrote it is
 not a paper, and the data was already in hand, so there was nothing to
-weigh. The fix is a byline after the title's `<h1>`, before the TOC is added.
+weigh. The fix is a byline after the title heading, before the TOC is added.
+Now only half the story: the byline is placed from `<body>` rather than by
+scanning the file (K159), it carries the full list while `author` stays the
+catalogue form, and there is a real title page for it to sit on (K160).
 *Status: LOCKED, byline on the title page of all three books.*
 
 ---
@@ -2268,6 +2272,20 @@ into the stylesheet, present in the file and rendering as nothing. The title
 page came out with no names on it. Search from `<body>`, and do not spell a
 tag out in a comment inside the document it will be searched in.
 *Status: LOCKED, `TheBylineCarriesEveryone`.*
+
+### K160
+**The book opened on its own table of contents.** No title page: K95 added a
+byline under the title heading, and the title heading was the first section
+of the paper. The names had been in `config.txt` under `creator=` since
+conversion, read off the source PDF's metadata because
+`extract_latex_authors` refuses a block it cannot parse (K139) -- and this
+paper's, sixteen names in `\textbf` groups behind affiliation superscripts,
+is one it refuses. So the data was in hand and the page was not there.
+`build_title_page` emits title and source only; the byline is inserted after
+its heading by the existing path, and the contents page is inserted after
+the title page rather than pinned to `<body>`, or the book still opens on
+its index with the title on the leaf behind it.
+*Status: LOCKED, `BuildingIt`, `TheContentsComeSecond`.*
 
 ---
 
