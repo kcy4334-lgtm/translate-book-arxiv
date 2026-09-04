@@ -639,5 +639,71 @@ class ShippedAdvisorsAreUsable(unittest.TestCase):
         self.assertTrue(up_to_date)
 
 
+# The long dash was swept out of the documents once, by hand, eight files at
+# a time. A sweep is not a rule: the ten files left out had nothing to follow,
+# and the next edit would have put dashes back into a repository that looked
+# settled. This states the rule instead, so it holds without anyone
+# remembering it.
+#
+# The exception is real and small. SKILL.md carries the translation prompt the
+# sub-agents are handed, that prompt is written in Chinese, and there the dash
+# is the Chinese one: part of the instruction, not styling this repo chose.
+_EM_DASH = '—'
+_CJK_RE = re.compile(r'[　-〿一-鿿＀-￯]')
+# Its own generator, not `_shipped_text_files`: that one drops INSTALL.md via
+# PATH_DOC_ALLOWLIST, which is right for absolute paths and would silently
+# exempt a whole document from this check.
+_MD_SKIP_DIRS = {'__pycache__', '.git', '.artifacts', 'arxiv_src', 'images'}
+
+
+def _shipped_markdown():
+    for root, dirs, names in os.walk(ROOT):
+        dirs[:] = [d for d in dirs
+                   if d not in _MD_SKIP_DIRS and not d.endswith('_temp')]
+        for name in sorted(names):
+            if not name.endswith('.md'):
+                continue
+            path = os.path.join(root, name)
+            rel = os.path.relpath(path, ROOT).replace('\\', '/')
+            if rel.startswith('tests/.artifacts/'):
+                continue
+            try:
+                with open(path, 'r', encoding='utf-8', errors='replace') as fh:
+                    yield rel, fh.read()
+            except OSError:
+                continue
+
+
+class NoLongDashInShippedMarkdown(unittest.TestCase):
+
+    def test_documents_use_ordinary_punctuation(self):
+        offenders = []
+        for rel, text in _shipped_markdown():
+            for m in re.finditer(re.escape(_EM_DASH), text):
+                window = text[max(0, m.start() - 60):m.start() + 60]
+                if _CJK_RE.search(window):
+                    continue
+                line = text[:m.start()].count('\n') + 1
+                offenders.append('%s:%d  %s'
+                                 % (rel, line, ' '.join(window.split())[:72]))
+        self.assertEqual(
+            sorted(offenders), [],
+            '\n' + '\n'.join(sorted(offenders))
+            + '\nReplace it by what it was doing: a comma to continue the '
+              'phrase, a colon before a gloss or a list, a semicolon between '
+              'two clauses that stand alone, brackets around an aside that '
+              'already holds a comma.')
+
+    def test_the_chinese_prompt_still_needs_its_exception(self):
+        """An exception that guards nothing is a hole with a comment on it."""
+        text = dict(_shipped_markdown())['SKILL.md']
+        kept = [m.start() for m in re.finditer(re.escape(_EM_DASH), text)
+                if _CJK_RE.search(text[max(0, m.start() - 60):m.start() + 60])]
+        self.assertTrue(
+            kept,
+            'No dash in SKILL.md sits near CJK any more, so the exception in '
+            'this check no longer protects anything. Delete it.')
+
+
 if __name__ == '__main__':
     unittest.main()

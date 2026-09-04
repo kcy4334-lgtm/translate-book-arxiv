@@ -61,7 +61,7 @@ Files on disk:
 
 Note on the auto-applied `King` (`国王`) entity, separate from `King of Hearts` (`红心国王`): `merge_meta` saw `King` as a new entity in chunks 23/24 with no canonical conflict, so it auto-applied. This creates a (semantically redundant) standalone entity alongside `King of Hearts` (which has `the King` as alias). The pipeline does not currently merge two existing entities; this redundancy is expected output, not a bug. Recorded so a future reader doesn't "fix" it without considering the apply-merge contract.
 
-Note on `Wonderland`, `Frog-Footman`: a few entities carry `confidence: high` without enough `evidence_refs` to satisfy `merge_meta._confidence_for_evidence_count`. This is **not** an anomaly — `scripts/glossary.py` validates `confidence` against the enum only; the merge-time promotion rule applies only inside `_append_evidence_ref`. Seeded or reused entries can legitimately carry high confidence with sparse `evidence_refs`.
+Note on `Wonderland`, `Frog-Footman`: a few entities carry `confidence: high` without enough `evidence_refs` to satisfy `merge_meta._confidence_for_evidence_count`. This is **not** an anomaly, `scripts/glossary.py` validates `confidence` against the enum only; the merge-time promotion rule applies only inside `_append_evidence_ref`. Seeded or reused entries can legitimately carry high confidence with sparse `evidence_refs`.
 
 Final-format outputs:
 - `output.md`: 160,705 bytes (merged translated markdown)
@@ -74,7 +74,7 @@ Final-format outputs:
 
 ### Expected target (unverified)
 
-None — all previous targets validated by the run above.
+None, all previous targets validated by the run above.
 
 ### Drift indicator (record current values, do not pass/fail)
 
@@ -86,4 +86,4 @@ LLM-dependent, may differ across runs/models. These are *current observed values
 - `Mock Turtle.target` = `"素甲鱼"` (chosen over alternative `"假海龟"` via `conflicting_new_entity_proposals` decision; 赵元任 1922 译本经典渲染)
 - `Mouse.gender` = `"male"` (Carroll's narrator uses "his")
 - `Dinah.gender` = `"female"` (Alice refers to her cat as "she")
-- Cross-batch convergence: `Alice`, `White Rabbit`, `Mouse`, `Dinah`, `Lory` reached `confidence: "high"` within the chunks 4–11 prior partial run; remaining 22 high-confidence entities accumulated across batches 1–4 of this completion run. Major-character convergence held at first batch — no late-batch alias drift observed.
+- Cross-batch convergence: `Alice`, `White Rabbit`, `Mouse`, `Dinah`, `Lory` reached `confidence: "high"` within the chunks 4–11 prior partial run; remaining 22 high-confidence entities accumulated across batches 1–4 of this completion run. Major-character convergence held at first batch, no late-batch alias drift observed.

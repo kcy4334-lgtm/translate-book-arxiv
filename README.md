@@ -362,7 +362,7 @@ Then: merge → Pandoc HTML → inject TOC → Calibre generates DOCX, EPUB, PDF
 | `scripts/backends.py` | Ingest backend selection (calibre / arXiv) and temp-dir provenance |
 | `scripts/arxiv_backend.py` | arXiv LaTeX-source ingest: real equations, figures rasterised from the originals |
 | `scripts/paper_macros.py` | The paper's own `\newcommand`s, resolved from the `.sty` files it ships, before pandoc reads the source, which never sees them. Refuses rather than guesses, and names every refusal |
-| `scripts/grid_table.py` | Grid-table construction for tables pandoc's markdown writer cannot express |
+| `scripts/grid_table.py` | Grid-table construction for tables pandoc's markdown writer cannot express. Not wired in: `table` floats bypass pandoc's table writer entirely, so the pipeline produces no grid table whose spans could drift. Kept, unimported, against the paper that does produce one |
 | `scripts/manifest.py` | Chunk manifest: SHA-256 tracking and merge validation |
 | `scripts/math_guard.py` | Formula/citation placeholders (`⟦M0042⟧`) and their restoration |
 | `scripts/glossary.py` | Glossary management: per-chunk term tables for consistent terminology |

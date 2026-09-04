@@ -1,11 +1,11 @@
 # sleepy-hollow
 
-Smoke baseline — cheapest full-pipeline input that still exercises convert, chunking, glossary, merge, and final format generation.
+Smoke baseline, cheapest full-pipeline input that still exercises convert, chunking, glossary, merge, and final format generation.
 
 - File: `sleepy-hollow.epub`
 - Source: Project Gutenberg #41 *The Legend of Sleepy Hollow* (`epub3.images`)
 - Why this baseline: at `target_size=6000` the input splits into ~21 chunks (about 13 story chunks + 8 PG boilerplate chunks), roughly 55% of the cost of `standard-alice`. The `Headless Horseman / Galloping Hessian / spectre / goblin` alias chain spans ~9 chunks, so cross-chunk entity tracking still gets exercised.
-- Coverage gap: only 1 image (the cover) — does **not** exercise inline-image preservation. Use `standard-alice` for image-path coverage.
+- Coverage gap: only 1 image (the cover), does **not** exercise inline-image preservation. Use `standard-alice` for image-path coverage.
 
 Run from `tests/.artifacts/` so generated files stay out of the repo root:
 
@@ -21,13 +21,13 @@ python3 ../../scripts/merge_and_build.py --temp-dir sleepy-hollow_temp --title "
 
 See `tests/baselines/README.md` for the three-tier convention.
 
-*Forward-looking targets, not yet validated. The first full pipeline run after this section was added is the validation event — promote items to **Measured** as a run confirms them, or correct the targets if the run reveals the spec was wrong.*
+*Forward-looking targets, not yet validated. The first full pipeline run after this section was added is the validation event, promote items to **Measured** as a run confirms them, or correct the targets if the run reveals the spec was wrong.*
 
 ### Measured
 
-None — no `tests/.artifacts/sleepy-hollow_temp/` exists yet.
+None, no `tests/.artifacts/sleepy-hollow_temp/` exists yet.
 
-### Expected target (unverified — needs first full pipeline run)
+### Expected target (unverified: needs first full pipeline run)
 
 - `manifest.chunk_count` is approximately 21 (this `SOURCE.md` says `~21` above). First run records the exact value; subsequent runs assert equality against the recorded value, not against `21`. A first-run result of 20 or 22 is an estimation correction, not a regression.
 - All `chunk*.md` and matching `output_chunk*.md` exist; count matches `manifest.chunk_count`
