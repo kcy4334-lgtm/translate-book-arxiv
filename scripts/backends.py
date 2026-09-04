@@ -32,6 +32,28 @@ def normalize_backend_name(value):
     return _LEGACY_ALIASES.get(value, value)
 
 
+def arxiv_was_explicit(requested, arxiv_id_override):
+    """Did the caller ask for the arXiv backend by name?
+
+    Two flags reach that choice. `--backend arxiv` says it outright, and
+    `--arxiv-id` implies it: `select_backend` returns BACKEND_ARXIV for the id
+    alone, without `requested` ever changing.
+
+    It matters after a failure, not before. `convert.py` refuses to fall back
+    to calibre when the backend was chosen deliberately, because an explicit
+    backend is a choice about what the book will contain. That test used to
+    read `args.backend` directly, so a caller who passed only `--arxiv-id`
+    was silently downgraded by the very code written to prevent it, and got
+    a book with no equations in it (K146).
+
+    One predicate, imported by both places that need the judgement, is what
+    keeps them from drifting apart again.
+    """
+    if arxiv_id_override:
+        return True
+    return normalize_backend_name(requested) == BACKEND_ARXIV
+
+
 def select_backend(input_file, requested, arxiv_id_override, allow_network):
     """Return (backend, arxiv_id_or_None, reason).
 

@@ -1533,10 +1533,13 @@ def main():
             # path, died on one \newcolumntype, and came back through calibre
             # with every equation gone — reported as a successful conversion.
             # An explicit choice of backend is a choice about what the book
-            # will contain, so the fallback belongs to `auto` alone.
-            if args.backend == backends.BACKEND_ARXIV:
-                print("Error: the arXiv backend failed and --backend arxiv "
-                      "was requested explicitly.")
+            # will contain, so the fallback belongs to `auto` alone. Ask
+            # `backends` which requests count as explicit: reading
+            # `args.backend` here let `--arxiv-id`, documented as implying the
+            # backend, downgrade anyway (K146).
+            if backends.arxiv_was_explicit(args.backend, args.arxiv_id):
+                print("Error: the arXiv backend failed and it was requested "
+                      "explicitly.")
                 print("  Not falling back: the calibre path cannot recover "
                       "equations, so it would answer a different question.")
                 print("  Re-run with --backend auto to accept that trade, or "

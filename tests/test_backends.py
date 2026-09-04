@@ -1,5 +1,7 @@
 """Tests for backend selection and arXiv source handling."""
 
+import contextlib
+import io
 import os
 import sys
 import tempfile
@@ -204,6 +206,126 @@ class NormalizeNewlinesTests(unittest.TestCase):
         """Left as CRLF, Windows text-mode writing yields \\r\\r\\n on disk,
         which reads back as a blank line that terminates $$ math."""
         self.assertEqual(arxiv_backend.normalize_newlines('a\r\nb\rc'), 'a\nb\nc')
+
+
+class ArxivWasExplicitTests(unittest.TestCase):
+    """K146: `--arxiv-id` implies the backend, so it has to count as explicit.
+
+    `convert.py` refuses to fall back to calibre when the arXiv backend was
+    chosen deliberately. That test read `args.backend`, which `--arxiv-id`
+    never sets, so the one flag documented as implying the backend was also
+    the one request that got silently downgraded.
+    """
+
+    def test_backend_arxiv_is_explicit(self):
+        self.assertTrue(backends.arxiv_was_explicit('arxiv', None))
+
+    def test_the_id_alone_is_explicit(self):
+        self.assertTrue(backends.arxiv_was_explicit('auto', '2609.02668v1'))
+
+    def test_auto_with_no_id_is_not(self):
+        self.assertFalse(backends.arxiv_was_explicit('auto', None))
+
+    def test_calibre_is_not(self):
+        self.assertFalse(backends.arxiv_was_explicit('calibre', None))
+
+    def test_the_legacy_spelling_is_not_arxiv(self):
+        self.assertFalse(backends.arxiv_was_explicit('calibre_htmlz', None))
+
+    def test_it_agrees_with_what_select_backend_chose(self):
+        """The two must not drift: when an id alone selects the arXiv backend,
+        the failure path has to read that request as explicit."""
+        with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as fh:
+            fh.write(b'%PDF-1.4\n')
+            path = fh.name
+        self.addCleanup(os.unlink, path)
+        backend, arxiv_id, reason = backends.select_backend(
+            path, 'auto', '2609.02668v1', True)
+        self.assertEqual(backend, backends.BACKEND_ARXIV)
+        self.assertEqual(arxiv_id, '2609.02668v1')
+        self.assertTrue(
+            backends.arxiv_was_explicit('auto', '2609.02668v1'),
+            'select_backend chose arxiv from the id alone, so the fallback '
+            'guard must call that request explicit; reason was %r' % reason)
+
+
+class _FakePandoc(object):
+    """Stands in for pypandoc so the failure path can be reached offline.
+
+    `latex_to_markdown` imports pypandoc inside its own body, so putting one
+    here is enough; nothing has to be installed and no pandoc is run.
+    """
+
+    def __init__(self, error):
+        self._error = error
+
+    def convert_text(self, *_args, **_kwargs):
+        raise RuntimeError(self._error)
+
+
+class BibliographyErrorGuidanceTests(unittest.TestCase):
+    """K145: a `.bib` the PAPER ships can stop the whole conversion.
+
+    The generic advice on that path is "fix the cause reported above", and
+    the cause is a file the reader did not write. So the failure has to say
+    whose file it is and what actually works on it.
+    """
+
+    PANDOC_SAYS = ("Error reading bibliography file '/tmp/x/cas-refs.bib':\n"
+                   "(line 3006, column 1):\nunexpected '@'")
+
+    def _run(self, error):
+        saved = sys.modules.get('pypandoc')
+        sys.modules['pypandoc'] = _FakePandoc(error)
+        try:
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                result = arxiv_backend.latex_to_markdown(
+                    'BODY', '/tmp/x', '/tmp/x', bib_files=['/tmp/x/a.bib'])
+            return result, buf.getvalue()
+        finally:
+            if saved is None:
+                del sys.modules['pypandoc']
+            else:
+                sys.modules['pypandoc'] = saved
+
+    def test_the_path_is_recognised(self):
+        m = arxiv_backend._BIB_READ_ERROR_RE.search(self.PANDOC_SAYS)
+        self.assertIsNotNone(m)
+        self.assertEqual(m.group(1), '/tmp/x/cas-refs.bib')
+
+    def test_an_unrelated_pandoc_error_is_not(self):
+        self.assertIsNone(arxiv_backend._BIB_READ_ERROR_RE.search(
+            'Error at "source" (line 12, column 3): unexpected "\\\\"'))
+
+    def test_the_guidance_names_the_file_and_whose_it_is(self):
+        result, out = self._run(self.PANDOC_SAYS)
+        self.assertIsNone(result)
+        self.assertIn('cas-refs.bib', out)
+        self.assertIn("paper's own tarball", out)
+        self.assertIn('K145', out)
+
+    def test_it_does_not_tell_anyone_to_repair_the_file_in_place(self):
+        """The first version of this message did, and it cannot work.
+
+        `fetch_and_convert` calls `shutil.rmtree` on the work directory before
+        unpacking, so a hand-repaired `.bib` is deleted on the next run and
+        pandoc never sees it. Measured: the edit was gone and the failure was
+        byte-identical. Advice that cannot be followed is worse than none.
+        """
+        _result, out = self._run(self.PANDOC_SAYS)
+        self.assertIn('will not help', out)
+        self.assertIn('re-unpacked on every run', out)
+        self.assertNotIn('and re-run', out)
+
+    def test_another_failure_keeps_the_plain_message(self):
+        """The advice is only right for a bibliography, so it must not appear
+        on every failure; otherwise it sends readers at the wrong file."""
+        result, out = self._run('Pandoc died with exitcode "43"')
+        self.assertIsNone(result)
+        self.assertIn('conversion failed', out)
+        self.assertNotIn("paper's own tarball", out)
+        self.assertNotIn('K145', out)
 
 
 if __name__ == '__main__':

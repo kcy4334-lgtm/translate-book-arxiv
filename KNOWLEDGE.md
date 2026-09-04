@@ -2062,32 +2062,32 @@ migrated 24 -> 21 rows, three merges, no count differed.*
 ---
 
 ### K145
-**A syntax error in the paper's own `.bib` stops the whole conversion, and
-that paper still builds on arXiv.** 2609.02862 ships `cas-refs.bib` whose
-line 3001 opens `Title = {` and never closes it; line 3002 ends in an escaped
-`\}`, which cannot close it either, so pandoc meets the next entry's `@`
-where a field belongs and exits 25. BibTeX forgives this, which is why the
-paper is published. It is not a stray template file: of the 50 keys the body
-cites, 22 are in that file and nowhere else. The outcome is no book at all,
-where K10 shows the pipeline already has a shape for a book whose citations
-merely go unresolved.
-*Status: open, measured 2026-09-04, pandoc 3.10.2. Not attempted: dropping
-the file costs 22 citations, so the trade wants deciding before code.*
+**A brace fault in the paper's own `.bib` stops the whole conversion, while
+that paper still builds on arXiv.** 2609.02862's `cas-refs.bib` ends line
+3002 with `Br.\}`, an ESCAPED brace, so `School = {` never closes and pandoc
+meets `@Article` where the entry's own brace belonged, exiting 25. BibTeX
+forgives it; 2 of the 376 entries fail to balance. Not a stray template
+file: 22 of the 50 keys the body cites live only there. Repair by hand does
+not help either, because the work directory is rmtree'd and re-unpacked
+before every run, so the edit is gone before pandoc reads it.
+*Status: open, measured 2026-09-04, pandoc 3.10.2. The failure now names
+whose file it is and says the edit will not survive. Nothing today keeps
+both the equations and the citations of such a paper.*
 
 ---
 
 ### K146
-**`--arxiv-id` implies `--backend arxiv`, and that backend's two failures
-answer differently.** When the source exists but conversion fails, the run
-refuses to continue and says why: the calibre path cannot recover equations,
-so it would answer a different question. When arXiv returns a PDF because the
-authors submitted no LaTeX, the same explicit request downgrades to calibre
-and finishes, with a note. 2609.02668 came out that way, 13 chunks and 26
-display spans off pdftohtml with no inline maths at all. `--help` says the
-arxiv backend fails loudly instead of silently downgrading, so one of the two
-paths is not what the flag promises.
-*Status: open, measured 2026-09-04. Which way to make them agree is a call
-about what a caller who typed the id wanted.*
+**The guard against a silent downgrade read the wrong variable, so the one
+flag it was written for slipped past it.** `convert.py` refuses to fall back
+to calibre when the arXiv backend was chosen deliberately, and it tested
+`args.backend`. `--arxiv-id` never sets that: it reaches BACKEND_ARXIV inside
+`select_backend`, with `requested` still `auto`. So a caller who passed the id
+alone got the calibre path and a book with no equations in it. 2609.02668
+came out that way, 13 chunks and 26 display spans off pdftohtml, no inline
+maths at all. Two places were deciding one judgement; now `backends` owns the
+predicate and `convert.py` asks it.
+*Status: LOCKED, `ArxivWasExplicitTests`; the same command now exits 1 and
+writes nothing. Fixed 2026-09-04.*
 
 ---
 

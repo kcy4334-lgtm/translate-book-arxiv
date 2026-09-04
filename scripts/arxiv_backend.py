@@ -1766,6 +1766,12 @@ def restore_table_floats(md):
     return md
 
 
+# pandoc names the file it could not read, and that name decides who can act.
+# Everything else this converter reports is ours to fix; a bibliography that
+# will not parse belongs to the paper (K145).
+_BIB_READ_ERROR_RE = re.compile(r"Error reading bibliography file '([^']+)'")
+
+
 def latex_to_markdown(flat_tex, tex_dir, root, bib_files=None):
     """Convert flattened LaTeX to markdown via pandoc (through pypandoc)."""
     try:
@@ -1799,6 +1805,23 @@ def latex_to_markdown(flat_tex, tex_dir, root, bib_files=None):
         return normalize_newlines(out)
     except Exception as e:
         print(f"LaTeX to markdown conversion failed: {e}")
+        bad = _BIB_READ_ERROR_RE.search(str(e))
+        if bad:
+            # The generic advice below this ("fix the cause reported above")
+            # sends the reader at something they did not write and cannot
+            # change upstream, so say whose file it is and what actually
+            # works on it.
+            print(f"  That file came out of the paper's own tarball, not out "
+                  f"of this pipeline. BibTeX tolerates brace faults that "
+                  f"pandoc's reader stops at, which is why the paper builds "
+                  f"on arXiv and this conversion does not (K145).")
+            print(f"  Editing it in place will not help: the source tree is "
+                  f"deleted and re-unpacked on every run, so the repair is "
+                  f"gone before pandoc reads it.")
+            print(f"  `--backend auto` finishes through calibre instead, "
+                  f"without equations. There is no path today that keeps both "
+                  f"the equations and the citations of a paper whose own "
+                  f"bibliography will not parse.")
         return None
 
 
