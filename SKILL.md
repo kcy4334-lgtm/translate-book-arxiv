@@ -1128,10 +1128,11 @@ Other flags:
 The build refuses to continue when a check fails, rather than shipping a quietly
 broken book: markdown **or raw-LaTeX** tables that did not become `<table>`, math
 present in `output.md` but absent from the HTML, image references that do not
-resolve, a math placeholder that a translator dropped, or a translated chunk whose
-LaTeX skeleton no longer matches its source.
+resolve, a math placeholder that a translator dropped, a translated chunk whose
+LaTeX skeleton no longer matches its source, or a display equation still printing
+underneath its own number at the smallest size tried.
 
-Three things are repaired automatically on the way through, and reported:
+Four things are repaired automatically on the way through, and reported:
 
 - **Raw LaTeX tables.** The arXiv backend keeps tables as
   `\resizebox{..}{\begin{tabular}...}`, often inside a `\begin{table*}` float.
@@ -1143,7 +1144,16 @@ Three things are repaired automatically on the way through, and reported:
   numbered against the inlined `\bibitem` list. A key with no entry is left alone
   rather than given a wrong number.
 - **Cross-references.** `(fig:x)` / `(tab:x)` are resolved to `Figure N` / `Table N`
-  (localised per language) using the `\label` order in `flat.tex`.
+  (localised per language) using the `\label` order in `flat.tex`. A `\ref` inside
+  a protected table float is resolved too, number only, from the label index
+  rather than from the key (K154).
+- **Equation width.** A formula as wide as the text column shares ink with its
+  own flush-right number, and no stylesheet prevents it: MathML compresses its
+  spacing into the box instead of shrinking to fit. `equation_fit` renders,
+  measures the PDF it just rendered, steps the offending equations down one
+  size and renders again. A book with no collision costs the single render the
+  build was already doing. Do not try to decide the size from an equation laid
+  out on its own; it does not reproduce the book's layout (K152).
 
 `output.md` itself is never rewritten by any of these; it stays the faithful
 merged translation. The resolved copy is written to `prepared.md`.

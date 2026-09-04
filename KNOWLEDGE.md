@@ -168,6 +168,11 @@ here; the test is the real record. This file is for the *reasoning*, the
 | An appendix figure is numbered 9 where the paper prints A1 | [K148](#k148) |
 | A reference reads "그림 그림 1" | [K149](#k149) |
 | A chunk of only URLs or footnote markers fails as untranslated | [K150](#k150) |
+| A display equation prints without its left-hand side | [K151](#k151) |
+| A size measured on one element changes nothing in the book | [K152](#k152) |
+| A code comment became a top-level heading with a TOC entry | [K153](#k153) |
+| A table caption prints a label in brackets | [K154](#k154) |
+| A doubled label survives, but only in the appendix | [K155](#k155) |
 
 ---
 
@@ -874,9 +879,10 @@ whose centre is 297, in a stylesheet that had said `text-align: center` all
 along. Measured across four candidates: `width: fit-content` + `margin: auto`
 centres but shrink-wraps the element, which drags the equation number in from
 the margin (330 instead of 531); `text-align: -webkit-center` centres the
-paragraph and not the maths. `display: flex; justify-content: center` centres
-the formula AND keeps the element full width, so `right: 0` still lands in the
-margin. Pad BOTH sides for the number, or the formula sits 17pt left.
+paragraph and not the maths. ~~`display: flex; justify-content: center`
+centres the formula AND keeps the element full width~~ -- it does both, and it
+also silently drops content: see K151. Pad BOTH sides for the number, or the
+formula sits 17pt left.
 *Status: LOCKED, `DisplayMathCenteringTests`; 39 numbered equations, worst
 |offset| 42pt against 212pt before.*
 
@@ -2150,6 +2156,64 @@ rule: `is_all_references` and `has_no_prose` already encode it, and
 `_strip_verbatim` already knows which regions are correctly Latin, so what it
 leaves is what a translator was actually asked to render.
 *Status: LOCKED, `NothingToTranslateTests`.*
+
+### K151
+**A flex container drops the first child of a formula wider than itself.**
+`math[display="block"] { display: flex }` centred display equations correctly
+for a year. VLA-Adapter's equation (3) is as wide as the text column, and
+printed starting at a bare `=`: `\widetilde{\mathbf{A}}^1_t` was absent from
+the PDF content stream -- no glyph, not even a zero-width one -- while the
+MathML handed to Chromium held it. Short equations are unaffected, which is
+why no book caught it. Centring `math > semantics` instead (fit-content,
+`margin: 0 auto`) keeps the element full width for the number's `right: 0`
+and paints the formula whole; measured identical to flex on a three-row
+`aligned` block and on a matrix. Supersedes the advice in K63.
+*Status: LOCKED, `DisplayMathCenteringTests`.*
+
+### K152
+**Re-rendering an element on its own does not reproduce its layout in the
+book.** A probe was built to choose a font size that would keep a wide
+formula clear of its equation number. Alone on a page, carrying the book's
+own stylesheet, equation (3) shrank with its size exactly as arithmetic says
+-- 463pt to 410pt at 0.94em. In the book the same element at the same size
+did not move at all: there the formula is wider than its box, Chromium
+compresses the spacing to fit, and the painted width stays pinned at the box
+width from 1.0 down to 0.90. The probe certified 0.94em, the build log
+announced a reduction, the page was unchanged. K138 says measure the
+artefact, not the intermediate; an isolated re-render of part of the artefact
+is an intermediate too.
+*Status: LOCKED, `SteppingDownUntilItFits`; `equation_fit` measures book.pdf.*
+
+### K153
+**The merge stripped the indentation off each chunk's first line.** A chunk
+boundary can land inside a code listing: VLA-Adapter's chunk0012 begins
+`            # RoPE`. The translator kept all twelve spaces; `content.strip()`
+at the join took them, and at column zero `#` is a heading. The book shipped
+an H1 reading "RoPE", with a table-of-contents entry, between two halves of
+one class definition. Source and translation were both correct, so nothing
+that reads a single chunk could see it -- the defect exists only at the seam.
+Section numbering had been refusing for the same reason: the extra heading
+was what made the count disagree with flat.tex.
+*Status: LOCKED, `TrimmingAChunk`, `TheJoinedDocument`.*
+
+### K154
+**A `\ref` inside a protected float reaches pandoc, which prints the key.**
+Table floats never meet `resolve_references`, so twenty captions read
+`[TableD1]`, `[AppendixG]`, `[Figure_LIBERO]`. Substitute the number only --
+every one already had a Korean label word in front of it, written by the
+translator -- and take that number from the label index rather than the key:
+this paper labels its appendix H `AppendixG`, so reading the letter off the
+name prints a confident wrong G. A key that resolves to nothing stays visible.
+*Status: LOCKED, `SubstitutingTheNumber`, `WhereTheNumbersComeFrom`.*
+
+### K155
+**Anchoring a doubled-label rule on a bare digit misses the whole appendix.**
+`drop_doubled_labels` collapsed `그림 그림 1` in the body and left all sixteen
+`그림 그림 A1`, because appendix floats print a letter before the number. The
+check written in the same hour reported zero doubled labels for exactly the
+same reason. Accept `[A-Za-z]?\d`; the digit is still what separates a
+reference from a word that merely starts with the label word.
+*Status: LOCKED, `DoubledLabels`.*
 
 ---
 
