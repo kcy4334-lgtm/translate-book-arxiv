@@ -293,15 +293,28 @@
         /* --- math (pandoc --mathml), figures, tables --------------------- */
         math { font-size: 1.05em; }
         math[display="inline"] { vertical-align: middle; }
-        /* flex, not text-align (measured): `text-align: center` on a block
-           <math> centres the inline content around the formula, not the
-           formula itself, so every display equation sat at the left margin
-           (x=51 against a 297pt centre). A flex container centres its one
-           child and, unlike `width: fit-content`, leaves the element full
-           width -- which is what the equation number's `right: 0` measures
-           against. */
-        math[display="block"] { display: flex; justify-content: center;
-                                margin: 1.2rem auto; }
+        /* Not text-align, and no longer flex either.
+
+           `text-align: center` on a block <math> centres the inline content
+           around the formula, not the formula itself, so a short equation
+           sat at the left margin (measured -179pt off centre). Flex fixed
+           that, and broke something worse: a formula wide enough to overflow
+           its flex container loses its FIRST CHILD entirely. VLA-Adapter's
+           equation (3) printed starting at a bare `=`, its left-hand side
+           gone from the content stream -- no glyph, not even a zero-width
+           one. A short equation was unaffected, so nothing caught it.
+
+           Centring the <semantics> box instead gives what flex was wanted
+           for -- the element stays full width, so the number's `right: 0`
+           still measures against the text column -- with the whole formula
+           painted. Measured against flex on a three-row `aligned` block and
+           on a 2x2 matrix: byte-identical output, so the tuned row spacing
+           and column padding below are unaffected. */
+        math[display="block"] { display: block; margin: 1.2rem auto; }
+        math[display="block"] > semantics {
+            display: block; width: fit-content; max-width: 100%;
+            margin: 0 auto;
+        }
         /* A multi-row `aligned` block is one <mtable>; MathML Core has no
            rowspacing, so the rows need CSS or they touch. The child
            combinator keeps it off matrices, which are nested <mtable>s. */
@@ -630,16 +643,26 @@
             math { font-family: var(--p-math); font-size: 1.05em;
                    line-height: normal; }
             math[display="inline"] { vertical-align: middle; }
-            /* flex, not text-align (measured): on a block <math>,
-               `text-align: center` centres the inline content around the
-               formula rather than the formula, and every display equation
-               printed hard against the left margin -- x=51 on a page whose
-               centre is 297. Flex centres the single child and keeps the
-               element full width, which the equation number needs. */
+            /* Not text-align, and no longer flex either. `text-align:
+               center` on a block <math> centres the inline content around
+               the formula rather than the formula, and a short equation
+               printed 179pt left of centre. Flex fixed the centring and
+               silently truncated the content: a formula wider than its flex
+               container loses its FIRST CHILD outright. Equation (3) of
+               VLA-Adapter printed as `= A + ...`, the left-hand side absent
+               from the PDF content stream. Centring the <semantics> box
+               keeps the element full width -- which is what the number's
+               `right: 0` measures against -- and paints the whole formula.
+               Verified identical to flex on a three-row `aligned` block and
+               on a matrix, so the spacing rules below still apply. */
             math[display="block"] {
-                display: flex; justify-content: center;
+                display: block;
                 margin: 11pt auto; text-indent: 0;
                 break-inside: avoid; page-break-inside: avoid;
+            }
+            math[display="block"] > semantics {
+                display: block; width: fit-content; max-width: 100%;
+                margin: 0 auto;
             }
             /* An algorithm is a boxed float in the paper: rule above the
                caption, rule under it, rule at the foot. Rendered as bare

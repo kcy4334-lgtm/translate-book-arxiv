@@ -206,11 +206,23 @@ class ParticleAgreementTests(unittest.TestCase):
 
 
 class DisplayMathCenteringTests(unittest.TestCase):
-    """`text-align: center` on a block <math> centres the inline content
-    around the formula, not the formula: every display equation printed at
-    x=51 on a page whose centre is 297. A flex container centres its one
-    child and, unlike `width: fit-content`, keeps the element full width --
-    which is what the equation number's `right: 0` is measured against."""
+    r"""Two ways of centring a display equation have already been wrong here.
+
+    `text-align: center` on a block <math> centres the inline content around
+    the formula rather than the formula, and a short equation printed at
+    x=51 on a page whose centre is 297.
+
+    Flex centred it correctly and lost content instead: a formula wider than
+    its flex container drops its FIRST CHILD outright. VLA-Adapter's equation
+    (3) printed starting at a bare `=`, its left-hand side absent from the
+    PDF content stream -- no glyph, not even a zero-width one -- while a
+    short equation rendered perfectly, which is why it survived every check.
+
+    What is there now centres the inner <semantics> box, so the <math>
+    element stays full width for the equation number's `right: 0` to measure
+    against, and the formula is painted whole. Checked against flex on a
+    three-row `aligned` block and on a matrix: identical output, so the row
+    spacing tuned further down the sheet is unaffected."""
 
     def sheet(self):
         import io
@@ -223,10 +235,30 @@ class DisplayMathCenteringTests(unittest.TestCase):
         import re
         return re.findall(r'math\[display="block"\]\s*\{[^}]*\}', self.sheet())
 
-    def test_both_sheets_centre_with_flex(self):
-        found = [b for b in self.blocks() if "justify-content: center" in b]
+    def semantics_rules(self):
+        import re
+        return re.findall(
+            r'math\[display="block"\]\s*>\s*semantics\s*\{[^}]*\}',
+            self.sheet())
+
+    def test_neither_sheet_uses_flex(self):
+        """The rule that cost equation (3) its left-hand side."""
+        for block in self.blocks():
+            self.assertNotIn("display: flex", block)
+            self.assertNotIn("justify-content", block)
+
+    def test_both_sheets_centre_the_semantics_box(self):
+        found = [r for r in self.semantics_rules()
+                 if "width: fit-content" in r and "margin: 0 auto" in r]
         self.assertEqual(len(found), 2,
                          "screen and print must both centre display maths")
+
+    def test_the_math_element_stays_full_width(self):
+        """The equation number is positioned against it, so a shrunk <math>
+        would pull the number in beside the formula instead of the margin."""
+        for block in self.blocks():
+            self.assertNotIn("width: fit-content", block)
+            self.assertIn("display: block", block)
 
     def test_neither_sheet_relies_on_text_align(self):
         for block in self.blocks():

@@ -28,6 +28,7 @@ import glossary
 import math_guard
 import layout
 import chromium_pdf
+import equation_fit
 from manifest import read_output_text, validate_for_merge
 
 # Windows consoles default to a legacy codepage (e.g. cp949), which raises
@@ -407,6 +408,26 @@ def natural_sort_key(text):
 # Step 4: Merge translated markdown files
 # =============================================================================
 
+_LEADING_BLANK_LINES_RE = re.compile(r'\A(?:[ \t]*\r?\n)+')
+
+
+def trim_chunk_edges(content):
+    r"""Drop blank lines around a chunk without touching its indentation.
+
+    `.strip()` stood here, and it also removed the leading spaces of the
+    first line. A chunk boundary can fall inside a code listing:
+    VLA-Adapter's chunk0012 begins `            # RoPE`, and once those
+    twelve spaces are gone markdown reads the line as a top-level heading.
+    It reached the book as an H1 with its own table-of-contents entry,
+    sitting between two halves of the same Python class.
+
+    The translator was not involved -- `output_chunk0012.md` still had the
+    indentation. Only the seam lost it, which is why nothing that reads a
+    single chunk could ever have seen this.
+    """
+    return _LEADING_BLANK_LINES_RE.sub('', content.rstrip())
+
+
 def merge_markdown_files(temp_dir):
     """Merge all translated output files into output.md"""
     print("=== Merging translated markdown files ===")
@@ -484,7 +505,7 @@ def merge_markdown_files(temp_dir):
             if content is None:
                 print(f"ERROR: Cannot read {os.path.basename(file_path)} — aborting merge")
                 return False
-            content = content.strip()
+            content = trim_chunk_edges(content)
             if not content:
                 # validate_for_merge already rejects blank outputs; this is a
                 # last line of defense so a chunk can never vanish silently.
@@ -552,7 +573,7 @@ def merge_markdown_files(temp_dir):
             if content is None:
                 print(f"ERROR: Cannot read {os.path.basename(file_path)} — aborting merge")
                 return False
-            content = content.strip()
+            content = trim_chunk_edges(content)
             if not content:
                 print(f"ERROR: Blank output {os.path.basename(file_path)} — aborting merge")
                 return False
@@ -3636,7 +3657,13 @@ def drop_doubled_labels(md_text, words, formats, lang_cfg=None):
         elif '{label}' in head:
             # Prefix style: `그림 그림 1` -> `그림 1`. Anchored on the number,
             # so a sentence that merely repeats the word is left alone.
-            pattern = re.compile(esc + r'\s+(' + esc + r'\s*\d)')
+            #
+            # The number can carry an appendix letter. Requiring a bare digit
+            # was the first attempt and it collapsed every body reference
+            # while missing every appendix one: sixteen `그림 그림 A1` and
+            # `표 표 C1` reached the finished book while the check that had
+            # just been written reported zero.
+            pattern = re.compile(esc + r'\s+(' + esc + r'\s*[A-Za-z]?\d)')
         else:
             continue
         md_text, n = pattern.subn(r'\1', md_text)
@@ -4238,6 +4265,48 @@ def count_raw_latex_tables(md_text):
 
 # A pandoc table caption is a line of its own opening with `: `.
 _MD_TABLE_CAPTION_RE = re.compile(r'(?m)^([ \t]*:[ \t]+)(?=\S)')
+# So is a pandoc DEFINITION LIST item, which is why the shape alone cannot
+# tell them apart. A caption abuts its table; a definition abuts its term.
+_MD_TABLE_ROW_RE = re.compile(r'^\s*(?:\|.*\||\+[-=+:]{2,}\+)\s*$')
+
+
+def markdown_table_captions(md_text):
+    r"""[(line start, offset just past the `: `)] for real table captions.
+
+    Matching `^: ` alone counts every definition list item as a caption.
+    VLA-Adapter carries fourteen of them, holding its Question, Key Finding
+    and Conclusion items, and not one markdown table. Ten of its fifteen
+    table numbers landed on that prose and ten real tables were left with no
+    number at all, so the book printed `표 1` over a question and nothing
+    over the table a reader was sent to.
+
+    A caption is adjacent to its table, above it or below it, blank lines
+    aside. A definition list item is adjacent to its term. That is the one
+    difference the text carries, so it is what this asks about.
+    """
+    lines = md_text.split('\n')
+    starts, pos = [], 0
+    for line in lines:
+        starts.append(pos)
+        pos += len(line) + 1
+
+    def is_row(i):
+        return 0 <= i < len(lines) and bool(_MD_TABLE_ROW_RE.match(lines[i]))
+
+    def nearest(i, step):
+        i += step
+        while 0 <= i < len(lines) and not lines[i].strip():
+            i += step
+        return i
+
+    out = []
+    for i, line in enumerate(lines):
+        m = _MD_TABLE_CAPTION_RE.match(line)
+        if not m:
+            continue
+        if is_row(nearest(i, -1)) or is_row(nearest(i, 1)):
+            out.append((starts[i], starts[i] + m.end()))
+    return out
 
 
 _ALREADY_NUMBERED_RE = re.compile(
@@ -4298,10 +4367,10 @@ def number_table_captions(md_text, temp_dir, lang_cfg=None):
             brace = md_text.find('{', m.end() - 1)
             if 0 <= brace < stop:
                 events.append((brace + 1, 'latex'))
-    for m in _MD_TABLE_CAPTION_RE.finditer(md_text):
-        if any(a <= m.start() < b for a, b in inside):
+    for line_start, at in markdown_table_captions(md_text):
+        if any(a <= line_start < b for a, b in inside):
             continue                      # a stray `: ` within a raw float
-        events.append((m.end(), 'markdown'))
+        events.append((at, 'markdown'))
     events = sorted(set(events))
 
     pieces, cursor, used = [], 0, 0
@@ -4323,6 +4392,93 @@ def number_table_captions(md_text, temp_dir, lang_cfg=None):
     return ''.join(pieces), used
 
 
+def check_badge_placement(md_text, lang_cfg=None):
+    r"""Did every table badge land on a table? Returns (ok, detail).
+
+    Counting is what let this ship. `number_table_captions` issued fifteen
+    numbers, wrote fifteen badges and reported fifteen, and ten of them were
+    sitting on prose: pandoc's definition list opens with `: ` and so does a
+    table caption, so the Question and Key Finding items took the numbers
+    while ten real tables got none. Every count agreed. The page printed
+    `표 1` over a question, and the sentence that said "see 표 1" pointed at
+    it.
+
+    So this asks where each badge IS, not how many were written. A badge
+    belongs to a `\caption{}` inside a raw float, or to a `: ` line that
+    abuts a markdown table. Anywhere else it is on prose.
+    """
+    lang_cfg = lang_cfg or {}
+    label = lang_cfg.get('table_label', 'Table')
+    inside = sorted({(t['start'], t['stop'])
+                     for t in find_raw_latex_tables(md_text)})
+    captions = {at for _start, at in markdown_table_captions(md_text)}
+
+    # `표 1 (Table 1)` and `표 B1 (Table B1)`. A length cap was the first
+    # attempt and it silently matched only the body tables: the appendix
+    # badges are two characters longer, so the check validated 8 of 15 and
+    # reported every one of them fine. A check that sees half the population
+    # is worse than none, so the shape is spelled out instead of bounded.
+    badge = re.compile(
+        r'(?:\\textbf\{|\*\*)\s*' + re.escape(label)
+        + r'\s+[A-Za-z]?[\d.]+(?:\s*\(Table\s+[A-Za-z]?[\d.]+\))?\s*'
+          r'(?:\}|\*\*)')
+    stray = []
+    total = 0
+    for m in badge.finditer(md_text):
+        total += 1
+        at = m.start()
+        if any(a <= at < b for a, b in inside):
+            continue                       # inside a raw float: a caption
+        if any(abs(at - c) <= 2 for c in captions):
+            continue                       # on a real markdown table caption
+        line_start = md_text.rfind('\n', 0, at) + 1
+        line_end = md_text.find('\n', at)
+        stray.append(' '.join(
+            md_text[line_start:line_end if line_end > 0 else at + 60].split()))
+
+    if not stray:
+        return True, '%d table badge(s), every one on a table caption' % total
+    return False, ('%d of %d table badge(s) sit on prose, not on a table:\n  %s'
+                   % (len(stray), total,
+                      '\n  '.join(s[:96] for s in stray[:6])))
+
+
+# pifont's tick and cross, which pandoc has no reader for: it drops the
+# command and emits NOTHING, so a column of them comes out blank. VLA-Adapter
+# lost all twelve marks in its table 7, whose entire content is which
+# condition each method uses; the six success rates were left attached to
+# nothing and two rows became indistinguishable. Every count agreed, because
+# a mark is not a value and no probe was counting marks.
+#
+# Only the codes whose glyph is settled are mapped. An unknown \ding is left
+# exactly as written, so it prints and can be seen, rather than being guessed
+# at and quietly turned into the wrong symbol.
+_DING_GLYPHS = {
+    '51': '\u2713',      # check mark
+    '52': '\u2714',      # heavy check mark
+    '53': '\u2715',      # multiplication x
+    '54': '\u2716',      # heavy multiplication x
+    '55': '\u2717',      # ballot x
+    '56': '\u2718',      # heavy ballot x
+}
+_DING_RE = re.compile(r'\\ding\s*\{\s*(\d+)\s*\}')
+
+
+def substitute_dings(latex):
+    """`\\ding{51}` -> the character. Returns (text, replaced, unknown)."""
+    unknown = []
+
+    def swap(m):
+        glyph = _DING_GLYPHS.get(m.group(1))
+        if glyph is None:
+            unknown.append(m.group(1))
+            return m.group(0)
+        return glyph
+
+    out, total = _DING_RE.subn(swap, latex)
+    return out, total - len(unknown), sorted(set(unknown))
+
+
 def _latex_fragment_to_html(latex, pandoc, work, name, inline=False,
                             math_mode='mathml'):
     """Render one LaTeX fragment to HTML. Returns '' when pandoc cannot.
@@ -4332,6 +4488,7 @@ def _latex_fragment_to_html(latex, pandoc, work, name, inline=False,
     the markdown reader re-reads the block, leaving a literal `</span>` printed
     in the cell. --wrap=none keeps pandoc from breaking lines inside tags.
     """
+    latex, _swapped, _unknown = substitute_dings(latex)
     path = os.path.join(work, name)
     with open(path, 'w', encoding='utf-8', newline='') as fh:
         fh.write(latex + '\n')
@@ -4756,6 +4913,130 @@ def build_citation_labels(md_text):
     return labels
 
 
+_BIB_ENTRY_RE = re.compile(r'@[A-Za-z]+\s*\{\s*([^,\s]+)\s*,(.*?)(?=\n@|\Z)',
+                           re.DOTALL)
+_BIB_FIELD_RE = re.compile(r'(?im)^\s*(author|year|date)\s*=\s*'
+                           r'(\{(?:[^{}]|\{[^{}]*\})*\}|"[^"]*"|\d+)')
+
+
+def _bib_surname(chunk):
+    """The family name out of one BibTeX author entry."""
+    chunk = re.sub(r'[{}\\]', '', chunk).strip()
+    if ',' in chunk:                       # `Last, First`
+        return chunk.split(',')[0].strip()
+    parts = chunk.split()                  # `First Last`
+    return parts[-1] if parts else ''
+
+
+def build_citation_labels_from_bib(temp_dir):
+    r"""{key: 'Authors Year'} from the `.bib` the paper shipped.
+
+    `build_citation_labels` reads an INLINED `\bibitem` list, which is one of
+    the two shapes a paper arrives in. VLA-Adapter ships a `.bib` and lets
+    citeproc render it, so that map came back empty, `resolve_fragment_
+    citations` had nothing to resolve with, and pandoc dropped all 51 `\citep`
+    calls inside its tables: a 22-baseline comparison in which no number could
+    be traced to the paper it came from. The mechanism was there and called;
+    it was built from the one bibliography this paper does not use.
+
+    Returns {} when there is no tarball or no `.bib`, so the inlined path is
+    unaffected.
+    """
+    src = os.path.join(temp_dir or '', 'arxiv_src')
+    if not temp_dir or not os.path.isdir(src):
+        return {}
+    labels = {}
+    for root, _dirs, names in os.walk(src):
+        for name in sorted(names):
+            if not name.endswith('.bib'):
+                continue
+            try:
+                with open(os.path.join(root, name), encoding='utf-8',
+                          errors='replace') as fh:
+                    text = fh.read()
+            except OSError:
+                continue
+            for key, body in _BIB_ENTRY_RE.findall(text):
+                fields = {}
+                for field, raw in _BIB_FIELD_RE.findall(body):
+                    fields[field.lower()] = raw.strip('{}" ')
+                year = fields.get('year') or ''
+                if not year:
+                    year = (re.search(r'\b(1[89]|20)\d{2}\b',
+                                      fields.get('date', '')) or [''])
+                    year = year.group(0) if hasattr(year, 'group') else ''
+                names_ = [a for a in re.split(r'\s+and\s+',
+                                              fields.get('author', ''))
+                          if a.strip()]
+                surnames = [_bib_surname(a) for a in names_]
+                surnames = [s for s in surnames if s]
+                if not surnames or not year:
+                    continue
+                if len(surnames) == 1:
+                    who = surnames[0]
+                elif len(surnames) == 2:
+                    who = '%s and %s' % (surnames[0], surnames[1])
+                else:
+                    who = '%s et al.' % surnames[0]
+                labels.setdefault(key.strip(), '%s %s' % (who, year))
+    return labels
+
+
+_FRAGMENT_REF_RE = re.compile(r'\\ref\s*\{([^{}]+)\}')
+
+
+def resolve_fragment_references(tex, numbers):
+    r"""`\ref{TableD1}` inside a raw table -> `D1`. (text, done, missed).
+
+    A protected float never meets `resolve_references`, so its `\ref` calls
+    reach pandoc, which prints the key. VLA-Adapter's captions carried twenty
+    of them, `[TableD1]` and `[AppendixG]` among others, each a pointer the
+    reader cannot follow.
+
+    Only the NUMBER is substituted, never the word. All twenty already had a
+    Korean label in front of them, written by the translator, so supplying
+    another would print it twice, and choosing between 부록 and 절 for a
+    section key would be a guess this does not need to make.
+
+    The number comes from the index, not from the key, because the two
+    disagree: this paper labels its appendix H `AppendixG` and LaTeX prints
+    H. A key that resolves to nothing is left exactly as written, so it stays
+    visible rather than becoming a confident wrong letter.
+    """
+    missed = []
+
+    def swap(m):
+        value = numbers.get(m.group(1).strip())
+        if value is None:
+            missed.append(m.group(1).strip())
+            return m.group(0)
+        return str(value)
+
+    out, total = _FRAGMENT_REF_RE.subn(swap, tex)
+    return out, total - len(missed), sorted(set(missed))
+
+
+def fragment_reference_numbers(temp_dir):
+    r"""{label: printed number} for anything a `\ref` inside a float names.
+
+    Empty without a temp dir. `expand_raw_latex_tables` is called with none
+    in four existing tests and by any caller that only has markdown, and
+    `build_label_index` joins the path unguarded.
+    """
+    if not temp_dir or not os.path.isdir(temp_dir):
+        return {}
+    numbers = {}
+    for label, number in build_float_numbers(temp_dir).items():
+        numbers.setdefault(label, str(number))
+    for key, entry in build_label_index(temp_dir).items():
+        # Keyed by the label exactly as written. The colon in `eq:pqe` is
+        # part of the name, not a kind prefix -- an earlier version here
+        # also registered the tail, which buys nothing (`\ref` always writes
+        # the full label) and silently collides `eq:main` with `tab:main`.
+        numbers.setdefault(key, str(entry[0]))
+    return numbers
+
+
 def resolve_fragment_citations(tex, labels):
     """Render a raw table's `\\citep{key}` the way the body renders it.
 
@@ -4958,7 +5239,7 @@ def drop_multicolumn_spacing(tex):
 
 
 def expand_raw_latex_tables(md_text, pandoc=None, math_mode='mathml',
-                            output='html'):
+                            output='html', temp_dir=None):
     """Convert raw LaTeX tables into real tables.
 
     `output='html'` gives HTML tables carrying the sizing classes the print
@@ -4984,6 +5265,12 @@ def expand_raw_latex_tables(md_text, pandoc=None, math_mode='mathml',
 
     converted = failed = 0
     cite_labels = build_citation_labels(md_text)
+    if not cite_labels:
+        # No inlined `\bibitem` list. The paper shipped a `.bib` and let
+        # citeproc render it, so the keys live there instead (K152).
+        cite_labels = build_citation_labels_from_bib(temp_dir)
+    ref_numbers = fragment_reference_numbers(temp_dir)
+    refs_done, refs_missed = 0, []
     pieces, cursor = [], 0
     with tempfile.TemporaryDirectory(prefix='tb-tex-') as work:
         for n, t in enumerate(tables):
@@ -5004,6 +5291,10 @@ def expand_raw_latex_tables(md_text, pandoc=None, math_mode='mathml',
                 if not t.get(part):
                     continue
                 fixed, _n = resolve_fragment_citations(t[part], cite_labels)
+                fixed, done, missed = resolve_fragment_references(
+                    fixed, ref_numbers)
+                refs_done += done
+                refs_missed.extend(missed)
                 fixed, _c = rewrite_color_declarations(fixed)
                 t[part] = _TEXT_MACRO_RE.sub(r'\\textrm', fixed)
             if output == 'markdown':
@@ -5073,6 +5364,14 @@ def expand_raw_latex_tables(md_text, pandoc=None, math_mode='mathml',
             cursor = t['stop']
             converted += 1
     pieces.append(md_text[cursor:])
+    if refs_done or refs_missed:
+        print("Raw LaTeX tables: %d cross-reference(s) in captions resolved"
+              % refs_done)
+    if refs_missed:
+        # Named, not swallowed: a key nobody can resolve prints as itself and
+        # the reader meets `[TableD1]` where a number belongs.
+        print("  %d key(s) had no number and will print raw: %s"
+              % (len(set(refs_missed)), ', '.join(sorted(set(refs_missed)))))
     return ''.join(pieces), converted, failed
 
 
@@ -6086,6 +6385,16 @@ def convert_md_to_html(temp_dir, title, lang_cfg, author=None,
     md_text, tab_count = number_table_captions(md_text, temp_dir, lang_cfg)
     if tab_count:
         print(f"Tables: {tab_count} caption(s) numbered")
+    # Where they landed, not how many were written. The count agreed while
+    # ten of fifteen sat on prose, so the count is not the check (K151).
+    placed_ok, placed_detail = check_badge_placement(md_text, lang_cfg)
+    if not placed_ok:
+        print("BLOCKING: %s" % placed_detail)
+        print("  A table number on prose sends every sentence that cites it "
+              "at the wrong thing, and no count can see it.")
+        raise SystemExit(1)
+    if tab_count:
+        print("Tables: %s" % placed_detail)
 
     if any(ref_stats.values()):
         print("References: %d citation(s), %d cross-reference(s) resolved"
@@ -6129,7 +6438,7 @@ def convert_md_to_html(temp_dir, title, lang_cfg, author=None,
         print(f"First-use glosses: {glosses_dropped} repeat(s) removed")
 
     docx_md, docx_ok, docx_bad = expand_raw_latex_tables(
-        md_text, math_mode=math_mode, output='markdown')
+        md_text, math_mode=math_mode, output='markdown', temp_dir=temp_dir)
     # pandoc builds book.docx straight from this file and never sees the HTML
     # the other formats are styled through, so the equation number has to go
     # inside the formula here.
@@ -6145,7 +6454,7 @@ def convert_md_to_html(temp_dir, title, lang_cfg, author=None,
         print(note)
 
     expanded_md, tables_ok, tables_bad = expand_raw_latex_tables(
-        md_text, math_mode=math_mode, output='html')
+        md_text, math_mode=math_mode, output='html', temp_dir=temp_dir)
     if tables_ok or tables_bad:
         note = f"Raw LaTeX tables: {tables_ok} converted to HTML"
         if tables_bad:
@@ -6630,8 +6939,25 @@ def generate_format(html_file, temp_dir, output_ext, lang_attr, cover=None,
         # Rendered in place: book_doc.html sits next to images/, so a
         # relative <img src="images/x.png"> resolves with no copying,
         # no work.html and no temp directory to clean up.
-        ok = chromium_pdf.html_to_pdf(html_file, output_file,
-                                      lang=lang_attr, profile=print_cfg)
+        def _render(src, out):
+            return chromium_pdf.html_to_pdf(src, out, lang=lang_attr,
+                                            profile=print_cfg)
+
+        # A formula as wide as the text column prints under its own number,
+        # and no stylesheet can prevent it: MathML compresses its spacing to
+        # the box rather than shrinking into it. The size that clears the
+        # number cannot be known without laying the page out, so this renders,
+        # measures what it rendered, and renders again if anything collided.
+        # A book with no collision costs exactly one render, as before.
+        ok, collided = equation_fit.fit_equations(html_file, output_file,
+                                                  _render, print_cfg)
+        if collided:
+            print("ERROR: equation %s still prints under its own number at "
+                  "the smallest size tried." % ', '.join(collided))
+            print("  The formula fills the text column; nothing downstream "
+                  "can separate them, and the number is unreadable on the "
+                  "page while every content check passes.")
+            raise SystemExit(1)
         return output_file if ok and os.path.exists(output_file) else None
 
     publish_script = os.path.join(SCRIPT_DIR, "calibre_html_publish.py")

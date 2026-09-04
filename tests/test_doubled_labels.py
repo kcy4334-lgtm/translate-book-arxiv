@@ -91,6 +91,45 @@ class DoubledLabels(unittest.TestCase):
         self.assertEqual(got, text)
         self.assertEqual(n, 0)
 
+    def test_an_appendix_letter_counts_as_a_number(self):
+        r"""Where the first attempt at the rule above stopped.
+
+        Anchoring on `\d` alone caught every reference in the body and missed
+        every one in the appendix, because those print `A1`, `C2`, `D1`. The
+        check written in the same hour reported zero doubled labels while
+        sixteen `그림 그림 A1` sat in the finished book -- the number the
+        rule was reading was simply never there.
+        """
+        for text, want in (('그림 그림 A1은', '그림 A1은'),
+                           ('그림 그림 D2에서', '그림 D2에서'),
+                           ('그림 그림A3', '그림A3')):
+            got, n = mb.drop_doubled_labels(text, {'figure': '그림'},
+                                            PREFIX, KO)
+            self.assertEqual(got, want)
+            self.assertEqual(n, 1)
+
+    def test_a_table_appendix_letter_too(self):
+        got, n = mb.drop_doubled_labels('표 표 C1에 정리했다', {'table': '표'},
+                                        {'table': '{label} {number}'}, KO)
+        self.assertEqual(got, '표 C1에 정리했다')
+        self.assertEqual(n, 1)
+
+    def test_a_bare_letter_with_no_number_is_not_a_reference(self):
+        """The letter alone is not enough -- `그림 그림 A` has no float to
+        point at, and collapsing it would eat a word the sentence needs."""
+        text = '그림 그림 A에서'
+        got, n = mb.drop_doubled_labels(text, {'figure': '그림'}, PREFIX, KO)
+        self.assertEqual(got, text)
+        self.assertEqual(n, 0)
+
+    def test_a_korean_word_after_the_label_still_survives(self):
+        """The letter is optional, so the digit still has to be reachable.
+        `그림자` must not be read as label + `자`."""
+        text = '그림 그림자 효과 3개'
+        got, n = mb.drop_doubled_labels(text, {'figure': '그림'}, PREFIX, KO)
+        self.assertEqual(got, text)
+        self.assertEqual(n, 0)
+
     def test_without_particle_agreement_only_word_boundaries_count(self):
         got, n = mb.drop_doubled_labels('第4.1节 节。', {'section': '节'},
                                         {'section': '第{number}{label}'},
