@@ -189,6 +189,16 @@ class SteppingDownUntilItFits(unittest.TestCase):
         with io.open(self.path, 'w', encoding='utf-8') as fh:
             fh.write(HTML)
         self.rendered = []
+        # Pinned, because otherwise these tests mean different things on
+        # different machines. The PyMuPDF guard added below returns before
+        # the loop when no reader is installed; with one installed it never
+        # runs. The suite passed here and failed on CI, where there is no
+        # PyMuPDF, on a test that asserts what the log says after a failed
+        # render -- it was reading the guard's message instead. A test whose
+        # branch depends on what happens to be installed is not a test.
+        real = ef.pymupdf_available
+        ef.pymupdf_available = lambda: True
+        self.addCleanup(setattr, ef, 'pymupdf_available', real)
 
     def render(self, src, out):
         with io.open(src, encoding='utf-8') as fh:
@@ -357,6 +367,11 @@ class ADocumentWithNoNumberedEquations(unittest.TestCase):
         self.pdf = os.path.join(self.dir, 'book.pdf')
         with io.open(self.path, 'w', encoding='utf-8') as fh:
             fh.write('<html><body>no maths here</body></html>')
+        # Pinned for the same reason as above: these assert the path taken
+        # when a reader IS available, and must not change with the machine.
+        real = ef.pymupdf_available
+        ef.pymupdf_available = lambda: True
+        self.addCleanup(setattr, ef, 'pymupdf_available', real)
 
     def test_it_still_renders_exactly_once(self):
         calls = []
