@@ -294,7 +294,8 @@
            to put on it, so a source without one does not gain a blank leaf. */
         .title-page { text-align: center; margin: 3rem auto 2.5rem; }
         .title-page-title { font-size: 1.9rem; line-height: 1.3;
-                            border: 0; margin: 0 0 1.2rem; }
+                            border: 0; margin: 0 0 1.2rem;
+                            text-align: center; }
         /* The byline is inserted after the title heading above, so it is
            styled here rather than emitted with the page. Written without
            naming the closing tag: the insertion searched the whole file for
@@ -519,6 +520,12 @@
             .title-page-title {
                 font-size: 22pt; line-height: 1.3; margin: 60pt 0 18pt;
                 text-indent: 0; border: 0;
+                /* Explicit, because the heading rule above sets
+                   `text-align: left` and this class did not say otherwise:
+                   the title sat at the left margin with the byline and the
+                   arXiv line centred under it. Invisible on a title that
+                   fills the measure, obvious on a short one. */
+                text-align: center;
                 break-before: avoid; page-break-before: avoid;
             }
             /* Inserted after the title heading above, so it is styled here

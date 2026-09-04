@@ -169,6 +169,18 @@ class TheTemplateHasSomewhereToPutIt(unittest.TestCase):
             found = re.findall(r'\.%s\s*\{' % re.escape(cls), self.sheet())
             self.assertEqual(len(found), 2, cls)
 
+    def test_both_sheets_centre_the_title_itself(self):
+        r"""The heading rules set `text-align: left` for every h1..h6, and
+        this class said nothing, so the title sat at the left margin with
+        the byline and the arXiv line centred beneath it. A title that fills
+        the measure hides this; a short one does not, and the first paper
+        run through the finished pipeline had a short one."""
+        import re
+        found = re.findall(r'\.title-page-title\s*\{[^}]*\}', self.sheet())
+        self.assertEqual(len(found), 2)
+        for rule in found:
+            self.assertIn('text-align: center', rule)
+
     def test_both_sheets_centre_the_byline_on_it(self):
         """The byline is inserted after the first `</h1>` by the template
         step, not emitted with the page, so it is styled by descent."""
