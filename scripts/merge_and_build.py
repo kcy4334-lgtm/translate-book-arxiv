@@ -6244,29 +6244,36 @@ _CJK_TEXT_RE = re.compile(r'[가-힣぀-ヿ一-鿿]')
 _CJK_CLOSER = ('\u3002\u3001\u300d\u300f\u3011\u3015\u3009\u300b'
                '\uff0c\uff0e\uff1b\uff1a\uff1f\uff01\uff09\uff5d'
                '\u201d\u2019\uff05')
-_MATH_THEN_CLOSER_RE = re.compile('(</math>)([%s])' % _CJK_CLOSER)
+_MATH_THEN_CLOSER_RE = re.compile(
+    '(<math\\b[^>]*>.*?</math>)([%s])' % _CJK_CLOSER, re.DOTALL)
 
 
 def join_maths_to_following_punctuation(html):
     r"""Forbid a line break between an inline formula and the mark after it.
 
     Chinese printed a line opening with `。`, which CJK typesetting forbids.
-    The line before it ended on an inline formula, and there is no space
-    between them: the HTML reads `</math>。`. Chromium is treating the maths
-    as a replaced element and taking the break opportunity beside it (UAX #14
-    LB20), where LB13 should already have refused to break before closing
-    punctuation.
+    The line before it ended on an inline formula and there is no space
+    between them -- the HTML reads `</math>。` -- so Chromium is taking the
+    break opportunity it puts beside a replaced element, where the rule
+    against breaking before closing punctuation should have refused.
 
-    U+2060 WORD JOINER is what the standard provides for this: LB11 forbids a
-    break on either side of it and outranks LB20, so the mark is held against
-    the formula it belongs to. It is zero-width and prints nothing.
+    U+2060 WORD JOINER was tried first, because that is what the standard
+    provides: LB11 forbids a break on either side of it and outranks the
+    replaced-element rule. It was inserted at all twenty sites and the line
+    still broke, so Chromium is deciding the boundary beside an atomic inline
+    without consulting the class of what follows. A standards argument is not
+    a measurement.
 
-    Not scoped to a language. The prohibition belongs to the punctuation, and
-    Korean and Japanese carry the same marks; that neither showed a break in
-    this paper is where the lines happened to fall, not a difference in kind.
-    Measured here: 21 such sites in the Chinese edition, one of which broke.
+    `white-space: nowrap` on a span holding the formula and the mark is not a
+    line-break-class question at all, so there is nothing for that decision
+    to override. The span holds one formula and one character.
+
+    Not scoped to a language: the prohibition belongs to the punctuation, and
+    Korean and Japanese carry the same marks. That neither showed a break in
+    this paper is where their lines happened to fall.
     """
-    return _MATH_THEN_CLOSER_RE.subn('\\1\u2060\\2', html)
+    return _MATH_THEN_CLOSER_RE.subn(
+        '<span class="nobr">\\1\\2</span>', html)
 
 
 def mark_cjk_emphasis(html):

@@ -87,25 +87,39 @@ class PunctuationStaysWithItsFormula(unittest.TestCase):
     replaced element, where the rule against breaking before closing
     punctuation should already have refused.
 
-    U+2060 WORD JOINER is what the standard provides: a break is forbidden on
-    either side of it, and that outranks the replaced-element rule. It prints
-    nothing.
+    U+2060 WORD JOINER was tried first, because that is what the standard
+    provides: a break is forbidden on either side of it and that outranks the
+    replaced-element rule. It was inserted at all twenty sites in the Chinese
+    book and the line still broke. So Chromium decides the boundary beside an
+    atomic inline without consulting the class of what follows, and a
+    standards argument is not a measurement. `white-space: nowrap` on a span
+    holding the formula and the mark is not a line-break-class question at
+    all, so there is nothing left for that decision to override.
     """
-
-    WJ = '⁠'
 
     def test_a_full_stop_is_held_against_the_formula(self):
         html, n = mb.join_maths_to_following_punctuation(
             '<p>记为 <math display="inline"><mi>k</mi></math>。在我们的实验中</p>')
         self.assertEqual(n, 1)
-        self.assertIn('</math>' + self.WJ + '。', html)
+        self.assertIn('<span class="nobr"><math display="inline">'
+                      '<mi>k</mi></math>。</span>', html)
 
     def test_every_closing_mark_that_may_not_open_a_line(self):
         for mark in '。、，；：？！）》」』':
             html, n = mb.join_maths_to_following_punctuation(
                 '<math><mi>x</mi></math>%s' % mark)
             self.assertEqual(n, 1, mark)
-            self.assertIn('</math>' + self.WJ + mark, html)
+            self.assertIn('<span class="nobr"><math><mi>x</mi></math>%s'
+                          '</span>' % mark, html)
+
+    def test_the_style_reaches_the_ebook_and_not_only_the_print_sheet(self):
+        r"""A rule that lives only in the print block never reaches the EPUB
+        (K67), and this one is needed in both."""
+        import io
+        path = os.path.join(ROOT, 'scripts', 'template_ebook.html')
+        with io.open(path, encoding='utf-8') as handle:
+            sheet = handle.read()
+        self.assertEqual(sheet.count('.nobr { white-space: nowrap; }'), 2)
 
     def test_korean_and_japanese_get_it_too(self):
         r"""The prohibition belongs to the punctuation, not to the language.
