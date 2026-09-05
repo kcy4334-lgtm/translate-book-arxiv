@@ -6372,6 +6372,51 @@ def source_captions(temp_dir):
     return out
 
 
+_CAPTION_WORD_RE = re.compile(r'[^\W\d_]+', re.UNICODE)
+
+# Measured over the seven editions of one paper: a correctly translated
+# caption shares at most ONE word with its source (jft, top, wer, frame,
+# classification -- acronyms, dataset names and cognates, always scattered),
+# while a caption with an untranslated tail shares at least FOUR in a row.
+# The threshold sits in that gap, with room for a glossary term deliberately
+# left in the source language: those run one to three words (soft targets,
+# mixture of experts), never four.
+_UNTRANSLATED_RUN = 4
+
+
+def caption_words(text):
+    """Lowercased alphabetic words. Digits and punctuation drop out: they
+    survive translation on purpose and would pad every run."""
+    return [w.lower() for w in _CAPTION_WORD_RE.findall(text)]
+
+
+def longest_source_run(caption, originals):
+    r"""The longest run of words this caption shares with any source caption.
+
+    A translator borrows single words from the source: an acronym, a dataset
+    name, a cognate. Text that was never translated arrives as a contiguous
+    run. The length of the longest run tells the two apart, and does so in
+    any target language, because the run is made of SOURCE words whatever the
+    target is written in.
+    """
+    have = caption_words(caption)
+    if not have:
+        return 0
+    best = 0
+    for original in originals:
+        want = caption_words(original)
+        row = [0] * (len(want) + 1)
+        for i in range(1, len(have) + 1):
+            prev = 0
+            for j in range(1, len(want) + 1):
+                keep = row[j]
+                row[j] = prev + 1 if have[i - 1] == want[j - 1] else 0
+                if row[j] > best:
+                    best = row[j]
+                prev = keep
+    return best
+
+
 def untranslated_captions(md_text, lang, temp_dir=None):
     r"""Table captions still in the source language. [] when unmeasurable.
 
@@ -6386,16 +6431,25 @@ def untranslated_captions(md_text, lang, temp_dir=None):
     because they count tables, images and values and those are all correct.
     A green run actively confirms the wrong conclusion.
 
-    So the build asks the artefact instead of trusting that the step ran, two
-    ways, because neither alone covers every language:
+    So the build asks the artefact instead of trusting that the step ran,
+    three ways, because no one of them covers every way the step can be half
+    done:
 
       * the caption is not in the target's script at all. Decisive for ko,
         ja and zh, and blind to fr, de and es.
       * the caption is still word for word what `flat.tex` says. Works in any
-        target language, and is the only thing that covers the Latin ones.
-        It cannot see a caption somebody translated halfway, and it cannot
-        judge an English edition of an English paper at all, so that one is
-        left alone rather than given a verdict this cannot stand behind (K68).
+        target language, and is the only thing that catches a caption of two
+        or three words nobody touched.
+      * the caption carries a run of four or more consecutive source words.
+        This is what catches a caption translated HALFWAY, which the other
+        two both wave through: one target-script character satisfies the
+        first, and a half-translated caption is not identical, so it
+        satisfies the second.
+
+    An English edition of an English paper cannot be judged by any of them,
+    since a caption identical to the source is the correct answer there and
+    indistinguishable from a skipped step, so it is left alone rather than
+    given a verdict this cannot stand behind (K68).
     """
     base = (lang or '').split('-')[0]
     try:
@@ -6417,7 +6471,10 @@ def untranslated_captions(md_text, lang, temp_dir=None):
         flat = ' '.join(caption.split())
         wrong_script = ranges and not any(
             verify_chunk._in_target_script(ch, ranges) for ch in caption)
-        if wrong_script or flat in originals:
+        half_done = (originals
+                     and longest_source_run(caption, originals)
+                     >= _UNTRANSLATED_RUN)
+        if wrong_script or flat in originals or half_done:
             out.append(flat[:70])
     return out
 

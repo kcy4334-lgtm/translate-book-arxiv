@@ -17,6 +17,7 @@ Steps enforced by code are not skipped: the build stops. Steps written as
 prose are skipped eventually. So this asks the artefact rather than trusting
 that the step ran.
 """
+import io
 import os
 import sys
 import unittest
@@ -140,6 +141,97 @@ class TheSourceIsWhatCoversTheLatinLanguages(unittest.TestCase):
             'predictions.', 'Results')
         self.write_source(short)
         self.assertEqual(mb.untranslated_captions(short, 'fr', self.dir), [])
+
+
+HALF_FRENCH = ENGLISH.replace(
+    'Frame classification accuracy and WER showing that the distilled\n'
+    'single model performs about as well as the averaged predictions.',
+    'Précision de classification par trame et WER montrant que the '
+    'distilled single model performs about as well as the averaged '
+    'predictions.')
+
+HALF_KOREAN = ENGLISH.replace(
+    'Frame classification accuracy and WER showing that the distilled\n'
+    'single model performs about as well as the averaged predictions.',
+    '프레임 분류 정확도와 WER, showing that the distilled single '
+    'model performs about as well as the averaged predictions.')
+
+
+class AHalfTranslatedCaptionIsCaught(unittest.TestCase):
+    r"""The case both other tests wave through.
+
+    One character of the target script satisfies the script test, so a caption
+    that is Korean for six words and English for the next twenty passes it.
+    And a half-translated caption is not identical to `flat.tex`, so it passes
+    the identity test too. Measured over the seven editions of one paper, a
+    correctly translated caption shares at most ONE word with its source and a
+    half-translated one shares at least FOUR in a row, because a translator
+    borrows scattered words (acronyms, dataset names, cognates) while
+    untranslated text arrives as a contiguous run.
+    """
+
+    def setUp(self):
+        import shutil
+        import tempfile
+        self.dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.dir, True)
+        with io.open(os.path.join(self.dir, 'flat.tex'), 'w',
+                     encoding='utf-8') as handle:
+            handle.write(ENGLISH)
+
+    def test_half_french(self):
+        self.assertEqual(
+            len(mb.untranslated_captions(HALF_FRENCH, 'fr', self.dir)), 1)
+
+    def test_half_korean_which_the_script_test_accepts(self):
+        self.assertEqual(mb.untranslated_captions(HALF_KOREAN, 'ko'), [],
+                         'precondition: the script test alone accepts it')
+        self.assertEqual(
+            len(mb.untranslated_captions(HALF_KOREAN, 'ko', self.dir)), 1)
+
+    def test_a_fully_translated_caption_is_still_quiet(self):
+        for lang, text in (('fr', FRENCH), ('ko', KOREAN)):
+            self.assertEqual(
+                mb.untranslated_captions(text, lang, self.dir), [], lang)
+
+
+class TheRunItselfBehaves(unittest.TestCase):
+
+    def run_of(self, caption, source=None):
+        return mb.longest_source_run(caption, {source or
+                                               'Frame classification accuracy '
+                                               'and WER showing that the '
+                                               'distilled single model'})
+
+    def test_scattered_shared_words_do_not_accumulate(self):
+        r"""`classification` and `WER` in a French caption are one word each,
+        not a run. This is why cognates do not trip the check."""
+        self.assertEqual(
+            self.run_of('Précision de classification par trame et WER'), 1)
+
+    def test_a_contiguous_borrowing_counts(self):
+        """showing / that / the / distilled / single / model."""
+        self.assertEqual(
+            self.run_of('Précision showing that the distilled single model'),
+            6)
+
+    def test_a_three_word_glossary_term_stays_under_the_threshold(self):
+        r"""A term deliberately left in the source language runs one to three
+        words. Four is the shortest run this reports."""
+        self.assertLess(
+            mb.longest_source_run('un mixture of experts adapté',
+                                  {'we used a mixture of experts here'}),
+            mb._UNTRANSLATED_RUN)
+
+    def test_digits_do_not_pad_a_run(self):
+        """`top 1` shares one word, not two: the digit is dropped."""
+        self.assertEqual(mb.longest_source_run('précision top 1 sur JFT',
+                                               {'top 1 accuracy on JFT'}), 1)
+
+    def test_no_source_and_no_words_are_answered_with_zero(self):
+        self.assertEqual(mb.longest_source_run('anything', set()), 0)
+        self.assertEqual(mb.longest_source_run('', {'some words'}), 0)
+        self.assertEqual(mb.longest_source_run('123 456', {'some words'}), 0)
 
 
 class TheGateStaysQuietWhenItCannotJudge(unittest.TestCase):

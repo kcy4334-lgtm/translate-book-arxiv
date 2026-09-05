@@ -179,6 +179,7 @@ here; the test is the real record. This file is for the *reasoning*, the
 | Text that should be on the page is in the stylesheet instead | [K159](#k159) |
 | The book opens on its table of contents, with no title page | [K160](#k160) |
 | A sub-agent's finished edit is gone and every check still passes | [K161](#k161) |
+| Half a table caption is translated and the language check passes | [K162](#k162) |
 
 ---
 
@@ -2301,6 +2302,20 @@ next round, before the message saying so could arrive. The fix is having no
 script to name: `sidecar_edit.py` makes the edit and refuses a write whose
 `sha256` predates someone else's, which is what a restore is.
 *Status: LOCKED, `TheIncident`, `EveryEditIsOnTheRecord`; 15/15 captions.*
+
+### K162
+**One character of the target script is not a translation.** The caption gate
+asked whether ANY character of a caption was in the target's script, so one
+whose first six words were translated and whose next twenty were the
+untouched English passed, in every language, not only the Latin ones. The
+identity test passed it too: half translated is not identical. Measured over
+seven editions of one paper, a correctly translated caption shares at most
+ONE word with its source -- acronyms, dataset names, cognates, always
+scattered -- and a half-translated one at least FOUR in a row, because
+untranslated text arrives as a contiguous run and a translator's borrowings
+do not. Four also clears a glossary term deliberately left in the source
+language: those run one to three words.
+*Status: LOCKED, `AHalfTranslatedCaptionIsCaught`, `TheRunItselfBehaves`.*
 
 ---
 
