@@ -181,6 +181,10 @@ here; the test is the real record. This file is for the *reasoning*, the
 | A sub-agent's finished edit is gone and every check still passes | [K161](#k161) |
 | Half a table caption is translated and the language check passes | [K162](#k162) |
 | A new check fires on books that were already correct | [K163](#k163), [K157](#k157) |
+| The text cites [1] and the reference list has no numbers | [K164](#k164) |
+| CJK table headers come out Type3, or half a header row is bold | [K165](#k165) |
+| Inline maths sits above or below the words beside it | [K166](#k166) |
+| A grep of output.md disagrees with the finished PDF | [K167](#k167) |
 
 ---
 
@@ -2330,6 +2334,56 @@ leaves its temp dir and its `flat.tex` behind, so the corpus was already on
 disk: measuring against it cost one probe and took the false positives to 0.
 *Status: GUARDED, `WhatTheCorpusCaught`; `scratchpad/corpus_runs.py`
 re-measures every book on disk with the shipped functions.*
+
+### K164
+**Nine citations pointed at nine unlabelled paragraphs.** The in-text
+citations are numbered from the inlined `\bibitem` list, in its own order,
+and print as `[1]`. The list itself was rendered as bare paragraphs with no
+labels at all, so every book this pipeline has produced carried citations
+answering to nothing: a reader meeting `[8]` had to count entries on another
+page. K91 fixed the entries reaching the page and stopped there, because
+nothing had ever compared the two halves. It is in the English pass-through
+edition too, which is what says it was never a translation defect. Six
+reading passes found it in one hour; no check ever had.
+*Status: LOCKED, `EveryEntryIsNumbered`; 9 cited, 9 listed, 0 dangling in
+all seven editions.*
+
+### K165
+**A table header is bold without any `<strong>` in it.** The Chinese sheet
+routes bold Chinese to the sans stack, because SimSun has no bold companion
+and Chromium synthesises one as a Type3 object per glyph. The selector listed
+`strong`, `b` and the emphasis classes -- all markup somebody wrote. A `<th>`
+is bold by the browser's own stylesheet, so nothing matched it: 25 Type3
+objects drawing 97 glyphs across three table pages, every one a header cell,
+while the Latin `WER` beside them kept a real NotoSerif-Bold. Korean and
+Japanese have none; HCR Batang and BIZ UDMincho ship a bold.
+*Status: LOCKED, `EveryBoldChineseElementReachesAFaceWithABold`; 55 to 0.*
+
+### K166
+**Inline maths rode above the line it was set in.** `math[display="inline"]`
+carried `vertical-align: middle`, which puts the formula's vertical CENTRE on
+the text's x-height midpoint: the run rides up and the SUBSCRIPT lands on the
+text baseline instead of the letter it hangs from. `z_i` and `q_i` sat
+visibly above the words around them on every page of every edition. No
+comment and no test stood behind the rule in any of the three sheets that
+carried it, which is what an inherited default looks like. The text layer
+could not settle it -- per-span offsets ran -2.25 to +3.00pt, because a
+formula's own superscripts are in the same histogram and belong off the
+baseline. A rendered crop settled it in one look.
+*Status: LOCKED by measurement, 63 spans at +0.00pt in all seven editions.*
+
+### K167
+**The merged markdown is not the book, and it answered wrongly three times.**
+`output.md` is the last artefact before the build, so it is the tempting one
+to grep, and in one session it gave the wrong answer three times over.
+Doubled cross-references: none in the markdown, twelve on the page, because
+the resolver inserts the label at build time. Quotation marks: Korean looked
+broken in the markdown and is perfect on the page, because pandoc converts
+straight quotes -- fixing what the markdown showed would have damaged a
+correct book. Numerals: a restoring pass reported twenty-four fixed and
+nothing left, and two survived into print. Ask the PDF.
+*Status: measured 2026-09-05, three times in one session. No test can hold
+this one: it is about which artefact a probe is pointed at.*
 
 ---
 
