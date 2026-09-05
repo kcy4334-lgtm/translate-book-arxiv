@@ -1598,6 +1598,14 @@ def expand_tabular_stars(tex):
 
 
 _TWOCOLUMN_RE = re.compile(r'\\twocolumn\s*\[')
+# `\renewcommand\twocolumn[1][]{#1}` is a DEFINITION of the command, and the
+# `[1]` after it is its argument count, not a title block. An ICCV paper
+# writes exactly that INSIDE its own `\twocolumn[...]`, so the outer block is
+# skipped for holding the abstract and the loop walks straight into the
+# redefinition.
+_DEFINING_RE = re.compile(
+    r'\\(?:new|renew|provide)command\s*\*?\s*$'
+    r'|\\DeclareRobustCommand\s*\*?\s*$')
 
 
 def strip_title_block(tex):
@@ -1612,10 +1620,21 @@ def strip_title_block(tex):
 
     A class that puts the abstract inside the block is left alone rather than
     guessed at; losing an abstract would be far worse than keeping the noise.
+
+    And a REDEFINITION of `\\twocolumn` is not a use of it. The ICCV template
+    writes `\\renewcommand\\twocolumn[1][]{#1}` inside its own title block, so
+    the outer block is skipped for holding the abstract and the walk arrives
+    at the redefinition, where `[1]` is an argument count. Cutting it mangles
+    the definition, pandoc then dies on the whole document with exit 64, and
+    `--backend auto` falls back to calibre without a word: a book with no
+    recoverable equations, reported as a successful conversion. That idiom is
+    in the CVPR, ICCV and NeurIPS templates, so it is not one paper's problem.
     """
     out, cursor, count = [], 0, 0
     for m in _TWOCOLUMN_RE.finditer(tex):
         if m.start() < cursor:
+            continue
+        if _DEFINING_RE.search(tex[max(0, m.start() - 48):m.start()]):
             continue
         depth, close = 0, -1
         for i in range(m.end() - 1, len(tex)):
