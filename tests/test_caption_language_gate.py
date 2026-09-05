@@ -74,15 +74,90 @@ class TheGateFires(unittest.TestCase):
         self.assertEqual(len(mb.untranslated_captions(ENGLISH, 'zh-CN')), 1)
 
 
-class TheGateStaysQuietWhenItCannotJudge(unittest.TestCase):
-    r"""K68: a Latin target cannot be told from a Latin source this way, and
-    saying nothing is the honest answer. Reporting every caption of a French
-    book as untranslated would be the table probe's old mistake -- a check
-    that fires on correct work teaches its reader to skip it."""
+FRENCH = ENGLISH.replace(
+    'Frame classification accuracy and WER showing that the distilled\n'
+    'single model performs about as well as the averaged predictions.',
+    'Précision de classification des trames et WER montrant que le '
+    'modèle unique distillé égale les prédictions '
+    'moyennées.')
 
-    def test_a_latin_target_is_not_judged(self):
+
+class TheSourceIsWhatCoversTheLatinLanguages(unittest.TestCase):
+    r"""Script alone leaves fr, de and es unguarded, which is where the whole
+    defect would have gone unseen. `flat.tex` is the flattened LaTeX the book
+    was built from and the one file the table agents never edit, so a caption
+    still word for word identical to it was never translated, whatever
+    alphabet the target happens to use."""
+
+    def setUp(self):
+        import shutil
+        import tempfile
+        self.dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.dir, True)
+
+    def write_source(self, text):
+        import io
+        with io.open(os.path.join(self.dir, 'flat.tex'), 'w',
+                     encoding='utf-8') as handle:
+            handle.write(text)
+
+    def test_an_untouched_caption_is_caught_in_french(self):
+        self.write_source(ENGLISH)
+        found = mb.untranslated_captions(ENGLISH, 'fr', self.dir)
+        self.assertEqual(len(found), 1)
+        self.assertIn('Frame classification', found[0])
+
+    def test_a_translated_caption_is_not(self):
+        self.write_source(ENGLISH)
+        for lang in ('fr', 'de', 'es'):
+            self.assertEqual(
+                mb.untranslated_captions(FRENCH, lang, self.dir), [], lang)
+
+    def test_line_breaks_moved_by_the_translator_do_not_hide_it(self):
+        """The sidecar's caption is reflowed; the words are what matter."""
+        self.write_source(ENGLISH.replace('the distilled\nsingle model',
+                                          'the distilled single model'))
+        self.assertEqual(len(mb.untranslated_captions(ENGLISH, 'fr',
+                                                      self.dir)), 1)
+
+    def test_it_also_catches_a_cjk_book_whose_caption_was_reverted(self):
+        """Two independent tests, so a revert is caught twice over."""
+        self.write_source(ENGLISH)
+        self.assertEqual(len(mb.untranslated_captions(ENGLISH, 'ko',
+                                                      self.dir)), 1)
+
+    def test_an_english_edition_is_still_not_judged(self):
+        """The paper is English. Identical is correct, not a defect, and
+        there is no third thing to compare against that would say which."""
+        self.write_source(ENGLISH)
+        self.assertEqual(mb.untranslated_captions(ENGLISH, 'en', self.dir), [])
+
+    def test_a_short_source_caption_is_not_used_as_evidence(self):
+        r"""`\caption{Results}` matching `\caption{Results}` says nothing."""
+        short = ENGLISH.replace(
+            'Frame classification accuracy and WER showing that the '
+            'distilled\nsingle model performs about as well as the averaged '
+            'predictions.', 'Results')
+        self.write_source(short)
+        self.assertEqual(mb.untranslated_captions(short, 'fr', self.dir), [])
+
+
+class TheGateStaysQuietWhenItCannotJudge(unittest.TestCase):
+    r"""K68: with no source to compare against, a Latin target cannot be told
+    from a Latin source and saying nothing is the honest answer. Reporting
+    every caption of a French book as untranslated would be the table probe's
+    old mistake -- a check that fires on correct work teaches its reader to
+    skip it."""
+
+    def test_a_latin_target_is_not_judged_without_the_source(self):
         for lang in ('fr', 'de', 'es', 'en'):
             self.assertEqual(mb.untranslated_captions(ENGLISH, lang), [], lang)
+
+    def test_a_missing_flat_tex_is_not_an_error(self):
+        """An old temp dir, or the calibre backend, has no `flat.tex`."""
+        self.assertEqual(mb.source_captions(None), set())
+        self.assertEqual(mb.source_captions(os.path.dirname(__file__)), set())
+        self.assertEqual(mb.untranslated_captions(ENGLISH, 'fr', '/nope'), [])
 
     def test_an_unknown_language_is_not_judged(self):
         self.assertEqual(mb.untranslated_captions(ENGLISH, ''), [])

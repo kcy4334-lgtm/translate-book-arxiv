@@ -6338,7 +6338,41 @@ def process_html_separators(html_file):
         print(f"Error processing separators: {e}")
 
 
-def untranslated_captions(md_text, lang):
+_CAPTION_BODY_RE = re.compile(r'\\caption\s*(?:\[[^\]]*\])?\s*\{')
+
+
+def source_captions(temp_dir):
+    r"""Every `\caption{}` body in `flat.tex`, whitespace collapsed.
+
+    `flat.tex` is the flattened LaTeX the whole book was built from, and it is
+    the one file the table agents never touch: the sidecars they edit are
+    copies. So it is the only pristine record of what a caption said before
+    anybody translated it, which is what makes a caption still identical to
+    its source detectable in ANY target language, not just the ones written
+    in another script.
+    """
+    path = os.path.join(temp_dir or '', 'flat.tex')
+    if not temp_dir or not os.path.isfile(path):
+        return set()
+    try:
+        with open(path, encoding='utf-8', errors='replace') as handle:
+            text = handle.read()
+    except (IOError, OSError):
+        return set()
+    out = set()
+    for match in _CAPTION_BODY_RE.finditer(text):
+        start = match.end() - 1
+        depth, i = 1, start + 1
+        while i < len(text) and depth:
+            depth += (text[i] == '{') - (text[i] == '}')
+            i += 1
+        body = ' '.join(text[start + 1:i - 1].split())
+        if len(body) >= 12:
+            out.add(body)
+    return out
+
+
+def untranslated_captions(md_text, lang, temp_dir=None):
     r"""Table captions still in the source language. [] when unmeasurable.
 
     Step 4.6 of SKILL.md translates the words inside table floats, because a
@@ -6352,18 +6386,27 @@ def untranslated_captions(md_text, lang):
     because they count tables, images and values and those are all correct.
     A green run actively confirms the wrong conclusion.
 
-    So the build asks the artefact instead of trusting that the step ran. A
-    Latin target cannot be told from its source this way and this says so by
-    returning nothing, rather than inventing a verdict it cannot stand behind
-    (K68).
+    So the build asks the artefact instead of trusting that the step ran, two
+    ways, because neither alone covers every language:
+
+      * the caption is not in the target's script at all. Decisive for ko,
+        ja and zh, and blind to fr, de and es.
+      * the caption is still word for word what `flat.tex` says. Works in any
+        target language, and is the only thing that covers the Latin ones.
+        It cannot see a caption somebody translated halfway, and it cannot
+        judge an English edition of an English paper at all, so that one is
+        left alone rather than given a verdict this cannot stand behind (K68).
     """
+    base = (lang or '').split('-')[0]
     try:
         import verify_chunk
+        ranges = verify_chunk._SCRIPT_RANGES.get(base)
     except Exception:                                     # noqa: BLE001
+        ranges = None
+    originals = set() if base == 'en' else source_captions(temp_dir)
+    if not ranges and not originals:
         return []
-    ranges = verify_chunk._SCRIPT_RANGES.get((lang or '').split('-')[0])
-    if not ranges:
-        return []
+
     out = []
     for table in find_raw_latex_tables(md_text):
         caption = (table.get('caption') or '').strip()
@@ -6371,9 +6414,11 @@ def untranslated_captions(md_text, lang):
         # whether anybody translated it.
         if len(caption) < 12:
             continue
-        if not any(verify_chunk._in_target_script(ch, ranges)
-                   for ch in caption):
-            out.append(' '.join(caption.split())[:70])
+        flat = ' '.join(caption.split())
+        wrong_script = ranges and not any(
+            verify_chunk._in_target_script(ch, ranges) for ch in caption)
+        if wrong_script or flat in originals:
+            out.append(flat[:70])
     return out
 
 
@@ -6391,7 +6436,8 @@ def convert_md_to_html(temp_dir, title, lang_cfg, author=None,
     with open(md_file, encoding='utf-8', errors='replace') as fh:
         _merged = fh.read()
     stale_captions = untranslated_captions(_merged,
-                                           lang_cfg.get('lang_attr', ''))
+                                           lang_cfg.get('lang_attr', ''),
+                                           temp_dir)
     if stale_captions:
         print("ERROR: %d table caption(s) are still in the source language."
               % len(stale_captions))
