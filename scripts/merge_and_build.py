@@ -6338,6 +6338,45 @@ def process_html_separators(html_file):
         print(f"Error processing separators: {e}")
 
 
+def untranslated_captions(md_text, lang):
+    r"""Table captions still in the source language. [] when unmeasurable.
+
+    Step 4.6 of SKILL.md translates the words inside table floats, because a
+    float is protected behind a `⟦T####⟧` placeholder and no translator ever
+    sees its `\caption{}`. That step is prose, and prose gets skipped: it was
+    skipped for three editions of one paper in a single session, twice after
+    being raised.
+
+    Nothing noticed, and the step's own text says why -- the book comes out
+    with its tables in the source language and EVERY existing check passes,
+    because they count tables, images and values and those are all correct.
+    A green run actively confirms the wrong conclusion.
+
+    So the build asks the artefact instead of trusting that the step ran. A
+    Latin target cannot be told from its source this way and this says so by
+    returning nothing, rather than inventing a verdict it cannot stand behind
+    (K68).
+    """
+    try:
+        import verify_chunk
+    except Exception:                                     # noqa: BLE001
+        return []
+    ranges = verify_chunk._SCRIPT_RANGES.get((lang or '').split('-')[0])
+    if not ranges:
+        return []
+    out = []
+    for table in find_raw_latex_tables(md_text):
+        caption = (table.get('caption') or '').strip()
+        # A very short caption is a label, not prose, and says nothing about
+        # whether anybody translated it.
+        if len(caption) < 12:
+            continue
+        if not any(verify_chunk._in_target_script(ch, ranges)
+                   for ch in caption):
+            out.append(' '.join(caption.split())[:70])
+    return out
+
+
 def convert_md_to_html(temp_dir, title, lang_cfg, author=None,
                        allow_degraded=False, math_mode='mathml', force=False,
                        print_cfg=None):
@@ -6348,6 +6387,23 @@ def convert_md_to_html(temp_dir, title, lang_cfg, author=None,
     if not os.path.exists(md_file):
         print("Error: output.md not found.")
         return False
+
+    with open(md_file, encoding='utf-8', errors='replace') as fh:
+        _merged = fh.read()
+    stale_captions = untranslated_captions(_merged,
+                                           lang_cfg.get('lang_attr', ''))
+    if stale_captions:
+        print("ERROR: %d table caption(s) are still in the source language."
+              % len(stale_captions))
+        for line in stale_captions[:4]:
+            print("  - %s" % line)
+        print("  A table float sits behind a placeholder, so no translator "
+              "saw its \\caption{}. Every other check passes: the tables, "
+              "the values and the counts are all correct.")
+        print("  SKILL.md step 4.6 translates them. Start with:")
+        print("      python tests/format_probe.py \"%s\" --lang %s"
+              % (temp_dir, (lang_cfg.get('lang_attr') or '').split('-')[0]))
+        raise SystemExit(1)
 
     book_doc_file = os.path.join(temp_dir, 'book_doc.html')
 
