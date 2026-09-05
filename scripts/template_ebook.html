@@ -614,14 +614,17 @@
             a.xref, span.xref { color: #001473; text-decoration: none; }
             strong, b { font-weight: 700; color: #000; }
             em, i { color: #000; }
-            /* Hangul has no italic; Chromium would synthesise an oblique.
-               Scoped to the class `mark_hangul_emphasis` puts on emphasis
-               that actually CONTAINS Hangul. A language selector matched
-               every <em> in the book, because the root is lang="ko" -- so
-               `\textit{16.67}` and `\textit{Wiki2}` printed BOLD, in tables
-               whose caption says the best result is the bold one. Ten of
-               SINQ's tables had their baseline row reading as the winner. */
-            em.hangul, i.hangul { font-style: normal; font-weight: 700; }
+            /* CJK has no italic; Chromium would synthesise an oblique, and
+               for Chinese it emits that as a Type3 object, one per glyph.
+               Scoped to the class `mark_cjk_emphasis` puts on emphasis that
+               actually CONTAINS Hangul, kana or Han. A language selector
+               matched every <em> in the book, because the root is lang="ko"
+               -- so `\textit{16.67}` and `\textit{Wiki2}` printed BOLD, in
+               tables whose caption says the best result is the bold one. Ten
+               of SINQ's tables had their baseline row reading as the winner.
+               The class was Hangul-only at first, and Chinese emphasis went
+               on producing Type3 long after the Korean case was solved. */
+            em.cjk, i.cjk { font-style: normal; font-weight: 700; }
             sup, sub { line-height: 0; }
 
             ul, ol { margin: 8pt 0; padding-left: 1.6rem; }

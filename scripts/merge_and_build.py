@@ -6162,31 +6162,38 @@ def _add_id(tag_text, anchor):
 
 
 _EM_RE = re.compile(r'(?s)<(em|i)((?:\s[^>]*)?)>(.*?)</\1>')
-_HANGUL_TEXT_RE = re.compile(r'[가-힣]')
+# Hangul, kana and Han. None of the three has a real italic in the faces this
+# pipeline can rely on, and Chromium answers a request for one by synthesising
+# an oblique -- which for Chinese it then emits as a Type3 object, one per
+# glyph. Was Hangul only, and Chinese emphasis went on producing Type3 long
+# after the Korean case was solved.
+_CJK_TEXT_RE = re.compile(r'[가-힣぀-ヿ一-鿿]')
 
 
-def mark_hangul_emphasis(html):
-    r"""Tag emphasis that actually contains Hangul. Returns (html, marked).
+def mark_cjk_emphasis(html):
+    r"""Tag emphasis that actually contains CJK. Returns (html, marked).
 
-    Hangul has no italic, so the print sheet renders Korean emphasis bold
-    instead of letting Chromium synthesise an oblique. That rule was written
-    as `:lang(ko) em` -- and the root element is `lang="ko"`, so it matched
+    CJK has no italic, so the print sheet renders such emphasis bold instead
+    of letting Chromium synthesise an oblique. That rule was written as
+    `:lang(ko) em` -- and the root element is `lang="ko"`, so it matched
     EVERY <em> in the book. `\textit{16.67}` and `\textit{Wiki2}` printed
     bold, inside tables whose caption says the best result is the bold one:
-    ten of SINQ's tables showed their FP16 baseline row as the winner.
+    ten of SINQ's tables showed their FP16 baseline row as the winner. Which
+    is why this looks at what the element CONTAINS and never at the document
+    language.
     """
     marked = [0]
 
     def sub(m):
         tag, attrs, body = m.group(1), m.group(2), m.group(3)
         text = re.sub(r'<[^>]+>', '', body)
-        if not _HANGUL_TEXT_RE.search(text):
+        if not _CJK_TEXT_RE.search(text):
             return m.group(0)
         marked[0] += 1
         if re.search(r'\bclass="', attrs):
-            attrs = re.sub(r'\bclass="([^"]*)"', r'class="\1 hangul"', attrs, 1)
+            attrs = re.sub(r'\bclass="([^"]*)"', r'class="\1 cjk"', attrs, 1)
         else:
-            attrs += ' class="hangul"'
+            attrs += ' class="cjk"'
         return '<%s%s>%s</%s>' % (tag, attrs, body, tag)
 
     return _EM_RE.sub(sub, html), marked[0]
@@ -6646,10 +6653,10 @@ def convert_md_to_html(temp_dir, title, lang_cfg, author=None,
         print("Equations: %d numbered (%d in the DOCX copy)"
               % (eq_tagged, docx_tagged))
 
-    body_content, hangul_em = mark_hangul_emphasis(body_content)
-    if hangul_em:
-        print("Emphasis: %d Korean run(s) marked for the bold substitute "
-              "(Latin emphasis keeps real italics)" % hangul_em)
+    body_content, cjk_em = mark_cjk_emphasis(body_content)
+    if cjk_em:
+        print("Emphasis: %d CJK run(s) marked for the bold substitute "
+              "(Latin emphasis keeps real italics)" % cjk_em)
 
     # After the equations are numbered, so "식 (7)" has something to point at.
     body_content, xrefs = link_cross_references(body_content, lang_cfg)
