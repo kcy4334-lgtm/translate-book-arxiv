@@ -146,6 +146,33 @@ class AUnitGluedToItsNumberStaysGlued(unittest.TestCase):
             self.SOURCE, 'La référence atteint 58.9% par trame avec une '
                          'avance de 10ms, comblant 28% de l\'écart.\n'), [])
 
+    def test_a_percentage_that_ends_a_clause_is_checked(self):
+        r"""The commonest position of all, and it was the one being skipped.
+
+        The guard after the unit was `(?![\w.,])`, which rejects a following
+        comma or full stop -- so "a frame accuracy of 58.9%, and a Word Error
+        Rate" and "simply converged to 57%." were invisible. A pass reported
+        twenty-four numerals fixed and nothing left over, and two survived
+        into the printed page, one of each shape.
+        """
+        for source, bad in (
+                ('This system achieves a frame accuracy of 58.9%, and a '
+                 'Word Error Rate of 10.9% on the set.\n', '58.9 %'),
+                ('the system with soft targets simply converged to 57%. '
+                 'This shows that soft targets work.\n', '57 %')):
+            numeral = bad.replace(' ', '')
+            found = verify_chunk.check_numerals(
+                source, source.replace(numeral, bad))
+            self.assertEqual(len(found), 1, bad)
+            self.assertIn(numeral, found[0]['detail'])
+
+    def test_a_unit_is_still_not_matched_inside_a_longer_word(self):
+        """Loosening the guard must not start matching `10msec` as `10ms`."""
+        self.assertEqual(verify_chunk.check_numerals(
+            'a 10msec window was used for the frame advance here.\n',
+            'une fenêtre de 10 msec a été utilisée pour '
+            'la trame.\n'), [])
+
 
 class AMyriadRegroupingIsNotARespelling(unittest.TestCase):
     r"""Korean, Japanese and Chinese count in myriads, so a magnitude word

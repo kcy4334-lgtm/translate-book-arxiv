@@ -610,8 +610,15 @@ _GROUPED_NUMERAL_RE = re.compile(r'(?<![\w.,])(\d+[.,]\d+)(?![\d.,])')
 # mistake K157 is about. The real defect there is narrower and is a
 # CONSISTENCY one -- the Japanese book prints `85M` on one page and `8500万`
 # four pages later -- which this cannot see and should not pretend to.
+#
+# The trailing guard is `(?!\w)` and not `(?![\w.,])`. A percentage sits at
+# the end of a clause more often than anywhere else -- "a frame accuracy of
+# 58.9%, and a Word Error Rate", "simply converged to 57%." -- so excluding a
+# following comma or full stop blinded the check to the commonest position
+# there is. Two of them survived a pass that reported twenty-four fixed and
+# nothing left, and the count was believed because it was a count.
 _ATTACHED_NUMERAL_RE = re.compile(
-    r'(?<![\w.,])(\d+(?:[.,]\d+)?(?:%|ms|GB|Hz))(?![\w.,])')
+    r'(?<![\w.,])(\d+(?:[.,]\d+)?(?:%|ms|GB|Hz))(?!\w)')
 # A numeral in front of a magnitude WORD is regrouped, not respelled, when
 # the target counts in myriads: Korean writes "1.4 billion" as 14억 because
 # 억 is 10^8, so the digits themselves legitimately change. TinyVLA, a book
