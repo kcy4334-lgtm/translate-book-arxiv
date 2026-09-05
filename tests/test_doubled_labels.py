@@ -24,6 +24,75 @@ PREFIX = {'figure': '{label} {number}'}
 KO = {'particle_agreement': True}
 
 
+EQ = {'equation': '{label} ({number})'}
+
+
+class AnAbbreviationIsTheSameDoubling(unittest.TestCase):
+    r"""`l'éq. Équation (3)`.
+
+    The doubling this file was written for is the same word twice, which is
+    what a translator produces when it writes the label the resolver is about
+    to write. A translator that ABBREVIATES leaves two forms that do not
+    match each other, and nothing fired: French, German and Spanish shipped
+    nine of these between them while the Korean and Japanese books, whose
+    translators wrote `식 (3)` and `式 (3)`, had none.
+
+    An abbreviation is a prefix of its word, so the rule is derived rather
+    than listed and a language nobody has run yet is covered.
+    """
+
+    def collapse(self, text, label):
+        return mb.drop_doubled_labels(text, {'equation': label}, EQ, {})
+
+    def test_the_three_that_shipped(self):
+        for text, label, want in (
+                ("de sorte que 0 l'éq. Équation (3) se simplifie",
+                 'Équation', "de sorte que 0 l'Équation (3) se simplifie"),
+                ('vereinfacht sich Gl. Gleichung (3) zu',
+                 'Gleichung', 'vereinfacht sich Gleichung (3) zu'),
+                ('La Ec. Ecuación (5) no tiene',
+                 'Ecuación', 'La Ecuación (5) no tiene')):
+            got, n = self.collapse(text, label)
+            self.assertEqual(got, want)
+            self.assertEqual(n, 1)
+
+    def test_a_lowercase_abbreviation_too(self):
+        got, n = self.collapse('con respecto a la ec. Ecuación (5).',
+                               'Ecuación')
+        self.assertEqual(got, 'con respecto a la Ecuación (5).')
+        self.assertEqual(n, 1)
+
+    def test_an_unrelated_abbreviation_is_left_alone(self):
+        r"""This is the whole reason the rule tests for a prefix. `cf.` and
+        `vs.` in front of a reference are correct writing, and a check that
+        ate them would be worse than the defect."""
+        for text in ('véase cf. Ecuación (3) para el detalle',
+                     'compare vs. Ecuación (3) here',
+                     'p. ej. Ecuación (3) muestra'):
+            got, n = self.collapse(text, 'Ecuación')
+            self.assertEqual(got, text)
+            self.assertEqual(n, 0)
+
+    def test_the_word_alone_is_untouched(self):
+        for text in ('Ecuación (3) muestra que',
+                     'la Ecuación (5) no tiene solución'):
+            got, n = self.collapse(text, 'Ecuación')
+            self.assertEqual(got, text)
+            self.assertEqual(n, 0)
+
+    def test_it_needs_a_number_after_the_label(self):
+        """A sentence that merely uses the word is not a reference."""
+        got, n = self.collapse('la ec. Ecuación de estado', 'Ecuación')
+        self.assertEqual(n, 0)
+
+    def test_it_works_for_tables_and_figures_as_well(self):
+        got, n = mb.drop_doubled_labels('voir Tab. Tableau 1 ci-dessus',
+                                        {'table': 'Tableau'},
+                                        {'table': '{label} {number}'}, {})
+        self.assertEqual(got, 'voir Tableau 1 ci-dessus')
+        self.assertEqual(n, 1)
+
+
 class DoubledLabels(unittest.TestCase):
 
     def collapse(self, text, words=None, formats=None, cfg=KO):

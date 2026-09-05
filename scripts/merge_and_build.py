@@ -3627,6 +3627,37 @@ def resolve_bare_float_labels(md_text, temp_dir, words, formats):
     return pattern.subn(sub, md_text)
 
 
+def drop_abbreviated_label(md_text, label):
+    r"""`l'éq. Équation (3)` -> `l'Équation (3)`. Returns (text, n).
+
+    The doubling `drop_doubled_labels` already knew about is the SAME word
+    twice, which is what happens when the translator writes the label the
+    resolver is about to write. A translator who abbreviates instead leaves
+    two forms that do not match each other, so nothing fired: French, German
+    and Spanish shipped nine of `l'éq. Équation (3)`, `Gl. Gleichung (3)` and
+    `la Ec. Ecuación (5)` between them.
+
+    An abbreviation is a prefix of the word it abbreviates, so it is derived
+    rather than listed, and a language nobody has run yet is covered. The
+    prefix test is also what keeps an ordinary abbreviation in front of a
+    reference safe: `cf. Ecuación (3)` and `vs. Tabla 1` are not prefixes of
+    what follows them and are left alone.
+    """
+    lowered = label.lower()
+    pattern = re.compile(
+        r'(?<![^\W\d_])([^\W\d_]{2,12})\.[ \t]*(?=' + re.escape(label)
+        + r'\s*\(?\s*[A-Za-z]?\d)', re.UNICODE)
+    count = [0]
+
+    def strip(match):
+        if lowered.startswith(match.group(1).lower()):
+            count[0] += 1
+            return ''
+        return match.group(0)
+
+    return pattern.sub(strip, md_text), count[0]
+
+
 def drop_doubled_labels(md_text, words, formats, lang_cfg=None):
     r"""`4.1절 절과` -> `4.1절과`. Returns (text, n).
 
@@ -3664,6 +3695,11 @@ def drop_doubled_labels(md_text, words, formats, lang_cfg=None):
             # `표 표 C1` reached the finished book while the check that had
             # just been written reported zero.
             pattern = re.compile(esc + r'\s+(' + esc + r'\s*[A-Za-z]?\d)')
+            md_text, n = pattern.subn(r'\1', md_text)
+            total += n
+            md_text, n = drop_abbreviated_label(md_text, label)
+            total += n
+            continue
         else:
             continue
         md_text, n = pattern.subn(r'\1', md_text)
