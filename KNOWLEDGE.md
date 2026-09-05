@@ -185,6 +185,7 @@ here; the test is the real record. This file is for the *reasoning*, the
 | CJK table headers come out Type3, or half a header row is bold | [K165](#k165) |
 | Inline maths sits above or below the words beside it | [K166](#k166) |
 | A grep of output.md disagrees with the finished PDF | [K167](#k167) |
+| A CJK line opens with 。 or 、 after an inline formula | [K168](#k168) |
 
 ---
 
@@ -2384,6 +2385,20 @@ correct book. Numerals: a restoring pass reported twenty-four fixed and
 nothing left, and two survived into print. Ask the PDF.
 *Status: measured 2026-09-05, three times in one session. No test can hold
 this one: it is about which artefact a probe is pointed at.*
+
+### K168
+**Chromium breaks beside an inline formula whatever follows it.** Chinese
+printed a line opening with `。`, which CJK typesetting forbids; the line
+before it ended on `</math>` with no space between. U+2060 WORD JOINER is
+what the standard provides -- LB11 refuses a break on either side of it and
+outranks the replaced-element rule -- and it went into all twenty sites with
+the line still breaking. `white-space: nowrap` on a span holding the formula
+AND the mark was confirmed present in the built HTML; the break happened
+inside the span. Neither the class of what follows nor the ancestor's
+white-space reaches that decision, so a standards argument is not a
+measurement. Nor was the second try neutral: it fixed page 9 and exposed the
+same shape on page 6, since moving one line moves every line after it.
+*Status: both reverted. One line in one of seven editions, left on the record.*
 
 ---
 
