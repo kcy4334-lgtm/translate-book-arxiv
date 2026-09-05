@@ -139,6 +139,23 @@ class TheSourceIsWhatCoversTheLatinLanguages(unittest.TestCase):
         self.assertTrue(mb.translation_is_passthrough(self.dir))
         self.assertEqual(mb.untranslated_captions(ENGLISH, 'en', self.dir), [])
 
+    def test_a_cjk_target_abstains_on_a_passthrough_too(self):
+        r"""The dry run of SKILL.md 2.5 builds the book with NOTHING
+        translated, on purpose, so that structural defects are found before a
+        re-convert would cost a whole re-translation.
+
+        The abstention was first applied only to the `flat.tex` comparison,
+        which left the SCRIPT test running: a Korean dry run has English
+        captions, none of them in Hangul, and the gate refused the build for
+        every paper with a table. A caption not in the target script says
+        nothing when nothing at all was translated."""
+        self.write_source(ENGLISH)
+        self.write_chunk('chunk0001.md', 'Some prose.\n')
+        self.write_chunk('output_chunk0001.md', 'Some prose.\n')
+        for lang in ('ko', 'ja', 'zh', 'fr'):
+            self.assertEqual(
+                mb.untranslated_captions(ENGLISH, lang, self.dir), [], lang)
+
     def test_english_is_judged_when_something_was_actually_translated(self):
         r"""Asking `lang == 'en'` would assume every source paper is English,
         and silently drop the check for a French paper rendered into

@@ -6605,8 +6605,17 @@ def untranslated_captions(md_text, lang, temp_dir=None):
         ranges = verify_chunk._SCRIPT_RANGES.get(base)
     except Exception:                                     # noqa: BLE001
         ranges = None
-    originals = (set() if translation_is_passthrough(temp_dir)
-                 else source_captions(temp_dir))
+    # A run that copied its chunks through translated nothing anywhere, so a
+    # caption that is not in the target's script is not evidence that step
+    # 4.6 was skipped: there was no step 4.6 to skip. The abstention was
+    # first applied only to `originals`, which left the SCRIPT test running,
+    # and that broke the dry run of SKILL.md 2.5 -- a build with nothing
+    # translated is exactly what that step is for, and the gate refused it
+    # for every paper holding a table. Found by putting a new paper through
+    # the pipeline, not by any check.
+    if translation_is_passthrough(temp_dir):
+        return []
+    originals = source_captions(temp_dir)
     if not ranges and not originals:
         return []
 
