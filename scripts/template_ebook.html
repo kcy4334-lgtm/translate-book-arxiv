@@ -321,7 +321,9 @@
 
         /* --- math (pandoc --mathml), figures, tables --------------------- */
         math { font-size: 1.05em; }
-        math[display="inline"] { vertical-align: middle; }
+        /* See the print sheet: `middle` raises the whole formula so its
+           subscript sits on the text baseline. */
+        math[display="inline"] { vertical-align: baseline; }
         /* Not text-align, and no longer flex either.
 
            `text-align: center` on a block <math> centres the inline content
@@ -786,7 +788,17 @@
                leading would throw off fraction and radical centring. */
             math { font-family: var(--p-math); font-size: 1.05em;
                    line-height: normal; }
-            math[display="inline"] { vertical-align: middle; }
+            /* `baseline`, not `middle`. `middle` puts the formula's vertical
+               CENTRE on the text's x-height midpoint, so the whole run rides
+               up and the SUBSCRIPT lands on the text baseline instead of the
+               letter it hangs from: `z_i` and `q_i` sat visibly above the
+               words around them on every page of every edition. Two reading
+               passes measured it in two languages before anyone looked at
+               the rule, and the text layer alone could not settle it -- the
+               offsets there run from -2.25 to +3.00pt because a formula's
+               own superscripts are in the same histogram. A rendered crop
+               settled it in one look. */
+            math[display="inline"] { vertical-align: baseline; }
             /* Not text-align, and no longer flex either. `text-align:
                center` on a block <math> centres the inline content around
                the formula rather than the formula, and a short equation

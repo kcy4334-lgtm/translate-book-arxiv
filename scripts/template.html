@@ -476,7 +476,9 @@
 
         /* --- math (pandoc --mathml), figures, tables --------------------- */
         math { font-size: 1.05em; }
-        math[display="inline"] { vertical-align: middle; }
+        /* `middle` raises the whole formula so its subscript sits on the
+           text baseline; see template_ebook.html for the measurement. */
+        math[display="inline"] { vertical-align: baseline; }
         math[display="block"] { display: block; margin: 1.2rem auto; text-align: center; }
         span.math.tex-fallback {
             font-family: 'Cambria Math', 'Latin Modern Math', serif;
