@@ -324,12 +324,6 @@
         /* See the print sheet: `middle` raises the whole formula so its
            subscript sits on the text baseline. */
         math[display="inline"] { vertical-align: baseline; }
-        /* A CJK full stop may not open a line, and Chromium breaks beside an
-           inline formula without consulting what follows it -- a word joiner
-           between the two did not stop it. Declared here as well as in the
-           print sheet: a rule that lives only in the print block never
-           reaches the EPUB (K67). */
-        .nobr { white-space: nowrap; }
         /* Not text-align, and no longer flex either.
 
            `text-align: center` on a block <math> centres the inline content
@@ -805,9 +799,6 @@
                own superscripts are in the same histogram. A rendered crop
                settled it in one look. */
             math[display="inline"] { vertical-align: baseline; }
-            /* The formula and the CJK mark that may not open a line, held
-               together by `join_maths_to_following_punctuation`. */
-            .nobr { white-space: nowrap; }
             /* Not text-align, and no longer flex either. `text-align:
                center` on a block <math> centres the inline content around
                the formula rather than the formula, and a short equation

@@ -6238,44 +6238,6 @@ _EM_RE = re.compile(r'(?s)<(em|i)((?:\s[^>]*)?)>(.*?)</\1>')
 _CJK_TEXT_RE = re.compile(r'[가-힣぀-ヿ一-鿿]')
 
 
-# Punctuation that may not open a line in CJK typesetting: a full stop, a
-# comma, a closing bracket or quote. Both the CJK Symbols block and the
-# fullwidth forms, because a paper uses whichever its translator typed.
-_CJK_CLOSER = ('\u3002\u3001\u300d\u300f\u3011\u3015\u3009\u300b'
-               '\uff0c\uff0e\uff1b\uff1a\uff1f\uff01\uff09\uff5d'
-               '\u201d\u2019\uff05')
-_MATH_THEN_CLOSER_RE = re.compile(
-    '(<math\\b[^>]*>.*?</math>)([%s])' % _CJK_CLOSER, re.DOTALL)
-
-
-def join_maths_to_following_punctuation(html):
-    r"""Forbid a line break between an inline formula and the mark after it.
-
-    Chinese printed a line opening with `。`, which CJK typesetting forbids.
-    The line before it ended on an inline formula and there is no space
-    between them -- the HTML reads `</math>。` -- so Chromium is taking the
-    break opportunity it puts beside a replaced element, where the rule
-    against breaking before closing punctuation should have refused.
-
-    U+2060 WORD JOINER was tried first, because that is what the standard
-    provides: LB11 forbids a break on either side of it and outranks the
-    replaced-element rule. It was inserted at all twenty sites and the line
-    still broke, so Chromium is deciding the boundary beside an atomic inline
-    without consulting the class of what follows. A standards argument is not
-    a measurement.
-
-    `white-space: nowrap` on a span holding the formula and the mark is not a
-    line-break-class question at all, so there is nothing for that decision
-    to override. The span holds one formula and one character.
-
-    Not scoped to a language: the prohibition belongs to the punctuation, and
-    Korean and Japanese carry the same marks. That neither showed a break in
-    this paper is where their lines happened to fall.
-    """
-    return _MATH_THEN_CLOSER_RE.subn(
-        '<span class="nobr">\\1\\2</span>', html)
-
-
 def mark_cjk_emphasis(html):
     r"""Tag emphasis that actually contains CJK. Returns (html, marked).
 
@@ -6998,11 +6960,6 @@ def convert_md_to_html(temp_dir, title, lang_cfg, author=None,
     if eq_tagged or docx_tagged:
         print("Equations: %d numbered (%d in the DOCX copy)"
               % (eq_tagged, docx_tagged))
-
-    body_content, joined = join_maths_to_following_punctuation(body_content)
-    if joined:
-        print("Line breaking: %d formula(s) held against the CJK punctuation "
-              "that follows them" % joined)
 
     body_content, cjk_em = mark_cjk_emphasis(body_content)
     if cjk_em:
