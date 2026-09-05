@@ -53,7 +53,15 @@ LANG_CONFIG = {
                              '"SimSun", serif',
         'figure_label': '图',
         'table_label': '表',
-        'equation_label': '公式',
+        # `式`, not `公式`. The cross-reference pass absorbs the word standing
+        # in front of a key only when it matches the configured label, and a
+        # Chinese translator writes `式 (eq:kl)` -- the same single-character
+        # shape as 图, 表 and 节 above. With `公式` configured the two never
+        # matched, so the template added its own word in front of the
+        # translator's and the book printed `式 公式 (3)`, three times.
+        # Korean is clean for this reason and no other: its translator
+        # happens to write the label the config names.
+        'equation_label': '式',
         'section_label': '节',
         'appendix_label': '附录',
         'algorithm_label': '算法',
