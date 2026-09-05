@@ -41,6 +41,44 @@ def docs():
     return {name: read(name) for name in DOCS if (REPO / name).is_file()}
 
 
+# A preceding slash is the NORMAL case: the run book writes
+# `python {baseDir}/scripts/glossary.py`. Only a word character or a dot in
+# front means this is some other directory that merely ends in "scripts".
+SCRIPT_RE = re.compile(r'(?<![\w.])(scripts|tests)[/\\]([A-Za-z0-9_]+\.py)')
+
+
+class EveryCommandTheDocsNameExists(unittest.TestCase):
+    r"""A document that points at a script nobody kept is a dead end.
+
+    SKILL.md is a run book: an agent follows it by typing what it says. When
+    a script is renamed or absorbed, the sentence naming it keeps reading
+    perfectly well and the command fails at the moment somebody needs it,
+    which is halfway through a paper. Nothing in the suite noticed that
+    `sidecar_edit.py` had been added and nothing would have noticed it being
+    taken away.
+    """
+
+    def named(self):
+        """(document, relative path) for every script any document names."""
+        for name, text in docs().items():
+            for folder, script in SCRIPT_RE.findall(text):
+                yield name, '%s/%s' % (folder, script)
+
+    def test_every_named_script_is_on_disk(self):
+        missing = sorted({(doc, path) for doc, path in self.named()
+                          if not (REPO / path).is_file()})
+        self.assertEqual(missing, [], 'named in a document, absent from the '
+                                      'repository: %s' % missing)
+
+    def test_the_docs_actually_name_the_pipeline(self):
+        """Guards the regex, not the docs: a pattern that matches nothing
+        passes the test above for the wrong reason."""
+        found = {path for _, path in self.named()}
+        for expected in ('scripts/merge_and_build.py', 'scripts/convert.py',
+                         'scripts/sidecar_edit.py', 'tests/table_probe.py'):
+            self.assertIn(expected, found)
+
+
 class CitationsPointSomewhere(unittest.TestCase):
     r"""A citation that points at the wrong entry is worse than none: it
     lends a claim the authority of a finding that says something else.

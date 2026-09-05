@@ -2432,6 +2432,9 @@ $PY tests/layout_probe.py --stress --strict   # pagination under load
 $PY tests/format_probe.py "<temp_dir>" --lang ko --strict   # docx == epub == pdf
 $PY tests/source_probe.py "<temp_dir>" --strict             # == the ORIGINAL
 $PY tests/consistency_probe.py "<temp_dir>" --lang ko --strict  # the words
+$PY tests/table_probe.py "<temp_dir>" --lang ko --strict    # the countable half
+                                                            # of step 7.5
+$PY scripts/verify_tables.py check "<temp_dir>" --strict    # tables survived 4.6
 
 # 7. Copy the finished files where the user reads them. The --export-name
 #    aliases are written INSIDE the temp dir; a rebuild will not refresh a

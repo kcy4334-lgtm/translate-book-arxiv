@@ -1218,10 +1218,21 @@ found by a person reading the finished page beside the original, never by a
 check. The probes count what they were taught to count; an omission is by
 definition the thing nobody counted.
 
-Run `tests/table_probe.py` first: it is cheap and it catches what is
-countable, a lost `\multicolumn` span, a column that vanished, a value in
-the source `tabular` that is not on the page, a body row carrying numbers
-with no label. Fix what it finds before spending an agent.
+This step has two halves and only one of them can be a command. Run that one
+first: it is cheap, it exits 1 on a finding, and it catches what is
+countable, a lost `\multicolumn` span, a column that vanished, a value in the
+source `tabular` that is not on the page, a body row carrying numbers with no
+label.
+
+```bash
+python {baseDir}/tests/table_probe.py "<temp_dir>" --lang <target_lang> --strict
+```
+
+Fix everything it reports before spending an agent on the half that cannot be
+a command. Nothing refuses a build whose reading pass never happened, because
+no code reads a page; that half rests on this instruction alone. Which is
+precisely why the countable half is written as a command that refuses, and
+why the reading half is worth the agent.
 
 Then dispatch **one sub-agent per paper** to do what no probe can. Give each:
 
