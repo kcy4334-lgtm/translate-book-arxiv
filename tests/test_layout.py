@@ -381,6 +381,55 @@ class LineBreakingPerScriptTests(unittest.TestCase):
             self.assertNotIn('html:lang(ko)', rule)
 
 
+class BoldChineseTests(unittest.TestCase):
+    r"""A serif with no bold face becomes Type3 the moment anything is bold.
+
+    SimSun is the Chinese body face on a stock Windows and it has no bold.
+    Chromium synthesises one, and every synthesised bold Han glyph is emitted
+    as a Type3 object: 61 in one 14-page book, 59 of them in the table of
+    contents, where `toc-l1` entries are set at weight 700 and `.toc-text`
+    was the only part of the contents without a family of its own -- the
+    title and the page numbers already used the sans, the entry text
+    inherited the serif.
+
+    Type3 is what the Korean rule "static, 0 Type3" exists to refuse: it does
+    not subset, does not search, and bloats the file. Korean and Japanese
+    reach faces that do have a bold, so this is scoped to Chinese.
+    """
+
+    def sheet(self):
+        import io
+        from pathlib import Path
+        path = (Path(__file__).resolve().parents[1] / "scripts"
+                / "template_ebook.html")
+        return io.open(path, encoding="utf-8").read()
+
+    def rule(self):
+        import re
+        found = re.search(
+            r'html:lang\(zh\) strong[^{]*\{[^}]*\}', self.sheet())
+        self.assertIsNotNone(found, 'no bold rule for Chinese')
+        return found.group(0)
+
+    def test_bold_chinese_uses_a_face_that_has_a_bold(self):
+        self.assertIn('var(--p-sans)', self.rule())
+
+    def test_it_covers_both_emphasis_elements(self):
+        rule = self.rule()
+        self.assertIn('html:lang(zh) strong', rule)
+        self.assertIn('html:lang(zh) b,', rule)
+
+    def test_it_covers_the_contents_entries(self):
+        """59 of the 61 were there: `toc-l1` is bold and `.toc-text` had no
+        family, so it inherited the serif from the body."""
+        self.assertIn('.toc-text', self.rule())
+
+    def test_korean_and_japanese_are_not_swept_up(self):
+        rule = self.rule()
+        self.assertNotIn('lang(ko)', rule)
+        self.assertNotIn('lang(ja)', rule)
+
+
 class PrintSheetAndLayoutAgreeTests(unittest.TestCase):
     r"""Two places decide the body face, and they drifted.
 

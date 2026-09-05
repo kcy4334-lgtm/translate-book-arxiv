@@ -488,6 +488,22 @@
                 word-break: normal;
                 line-break: strict;
             }
+            /* SimSun has no bold face. Chromium synthesises one, and every
+               synthesised bold Han glyph comes out as a Type3 object: 61 of
+               them in this book, 59 in the contents alone, where `toc-l1`
+               entries are set at weight 700 and `.toc-text` was the one part
+               of the contents with no family of its own, so it inherited the
+               serif. Type3 is the failure the Korean rule "static, 0 Type3"
+               exists to refuse -- it does not subset, does not search, and
+               bloats the file.
+               The remedy is also the ordinary convention: a gothic for
+               emphasis and navigation over a 宋体 body. Every sans named for
+               zh has a real bold. Scoped to zh because Korean and Japanese
+               reach faces that do have one. */
+            html:lang(zh) strong, html:lang(zh) b,
+            html:lang(zh) .print-toc .toc-text {
+                font-family: var(--p-sans);
+            }
 
             /* Rebase rem to the print body size. The whole stylesheet is
                already rem-based, so this one declaration rescales headings,
