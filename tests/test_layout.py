@@ -329,6 +329,58 @@ class CjkSerifStackTests(unittest.TestCase):
         self.assertLess(stack.index('MS Mincho'), stack.index('Noto Serif JP'))
 
 
+class LineBreakingPerScriptTests(unittest.TestCase):
+    r"""`word-break: keep-all` was set for every language, and it is right
+    for exactly one of them.
+
+    Korean puts spaces between words, and the rule stops a break inside one.
+    Japanese and Chinese have no spaces, so the same rule forbids breaking
+    anywhere inside a run of kana or Han: a paragraph can only break where a
+    space happens to fall. Measured on one paragraph of Japanese, in print --
+    five lines with keep-all, the shortest ending 360pt short of the margin,
+    against four that fill the measure without it. The page read as ragged
+    and half empty, and nothing but looking at it would have said so.
+    """
+
+    def sheet(self):
+        import io
+        from pathlib import Path
+        path = (Path(__file__).resolve().parents[1] / "scripts"
+                / "template_ebook.html")
+        return io.open(path, encoding="utf-8").read()
+
+    def overrides(self):
+        import re
+        return re.findall(
+            r'html:lang\((?:ja|zh)\)[^{]*\{[^}]*word-break:\s*normal[^}]*\}',
+            self.sheet())
+
+    def test_both_sheets_release_keep_all_for_ja_and_zh(self):
+        self.assertEqual(len(self.overrides()), 2,
+                         'the screen sheet and the print sheet both set '
+                         'keep-all, so both need the correction')
+
+    def test_the_override_names_both_languages(self):
+        for rule in self.overrides():
+            self.assertIn('html:lang(ja)', rule)
+            self.assertIn('html:lang(zh)', rule)
+
+    def test_paragraphs_and_table_cells_are_covered(self):
+        """A results table is where a short line hurts most: the cell is
+        narrow and keep-all makes it wrap on nothing at all."""
+        for rule in self.overrides():
+            for element in (' p,', ' td,', ' th,'):
+                self.assertIn(element, rule)
+
+    def test_korean_keeps_keep_all(self):
+        """Hangul must not gain mid-word breaks from this."""
+        import re
+        sheet = self.sheet()
+        self.assertIn('word-break: keep-all', sheet)
+        for rule in self.overrides():
+            self.assertNotIn('html:lang(ko)', rule)
+
+
 class PrintSheetAndLayoutAgreeTests(unittest.TestCase):
     r"""Two places decide the body face, and they drifted.
 

@@ -89,6 +89,18 @@
             word-break: keep-all;
             overflow-wrap: break-word;
         }
+        /* ...and keep-all is right for Hangul ONLY. Japanese and Chinese have
+           no spaces, so it forbids breaking inside a whole run of kana or Han
+           and the paragraph can only break where a space happens to fall.
+           Measured in print: five ragged lines against four that fill the
+           measure. Same correction as the print sheet makes. */
+        html:lang(ja) p, html:lang(ja) li, html:lang(ja) td, html:lang(ja) th,
+        html:lang(ja) blockquote, html:lang(ja) figcaption,
+        html:lang(zh) p, html:lang(zh) li, html:lang(zh) td, html:lang(zh) th,
+        html:lang(zh) blockquote, html:lang(zh) figcaption {
+            word-break: normal;
+            line-break: strict;
+        }
 
         /* 链接样式 */
         a {
@@ -457,6 +469,24 @@
                 --p-serif: 'Noto Serif', 'FangSong', '仿宋', 'STFangSong', '华文仿宋', 'Noto Serif SC', 'SimSun', serif;
                 --p-sans:  'Noto Sans', 'Microsoft YaHei', 'SimHei', sans-serif;
                 --p-mono:  Consolas, 'NSimSun', 'Courier New', monospace;
+            }
+            /* `word-break: keep-all` is set for the whole sheet below, and it
+               is right for KOREAN: Korean puts spaces between words and the
+               rule stops a break inside one. Japanese and Chinese have no
+               spaces, so the same rule forbids breaking anywhere inside a run
+               of kana or Han, and a paragraph can only break where a space
+               happens to fall. Measured on one paragraph of Japanese: five
+               lines with keep-all, the shortest ending 360pt short of the
+               margin, against four that fill the measure without it. The
+               whole page read as ragged and half-empty. */
+            html:lang(ja) body, html:lang(ja) p, html:lang(ja) li,
+            html:lang(ja) td, html:lang(ja) th, html:lang(ja) blockquote,
+            html:lang(ja) figcaption, html:lang(ja) .toc-text,
+            html:lang(zh) body, html:lang(zh) p, html:lang(zh) li,
+            html:lang(zh) td, html:lang(zh) th, html:lang(zh) blockquote,
+            html:lang(zh) figcaption, html:lang(zh) .toc-text {
+                word-break: normal;
+                line-break: strict;
             }
 
             /* Rebase rem to the print body size. The whole stylesheet is
