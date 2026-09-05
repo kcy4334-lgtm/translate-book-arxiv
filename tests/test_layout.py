@@ -329,6 +329,68 @@ class CjkSerifStackTests(unittest.TestCase):
         self.assertLess(stack.index('MS Mincho'), stack.index('Noto Serif JP'))
 
 
+class PrintSheetAndLayoutAgreeTests(unittest.TestCase):
+    r"""Two places decide the body face, and they drifted.
+
+    `layout.LANG_CONFIG['font_family']` reaches the screen sheet through the
+    `$body_font$` token. The print sheet does not use it at all: it declares
+    its own `--p-serif` per `:lang()`. So a stack fixed in layout.py changed
+    the EPUB and left the PDF alone, and the PDF is the file people look at.
+
+    That is how a Japanese body kept setting in a Gothic after the fix that
+    was supposed to end it. The faces that matter have to be named in both,
+    and this checks they are.
+    """
+
+    def sheet(self):
+        import io
+        from pathlib import Path
+        path = (Path(__file__).resolve().parents[1] / "scripts"
+                / "template_ebook.html")
+        return io.open(path, encoding="utf-8").read()
+
+    def print_serif(self, code):
+        import re
+        block = re.search(r'html:lang\(%s\)\s*\{(.*?)\}' % code,
+                          self.sheet(), re.S)
+        self.assertIsNotNone(block, 'no print rule for %s' % code)
+        decl = re.search(r'--p-serif:\s*([^;]+);', block.group(1))
+        self.assertIsNotNone(decl, 'no --p-serif for %s' % code)
+        return decl.group(1)
+
+    def families(self, stack):
+        import re
+        return {n.strip() for n in re.findall(r"'([^']+)'", stack)}
+
+    def test_the_faces_layout_names_are_named_in_the_print_sheet_too(self):
+        for code in ('ko', 'ja', 'zh'):
+            declared = self.families(layout.LANG_CONFIG[code]['font_family'])
+            printed = self.families(self.print_serif(code))
+            missing = sorted(declared - printed)
+            self.assertFalse(
+                missing,
+                '%s: the print sheet does not name %s, so a PDF ignores it'
+                % (code, missing))
+
+    def test_the_print_sheet_names_no_type3_producer(self):
+        for code in ('ko', 'ja', 'zh'):
+            stack = self.print_serif(code)
+            self.assertNotIn('Source Han', stack, code)
+            self.assertNotIn('Noto Serif CJK', stack, code)
+
+    def test_japanese_has_a_portable_mincho_in_the_print_sheet(self):
+        """The one that closed the gap: static, TrueType, embeds cleanly."""
+        self.assertIn('BIZ UDMincho', self.print_serif('ja'))
+
+    def test_the_latin_partner_still_leads_each_cjk_print_stack(self):
+        r"""`font-family` resolves per character, so a Latin serif in front
+        takes the Latin and the CJK flows past it. Losing that is how the
+        embedded English in a Korean book ends up with synthesised italics."""
+        for code in ('ko', 'ja', 'zh'):
+            self.assertTrue(self.print_serif(code).strip()
+                            .startswith("'Noto Serif'"), code)
+
+
 class TableRuleStyleTests(unittest.TestCase):
     """A dense results table is unreadable without its rules. SINQ's main
     table printed nine numeric columns with no line under the header and

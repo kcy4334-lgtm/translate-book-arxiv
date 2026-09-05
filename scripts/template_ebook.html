@@ -439,13 +439,22 @@
                 --p-mono:  Consolas, 'Cascadia Mono', 'D2Coding', DotumChe, monospace;
                 --p-math:  'Cambria Math', 'STIX Two Math', math, 'Noto Serif', 'HCR Batang', serif;
             }
+            /* BIZ UDMincho is the portable one: static, TrueType outlines,
+               and it embeds cleanly. Without it this list held only faces
+               tied to macOS or to a Japanese Windows, so a machine with
+               none of them fell through to the generic keyword -- which for
+               Japanese resolves to a GOTHIC. The body of a Japanese book
+               set in a sans, cleanly embedded, with every check passing.
+               Source Han Serif JP is deliberately absent: it is CFF and
+               this Chromium emits it as Type3 (see KNOWLEDGE, and the same
+               reason HCR Batang is used for Korean). */
             html:lang(ja) {
-                --p-serif: 'Noto Serif', 'Yu Mincho', 'MS Mincho', serif;
+                --p-serif: 'Noto Serif', 'Hiragino Mincho ProN', 'Yu Mincho', 'MS Mincho', 'BIZ UDMincho', 'Noto Serif JP', serif;
                 --p-sans:  'Noto Sans', 'Yu Gothic', 'Meiryo', sans-serif;
                 --p-mono:  Consolas, 'MS Gothic', 'Courier New', monospace;
             }
             html:lang(zh) {
-                --p-serif: 'Noto Serif', 'FangSong', 'STFangSong', 'SimSun', serif;
+                --p-serif: 'Noto Serif', 'FangSong', '仿宋', 'STFangSong', '华文仿宋', 'Noto Serif SC', 'SimSun', serif;
                 --p-sans:  'Noto Sans', 'Microsoft YaHei', 'SimHei', sans-serif;
                 --p-mono:  Consolas, 'NSimSun', 'Courier New', monospace;
             }
