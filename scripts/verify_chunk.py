@@ -657,13 +657,77 @@ def check_structure(source, output):
     return out
 
 
-def check_length(source, output, lang, low=0.35, high=2.5):
+_BOOK_RATIO = {}
+_CHUNK_NAME_RE = re.compile(r'^chunk\d+\.md$')
+
+# A chunk that stopped early comes out around half the length its book
+# normally gives; a chunk that simply is what it is comes out within a tenth
+# of the median. 0.55 sits between those, far from both.
+TRUNCATION_OF_BOOK = 0.55
+# A whole book can be truncated, and then it is its own baseline and says so.
+TRUNCATION_HARD_FLOOR = 0.20
+
+
+def median_ratio(ratios, minimum=3):
+    """The middle ratio, or None when there are too few to have a middle."""
+    ordered = sorted(r for r in ratios if r)
+    if len(ordered) < minimum:
+        return None
+    return ordered[len(ordered) // 2]
+
+
+def truncation_floor(book, default):
+    """The floor one chunk is judged by, given what its book usually does."""
+    if not book:
+        return default
+    return max(TRUNCATION_HARD_FLOOR, book * TRUNCATION_OF_BOOK)
+
+
+def book_compression(temp_dir):
+    r"""The ratio this book's chunks normally come out at, or None.
+
+    A constant floor is a floor fitted to whatever language was at hand when
+    it was written. This one was fitted to Korean, and Chinese says the same
+    thing in fewer characters again: one paper translated into seven
+    languages runs 0.35 to 0.39 for zh against 0.43 to 0.50 for ko, 0.51 to
+    0.57 for ja and 1.14 to 1.27 for the Latin three. The Chinese book sat
+    one hundredth above a floor of 0.35 with nothing missing from it.
+
+    A book's own chunks compress alike -- within an edition the spread is
+    under a tenth of the median -- so the book is its own baseline, the way
+    a table's snapshot is. None when there are too few chunks to have one.
+    """
+    if temp_dir in _BOOK_RATIO:
+        return _BOOK_RATIO[temp_dir]
+    ratios = []
+    try:
+        names = sorted(os.listdir(temp_dir)) if temp_dir else []
+    except (IOError, OSError):
+        names = []
+    for name in names:
+        if not _CHUNK_NAME_RE.match(name):
+            continue
+        out_path = os.path.join(temp_dir, 'output_' + name)
+        if not os.path.isfile(out_path):
+            continue
+        source = _read(os.path.join(temp_dir, name))
+        src = len(''.join(source.split()))
+        if src < 200 or is_all_references(source):
+            continue
+        ratios.append(len(''.join(_read(out_path).split())) / float(src))
+    median = median_ratio(ratios)
+    _BOOK_RATIO[temp_dir] = median
+    return median
+
+
+def check_length(source, output, lang, low=0.35, high=2.5, book=None):
     """Truncation, the failure that leaves a perfectly valid short file."""
     src = len(''.join(source.split()))
     out_len = len(''.join(output.split()))
     if src < 200 or is_all_references(source):
         return []
     ratio = float(out_len) / src
+    low = truncation_floor(book, low)
     if ratio < low:
         return [{'check': 'length', 'severity': 'fail',
                  'detail': 'the translation is %d%% of the source length'
@@ -919,7 +983,8 @@ def verify_chunk(temp_dir, chunk_name, lang):
     findings += check_fences(source, output)
     findings += check_structure(source, output)
     findings += check_numerals(source, output)
-    findings += check_length(source, output, lang)
+    findings += check_length(source, output, lang,
+                             book=book_compression(temp_dir))
     findings += check_neighbor_leak(temp_dir, chunk_name, output, source)
     findings += check_glossary(temp_dir, source, output)
     findings += check_meta_evidence(temp_dir, chunk_name, source)

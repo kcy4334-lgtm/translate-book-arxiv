@@ -399,22 +399,40 @@ _TRUNCATION_FLOOR = 0.40
 _TRUNCATION_MIN_CHARS = 800
 
 
-def looks_truncated(src_len, out_len):
+def book_compression(lengths):
+    """The ratio this book's chunks normally come out at, or None.
+
+    `lengths` is (source chars, translated chars) per chunk.
+    """
+    return _verify_chunk.median_ratio(
+        float(out) / src for src, out in lengths
+        if src >= _TRUNCATION_MIN_CHARS and src)
+
+
+def looks_truncated(src_len, out_len, book=None):
     """Is this translation too short to still hold its source's content?
 
     A sub-agent that stops early loses whole paragraphs and nothing else
     notices: the placeholders it did copy still balance, and the headings it
     did reach still ladder correctly. Only the bulk gives it away.
 
-    Korean says the same thing in fewer characters, so the floor has to sit
-    under ordinary compression. Across 38 chunks of three papers the ratio ran
-    0.52 to 1.00, median 0.65; 0.40 is below every one of them and still less
-    than half the median. Short chunks are exempt -- a heading and two
-    sentences can legitimately halve.
+    The floor used to be a constant, and the constant was fitted to Korean:
+    38 chunks of three papers, ratio 0.52 to 1.00. Chinese says the same
+    thing in fewer characters again -- one paper translated into seven
+    languages runs 0.35 to 0.39 for zh against 0.43 to 0.50 for ko, 0.51 to
+    0.57 for ja and 1.14 to 1.27 for the Latin three -- so a Korean floor of
+    0.40 failed every Chinese chunk of a book that was complete, headings,
+    placeholders and paragraphs all matching.
+
+    So compare a chunk against its own book instead of against a number. A
+    book's chunks compress alike: within one edition the spread is under 10%
+    of the median, while a chunk that stopped early is around half. `book` is
+    the median from `book_compression`; without it the old constant stands.
     """
     if src_len < _TRUNCATION_MIN_CHARS:
         return False
-    return out_len < src_len * _TRUNCATION_FLOOR
+    return out_len < src_len * _verify_chunk.truncation_floor(
+        book, _TRUNCATION_FLOOR)
 
 
 _MATH_EL_RE = re.compile(r'<math\b[^>]*>.*?</math>', re.DOTALL)
@@ -440,6 +458,7 @@ def check_broken_math(html):
 def check_chunks(temp_dir, lang):
     """Each translated chunk against its untouched English source."""
     problems = []
+    bulk = []
     for src_path in sorted(glob.glob(os.path.join(temp_dir, 'chunk*.md'))):
         name = os.path.basename(src_path)
         if name.startswith('output_'):
@@ -486,17 +505,22 @@ def check_chunks(temp_dir, lang):
 
         # A sub-agent that stops early loses whole paragraphs and nothing
         # above notices: the placeholders it did copy still balance, and the
-        # headings it did reach still ladder correctly. Only the bulk gives it
-        # away. Korean says the same thing in fewer characters, so the floor
-        # has to sit under ordinary compression: across 38 chunks of three
-        # papers the ratio ran 0.52 to 1.00, median 0.65. 0.40 is below every
-        # one of them and still less than half the median.
-        src_body = len(_PLACEHOLDER_RE.sub(' ', src).strip())
-        out_body = len(_PLACEHOLDER_RE.sub(' ', out).strip())
-        if looks_truncated(src_body, out_body):
+        # headings it did reach still ladder correctly. Only the bulk gives
+        # it away. Judged after the loop, against this book's own
+        # compression, because a constant floor is a floor fitted to one
+        # language.
+        bulk.append((name,
+                     len(_PLACEHOLDER_RE.sub(' ', src).strip()),
+                     len(_PLACEHOLDER_RE.sub(' ', out).strip())))
+
+    book = book_compression([(s, o) for _n, s, o in bulk])
+    for name, src_body, out_body in bulk:
+        if looks_truncated(src_body, out_body, book):
             problems.append('%s: translation is %.0f%% the length of its '
-                            'source — content may be missing'
-                            % (name, 100.0 * out_body / max(1, src_body)))
+                            'source, against %.0f%% for the rest of this '
+                            'book — content may be missing'
+                            % (name, 100.0 * out_body / max(1, src_body),
+                               100.0 * (book or _TRUNCATION_FLOOR)))
     return problems
 
 
@@ -511,6 +535,14 @@ if SCRIPT_DIR not in sys.path:
 # gloss or a unit?" would drift, and then the floor and the ceiling would be
 # arguing about different sentences.
 import glossary as _glossary                                     # noqa: E402
+
+# Same reason again. The truncation floor lives in `verify_chunk`, which is
+# the gate; this probe reports on the same books. Two copies of "is this
+# chunk too short?" drifted once already -- a Korean constant of 0.40 here
+# and 0.35 there -- and the two disagreed about a complete Chinese book.
+# Bound after the functions above are defined, which is fine: they are
+# called from main(), long after this module has finished loading.
+import verify_chunk as _verify_chunk                             # noqa: E402
 
 _GLOSS_PAREN_RE = _glossary._GLOSS_RE
 _looks_like_gloss = _glossary._is_first_use_gloss
