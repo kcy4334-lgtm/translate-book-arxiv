@@ -60,6 +60,30 @@ def _balanced(text, open_at):
     return -1
 
 
+def _commented_out(latex, at):
+    r"""Is this position on a line a `%` has already commented out?
+
+    A float can carry an older caption commented out above the live one.
+    DeeR-VLA's first table does, and counting it made this probe report one
+    more untranslated caption than the build's own gate, which reads the
+    restored markdown and never sees it. A caption nobody prints is not a
+    caption still in the source language, and translating dead text to quiet
+    a check is not translating the book.
+
+    `\%` is a printed percent sign, not a comment, so the scan skips what a
+    backslash escapes.
+    """
+    i = latex.rfind('\n', 0, at) + 1
+    while i < at:
+        if latex[i] == '\\':
+            i += 2
+            continue
+        if latex[i] == '%':
+            return True
+        i += 1
+    return False
+
+
 def _unescape(text):
     return _html_lib.unescape(text)
 
@@ -175,7 +199,13 @@ def check_caption_numbers(temp_dir, body, lang):
         return None
     if label == "Table":
         return None        # "Table 5" is also how the prose refers to it
-    want = [u for u in mb.float_units(_read(flat))
+    # `float_units` documents its argument as comment-stripped text, and
+    # `source_probe` strips before calling it. This did not, so a float
+    # commented out in the source was counted as one the book owes the
+    # reader. DeeR-VLA keeps three superseded table captions behind `%`, and
+    # the probe reported "14 in the source, 11 in the book" for a book that
+    # numbers every table the paper prints.
+    want = [u for u in mb.float_units(mb.strip_tex_comments(_read(flat)))
             if u["kind"] == "table" and u["number"]]
     badge = re.compile(r"%s\s*(\d+)\s*\(\s*Table\s*(\d+)\s*\)"
                        % re.escape(label))
@@ -212,6 +242,8 @@ def check_table_language(temp_dir, lang):
     done, missing, examples = 0, 0, []
     for where, latex in _float_sources(temp_dir):
         for m in _CAPTION_RE.finditer(latex):
+            if _commented_out(latex, m.start()):
+                continue
             close = _balanced(latex, latex.index('{', m.end() - 1))
             if close < 0:
                 continue

@@ -207,10 +207,37 @@ def structural_problems(before, after):
     return problems
 
 
+def commented_out(latex, at):
+    r"""Is this position on a line a `%` has already commented out?
+
+    A float can carry an older caption commented out above the live one, and
+    DeeR-VLA's first table does. The digest joined both, so the log recorded
+    the dead English line as what T0001 became, while the live caption
+    underneath it was correct Korean. A record that reads "still English" for
+    finished work is worse than no record: this log exists so a caption that
+    was translated and then overwritten leaves both events behind, and it can
+    only do that if it says what actually changed.
+
+    `\%` is a printed percent sign, not a comment -- a caption reading
+    `78.9\%` must not silently comment out everything after it.
+    """
+    i = latex.rfind('\n', 0, at) + 1
+    while i < at:
+        if latex[i] == '\\':
+            i += 2
+            continue
+        if latex[i] == '%':
+            return True
+        i += 1
+    return False
+
+
 def caption_bodies(latex):
-    """The text inside each `\\caption{}`, brace-matched, not regex-matched."""
+    """The text inside each live `\\caption{}`, brace-matched, not regex."""
     out = []
     for match in _CAPTION_RE.finditer(latex):
+        if commented_out(latex, match.start()):
+            continue
         start = match.end() - 1
         depth, i = 1, start + 1
         while i < len(latex) and depth:

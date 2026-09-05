@@ -377,19 +377,29 @@ def _fingerprint(tex):
     in the body by coincidence, and a fingerprint that matches something else
     on the page reports a float as present when it is gone.
     """
-    caption, _label = extract_caption(tex)
-    # The caption needs its comments stripped too, not just the body. A
-    # `%`-commented sentence inside one gave a fingerprint that ran from
-    # `D.` across the comment marker into text no reader will ever see, and
-    # the check then reported a table that is sitting on the page.
+    # Strip the float BEFORE reading it, not each piece afterwards. The `%`
+    # that comments out a whole caption sits in front of `\caption`, outside
+    # the braces, so a body extracted from the raw text carries no comment
+    # marker of its own and survives `_strip_comments` intact. DeeR-VLA's
+    # first table keeps an older caption commented out above the live one;
+    # `extract_caption` took the dead one, the fingerprint became English
+    # prose that no reader sees, and the build aborted over a table that was
+    # rendered and present.
+    #
+    # The earlier form of this comment records the same lesson one step in:
+    # a `%`-commented sentence INSIDE a caption gave a fingerprint that ran
+    # from `D.` across the marker into text nobody prints.
+    #
     # A column specification reads as a word and can never be on the page.
     # ResNet's three appendix tables sit in a bare `center` with no caption,
     # so the fingerprint was drawn from the body and began `l|c`, `c|c|c`,
     # `l|c|c|c|cccc…`. No page will ever contain that, so the check reported
     # three tables as lost while all three were rendered and present — and it
     # aborted the build, which is how a false alarm costs a whole book.
-    body = _TABULAR_SPEC_RE.sub(' ', tex)
-    for candidate in (_strip_comments(caption or ''), _strip_comments(body)):
+    live = _strip_comments(tex)
+    caption, _label = extract_caption(live)
+    body = _TABULAR_SPEC_RE.sub(' ', live)
+    for candidate in (caption or '', body):
         for words in sorted(_plain_runs(candidate), key=len, reverse=True):
             # A length is an argument, never prose. `\specialrule{1pt}{-1pt}`
             # opened one fingerprint with `6pt 1pt`, which is not on any page.

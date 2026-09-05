@@ -187,6 +187,7 @@ here; the test is the real record. This file is for the *reasoning*, the
 | A grep of output.md disagrees with the finished PDF | [K167](#k167) |
 | A CJK line opens with 。 or 、 after an inline formula | [K168](#k168) |
 | source_probe says a float number disagrees with the paper | [K169](#k169) |
+| A caption check counts one more table than the book has | [K170](#k170) |
 
 ---
 
@@ -2414,6 +2415,20 @@ naming the float, and only its count was being looked at. `caption_sites` now
 walks past an occurrence a LONGER caption also starts at, or one with no
 float label in front of it.
 *Status: fixed. 11 agree, 0 disagree; every other temp dir byte-identical.*
+
+### K170
+**A caption behind `%` is not a caption.** DeeR-VLA's first table keeps a
+superseded caption commented out above the live one, and four checks counted
+it: `format_probe` said seven untranslated captions where the build's gate
+said six, so its own "zero captions" exit condition demanded translating
+dead text; `sidecar_edit`'s log recorded that dead English line as what
+T0001 became; `check_latex_float_fidelity` fingerprinted it and aborted the
+build over a rendered table; `check_caption_numbers` passed raw `flat.tex`
+to `float_units`, whose docstring says "Pass comment-stripped tex", making
+11 tables read as 14. The `%` sits in FRONT of `\caption`, outside the
+braces, so stripping the extracted body leaves its first line looking live.
+Strip the float, then read it.
+*Status: all four fixed. The build's own gate was right every time.*
 
 ---
 

@@ -127,6 +127,13 @@
    "failed": 0,
    "lang": "ko",
    "paper": "2509.09372"
+  },
+  {
+   "checks": {},
+   "chunks": 18,
+   "failed": 0,
+   "lang": "ko",
+   "paper": "2411.02359"
   }
  ],
  "version": 1
