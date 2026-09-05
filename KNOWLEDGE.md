@@ -180,6 +180,7 @@ here; the test is the real record. This file is for the *reasoning*, the
 | The book opens on its table of contents, with no title page | [K160](#k160) |
 | A sub-agent's finished edit is gone and every check still passes | [K161](#k161) |
 | Half a table caption is translated and the language check passes | [K162](#k162) |
+| A new check fires on books that were already correct | [K163](#k163), [K157](#k157) |
 
 ---
 
@@ -2308,14 +2309,27 @@ script to name: `sidecar_edit.py` makes the edit and refuses a write whose
 asked whether ANY character of a caption was in the target's script, so one
 whose first six words were translated and whose next twenty were the
 untouched English passed, in every language, not only the Latin ones. The
-identity test passed it too: half translated is not identical. Measured over
-seven editions of one paper, a correctly translated caption shares at most
-ONE word with its source -- acronyms, dataset names, cognates, always
-scattered -- and a half-translated one at least FOUR in a row, because
-untranslated text arrives as a contiguous run and a translator's borrowings
-do not. Four also clears a glossary term deliberately left in the source
-language: those run one to three words.
-*Status: LOCKED, `AHalfTranslatedCaptionIsCaught`, `TheRunItselfBehaves`.*
+identity test passed it too: half translated is not identical. Across 73
+translated captions from six papers a correct one shares at most THREE
+consecutive words with its source and a caption nobody translated at least
+SIX, because untranslated text arrives as a contiguous run while a translator
+borrows scattered names. The comparison must be made on the caption's PROSE
+(K163) and a run of names is excused by its capitalisation.
+*Status: LOCKED, `AHalfTranslatedCaptionIsCaught`, `WhatTheCorpusCaught`.*
+
+### K163
+**A threshold fitted to one paper fires on the next one.** The caption run
+check was calibrated on the only paper at hand, whose captions carry no
+citation, no maths and no comment, and it then read a correct Korean caption
+as nine consecutive English words: `\citep{OpenVLA-2024}` and `\mathcal` were
+counted as words, and those are identical in source and translation by
+design. The other six papers gave three more shapes -- a commented-out
+original under the translation (run 28), a row of model names (6), inline
+maths -- so the check would have failed four shipped books. Every build
+leaves its temp dir and its `flat.tex` behind, so the corpus was already on
+disk: measuring against it cost one probe and took the false positives to 0.
+*Status: GUARDED, `WhatTheCorpusCaught`; `scratchpad/corpus_runs.py`
+re-measures every book on disk with the shipped functions.*
 
 ---
 

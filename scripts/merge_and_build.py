@@ -6373,48 +6373,127 @@ def source_captions(temp_dir):
 
 
 _CAPTION_WORD_RE = re.compile(r'[^\W\d_]+', re.UNICODE)
+_CAPTION_COMMENT_RE = re.compile(r'(?<!\\)%.*')
+_CAPTION_KEYED_RE = re.compile(
+    r'\\(?:cite[a-z]*|label|ref|eqref|nameref)\s*\{[^{}]*\}')
+_CAPTION_MATH_RE = re.compile(r'\$[^$]*\$')
+_CAPTION_COMMAND_RE = re.compile(r'\\[A-Za-z]+')
 
-# Measured over the seven editions of one paper: a correctly translated
-# caption shares at most ONE word with its source (jft, top, wer, frame,
-# classification -- acronyms, dataset names and cognates, always scattered),
-# while a caption with an untranslated tail shares at least FOUR in a row.
-# The threshold sits in that gap, with room for a glossary term deliberately
-# left in the source language: those run one to three words (soft targets,
-# mixture of experts), never four.
+# Measured over 73 correctly translated captions from six papers and eight
+# books: the longest run any of them shares with its source is THREE, and the
+# shortest run in a caption nobody translated is SIX. The threshold sits in
+# that gap. Raising it costs short untranslated fragments; lowering it below
+# four would have fired on VLA-Adapter's model-name captions.
 _UNTRANSLATED_RUN = 4
 
 
+def caption_prose(text):
+    r"""A caption with its LaTeX removed, so only words a reader sees remain.
+
+    Every part taken out here is identical in the source and in a correct
+    translation, by design, and each one was measured making a correctly
+    translated caption look untranslated:
+
+      * `% ...` comments. SINQ's captions keep the paper's own commented-out
+        English wording below the Korean, and the reader never sees it. That
+        alone scored a run of 28.
+      * `\citep{OpenVLA-2024}`, `\label{}`, `\ref{}`: the key must not change.
+      * `$...$` maths.
+      * command names. `\textbf`, `\texttt`, `\mbox` are structure, not words.
+    """
+    text = _CAPTION_COMMENT_RE.sub(' ', text)
+    text = _CAPTION_KEYED_RE.sub(' ', text)
+    text = _CAPTION_MATH_RE.sub(' ', text)
+    text = _CAPTION_COMMAND_RE.sub(' ', text)
+    return text.replace('{', ' ').replace('}', ' ')
+
+
 def caption_words(text):
-    """Lowercased alphabetic words. Digits and punctuation drop out: they
-    survive translation on purpose and would pad every run."""
-    return [w.lower() for w in _CAPTION_WORD_RE.findall(text)]
+    """Words of the caption's prose, original case kept: capitalisation is
+    what separates a model name from a function word."""
+    return _CAPTION_WORD_RE.findall(caption_prose(text))
+
+
+def _is_prose_word(token):
+    r"""Lowercase and alphabetic: the shape a function word has.
+
+    What a correct translation shares with its source is names -- OpenVLA,
+    DeepSeek-V2-Lite, Qwen1.5-MoE, CALVIN, LIBERO-Long -- and every one of
+    them is capitalised or carries a digit. Untranslated prose brings
+    lowercase words along and cannot avoid them. Frequency was tried first
+    and is worse: the commonest short words of an ML paper include MoE, so a
+    run of model names passes a frequency test.
+    """
+    return len(token) >= 2 and token.isalpha() and token.islower()
 
 
 def longest_source_run(caption, originals):
-    r"""The longest run of words this caption shares with any source caption.
+    r"""The longest run of PROSE words this caption shares with its source.
 
     A translator borrows single words from the source: an acronym, a dataset
-    name, a cognate. Text that was never translated arrives as a contiguous
-    run. The length of the longest run tells the two apart, and does so in
-    any target language, because the run is made of SOURCE words whatever the
-    target is written in.
+    name, a cognate. Text nobody translated arrives as a contiguous run. The
+    length of the longest run tells the two apart in any target language,
+    because the run is made of source words whatever the target is written
+    in. A run of names does not count, or a Korean caption naming four models
+    in a row would be reported as untranslated.
     """
     have = caption_words(caption)
     if not have:
         return 0
     best = 0
     for original in originals:
-        want = caption_words(original)
+        want = [w.lower() for w in caption_words(original)]
         row = [0] * (len(want) + 1)
         for i in range(1, len(have) + 1):
             prev = 0
             for j in range(1, len(want) + 1):
                 keep = row[j]
-                row[j] = prev + 1 if have[i - 1] == want[j - 1] else 0
-                if row[j] > best:
+                row[j] = prev + 1 if have[i - 1].lower() == want[j - 1] else 0
+                if row[j] > best and any(_is_prose_word(w)
+                                         for w in have[i - row[j]:i]):
                     best = row[j]
                 prev = keep
     return best
+
+
+def translation_is_passthrough(temp_dir):
+    r"""Did this run copy its chunks through instead of translating them?
+
+    An English edition of an English paper is the pipeline's honest answer
+    when there is nothing to translate, and its captions are identical to
+    `flat.tex` because that is CORRECT, not because a step was skipped. No
+    caption check can tell those apart, so it must not try.
+
+    Asking `lang == 'en'` would be the wrong question twice over: it assumes
+    every source paper is English, so a French paper rendered into English
+    would silently lose its caption check, and an English paper rendered into
+    English is recognisable without guessing at either language. Ask the
+    artefact instead. If the translated chunks are the source chunks, nothing
+    was translated anywhere, and the captions are not evidence of anything.
+    """
+    if not temp_dir or not os.path.isdir(temp_dir):
+        return False
+    names = sorted(n for n in os.listdir(temp_dir)
+                   if re.match(r'^chunk\d+\.md$', n))
+    checked = 0
+    for name in names:
+        output = os.path.join(temp_dir, 'output_' + name)
+        if not os.path.isfile(output):
+            continue
+        try:
+            with open(os.path.join(temp_dir, name), encoding='utf-8',
+                      errors='replace') as fh:
+                source = fh.read()
+            with open(output, encoding='utf-8', errors='replace') as fh:
+                translated = fh.read()
+        except (IOError, OSError):
+            return False
+        if ' '.join(source.split()) != ' '.join(translated.split()):
+            return False
+        checked += 1
+        if checked >= 3:
+            break
+    return checked > 0
 
 
 def untranslated_captions(md_text, lang, temp_dir=None):
@@ -6446,10 +6525,11 @@ def untranslated_captions(md_text, lang, temp_dir=None):
         first, and a half-translated caption is not identical, so it
         satisfies the second.
 
-    An English edition of an English paper cannot be judged by any of them,
-    since a caption identical to the source is the correct answer there and
-    indistinguishable from a skipped step, so it is left alone rather than
-    given a verdict this cannot stand behind (K68).
+    A run that copied its chunks through instead of translating them, which
+    is the honest rendering of an English paper into English, cannot be
+    judged by the last two: a caption identical to the source is correct
+    there and indistinguishable from a skipped step. That is recognised from
+    the chunks rather than from the language name (K68).
     """
     base = (lang or '').split('-')[0]
     try:
@@ -6457,7 +6537,8 @@ def untranslated_captions(md_text, lang, temp_dir=None):
         ranges = verify_chunk._SCRIPT_RANGES.get(base)
     except Exception:                                     # noqa: BLE001
         ranges = None
-    originals = set() if base == 'en' else source_captions(temp_dir)
+    originals = (set() if translation_is_passthrough(temp_dir)
+                 else source_captions(temp_dir))
     if not ranges and not originals:
         return []
 

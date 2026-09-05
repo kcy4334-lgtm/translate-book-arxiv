@@ -97,8 +97,10 @@ class TheSourceIsWhatCoversTheLatinLanguages(unittest.TestCase):
         self.addCleanup(shutil.rmtree, self.dir, True)
 
     def write_source(self, text):
-        import io
-        with io.open(os.path.join(self.dir, 'flat.tex'), 'w',
+        self.write_chunk('flat.tex', text)
+
+    def write_chunk(self, name, text):
+        with io.open(os.path.join(self.dir, name), 'w',
                      encoding='utf-8') as handle:
             handle.write(text)
 
@@ -127,11 +129,33 @@ class TheSourceIsWhatCoversTheLatinLanguages(unittest.TestCase):
         self.assertEqual(len(mb.untranslated_captions(ENGLISH, 'ko',
                                                       self.dir)), 1)
 
-    def test_an_english_edition_is_still_not_judged(self):
-        """The paper is English. Identical is correct, not a defect, and
-        there is no third thing to compare against that would say which."""
+    def test_a_passthrough_run_is_not_judged(self):
+        r"""An English paper rendered into English copies its chunks through.
+        Its captions are identical to `flat.tex` because that is correct, not
+        because a step was skipped, and nothing can tell those apart."""
         self.write_source(ENGLISH)
+        self.write_chunk('chunk0001.md', 'Some prose.\n')
+        self.write_chunk('output_chunk0001.md', 'Some prose.\n')
+        self.assertTrue(mb.translation_is_passthrough(self.dir))
         self.assertEqual(mb.untranslated_captions(ENGLISH, 'en', self.dir), [])
+
+    def test_english_is_judged_when_something_was_actually_translated(self):
+        r"""Asking `lang == 'en'` would assume every source paper is English,
+        and silently drop the check for a French paper rendered into
+        English. The question is whether translation happened, not what the
+        target is called."""
+        self.write_source(ENGLISH)
+        self.write_chunk('chunk0001.md', 'Une phrase en français.\n')
+        self.write_chunk('output_chunk0001.md', 'A sentence in English.\n')
+        self.assertFalse(mb.translation_is_passthrough(self.dir))
+        self.assertEqual(
+            len(mb.untranslated_captions(ENGLISH, 'en', self.dir)), 1)
+
+    def test_a_temp_dir_with_no_chunks_is_not_called_a_passthrough(self):
+        """Absence of evidence is not evidence: judge the captions."""
+        self.write_source(ENGLISH)
+        self.assertFalse(mb.translation_is_passthrough(self.dir))
+        self.assertFalse(mb.translation_is_passthrough(None))
 
     def test_a_short_source_caption_is_not_used_as_evidence(self):
         r"""`\caption{Results}` matching `\caption{Results}` says nothing."""
@@ -232,6 +256,64 @@ class TheRunItselfBehaves(unittest.TestCase):
         self.assertEqual(mb.longest_source_run('anything', set()), 0)
         self.assertEqual(mb.longest_source_run('', {'some words'}), 0)
         self.assertEqual(mb.longest_source_run('123 456', {'some words'}), 0)
+
+
+class WhatTheCorpusCaught(unittest.TestCase):
+    r"""Four ways a correctly translated caption looked untranslated.
+
+    Every one of these is a real caption from a book this pipeline shipped,
+    and every one of them was scored 4 or more by the first version of the
+    check -- which had been calibrated on a single paper whose captions
+    happen to contain no citation, no maths and no comment. Measuring
+    against the other six papers is what found them.
+    """
+
+    def test_a_citation_key_is_not_shared_prose(self):
+        r"""VLA-Adapter: `OpenVLA \citep{OpenVLA-2024} 및 OpenVLA-OFT
+        \citep{OpenVLA-OFT-2025}` scored 9 because the key and the command
+        name were counted as words. They are identical by design."""
+        source = (r'Comparison with OpenVLA \citep{OpenVLA-2024} and '
+                  r'OpenVLA-OFT \citep{OpenVLA-OFT-2025}.')
+        korean = (r'OpenVLA \citep{OpenVLA-2024} 및 OpenVLA-OFT '
+                  r'\citep{OpenVLA-OFT-2025}와의 비교.')
+        self.assertLess(mb.longest_source_run(korean, {source}),
+                        mb._UNTRANSLATED_RUN)
+
+    def test_a_commented_out_original_is_not_shared_prose(self):
+        r"""SINQ keeps the paper's own English wording as a `%` comment under
+        the Korean. The reader never sees it; it scored 28."""
+        source = ('In bold is the best result for a given setting at equal '
+                  'bits other than our own.')
+        korean = ('가장 좋은 결과는 굵은 글씨로 표시하였다.\n'
+                  '% In bold is the best result for a given setting at '
+                  'equal bits other than our own.')
+        self.assertLess(mb.longest_source_run(korean, {source}),
+                        mb._UNTRANSLATED_RUN)
+
+    def test_maths_is_not_shared_prose(self):
+        source = r'Comparison of the $i$th-layer $\mathcal{C}_t$ features.'
+        korean = r'$i$번째 층의 $\mathcal{C}_t$ 특징 비교.'
+        self.assertLess(mb.longest_source_run(korean, {source}),
+                        mb._UNTRANSLATED_RUN)
+
+    def test_a_row_of_model_names_is_not_shared_prose(self):
+        r"""AlphaQ's caption opens by naming four models, and SINQ's names
+        two. Those runs are what a threshold below four would fire on."""
+        source = (r'Results for \textbf{DeepSeekV2-Lite, Qwen1.5-MoE, '
+                  r'Mixtral-8x7B, Qwen3-235B} on WikiText2.')
+        korean = (r'WikiText2에서의 \textbf{DeepSeekV2-Lite, Qwen1.5-MoE, '
+                  r'Mixtral-8x7B, Qwen3-235B} 결과이다.')
+        self.assertLess(mb.longest_source_run(korean, {source}),
+                        mb._UNTRANSLATED_RUN)
+
+    def test_but_prose_among_the_names_still_counts(self):
+        """The names are excused; the sentence around them is not."""
+        source = ('Results for DeepSeekV2-Lite and Qwen3-235B measured on '
+                  'the WikiText2 perplexity benchmark.')
+        half = ('DeepSeekV2-Lite 및 Qwen3-235B에 대한 결과로, measured on '
+                'the WikiText2 perplexity benchmark.')
+        self.assertGreaterEqual(mb.longest_source_run(half, {source}),
+                                mb._UNTRANSLATED_RUN)
 
 
 class TheGateStaysQuietWhenItCannotJudge(unittest.TestCase):
