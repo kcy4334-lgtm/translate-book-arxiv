@@ -78,6 +78,64 @@ class EveryBoldChineseElementReachesAFaceWithABold(unittest.TestCase):
         self.assertNotIn('lang(ja)', rule)
 
 
+class PunctuationStaysWithItsFormula(unittest.TestCase):
+    r"""A line may not open with `。`.
+
+    The Chinese edition printed one that did. The line before it ended on an
+    inline formula and there is no space between them -- the HTML reads
+    `</math>。` -- so Chromium took the break opportunity it puts beside a
+    replaced element, where the rule against breaking before closing
+    punctuation should already have refused.
+
+    U+2060 WORD JOINER is what the standard provides: a break is forbidden on
+    either side of it, and that outranks the replaced-element rule. It prints
+    nothing.
+    """
+
+    WJ = '⁠'
+
+    def test_a_full_stop_is_held_against_the_formula(self):
+        html, n = mb.join_maths_to_following_punctuation(
+            '<p>记为 <math display="inline"><mi>k</mi></math>。在我们的实验中</p>')
+        self.assertEqual(n, 1)
+        self.assertIn('</math>' + self.WJ + '。', html)
+
+    def test_every_closing_mark_that_may_not_open_a_line(self):
+        for mark in '。、，；：？！）》」』':
+            html, n = mb.join_maths_to_following_punctuation(
+                '<math><mi>x</mi></math>%s' % mark)
+            self.assertEqual(n, 1, mark)
+            self.assertIn('</math>' + self.WJ + mark, html)
+
+    def test_korean_and_japanese_get_it_too(self):
+        r"""The prohibition belongs to the punctuation, not to the language.
+        Neither book broke in this paper, which is where its lines happened
+        to fall rather than a difference in kind."""
+        for text in ('<math><mi>k</mi></math>。본문', '<math><mi>k</mi></math>」と'):
+            _html, n = mb.join_maths_to_following_punctuation(text)
+            self.assertEqual(n, 1, text)
+
+    def test_a_latin_full_stop_is_left_alone(self):
+        r"""English and French break perfectly well after a formula, and a
+        joiner there would be an invisible character for nothing."""
+        for tail in ('. The next', ', and then', ') so'):
+            _html, n = mb.join_maths_to_following_punctuation(
+                '<math><mi>x</mi></math>%s' % tail)
+            self.assertEqual(n, 0, tail)
+
+    def test_an_opening_mark_is_left_alone(self):
+        """`（` may not END a line; that is a different rule and no formula
+        precedes it here."""
+        _html, n = mb.join_maths_to_following_punctuation(
+            '<math><mi>x</mi></math>（注）')
+        self.assertEqual(n, 0)
+
+    def test_a_document_with_no_maths_is_untouched(self):
+        text = '<p>本文には数式がない。</p>'
+        self.assertEqual(mb.join_maths_to_following_punctuation(text),
+                         (text, 0))
+
+
 class MarkTests(unittest.TestCase):
 
     def test_korean_emphasis_is_marked(self):

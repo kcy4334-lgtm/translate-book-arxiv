@@ -6238,6 +6238,37 @@ _EM_RE = re.compile(r'(?s)<(em|i)((?:\s[^>]*)?)>(.*?)</\1>')
 _CJK_TEXT_RE = re.compile(r'[가-힣぀-ヿ一-鿿]')
 
 
+# Punctuation that may not open a line in CJK typesetting: a full stop, a
+# comma, a closing bracket or quote. Both the CJK Symbols block and the
+# fullwidth forms, because a paper uses whichever its translator typed.
+_CJK_CLOSER = ('\u3002\u3001\u300d\u300f\u3011\u3015\u3009\u300b'
+               '\uff0c\uff0e\uff1b\uff1a\uff1f\uff01\uff09\uff5d'
+               '\u201d\u2019\uff05')
+_MATH_THEN_CLOSER_RE = re.compile('(</math>)([%s])' % _CJK_CLOSER)
+
+
+def join_maths_to_following_punctuation(html):
+    r"""Forbid a line break between an inline formula and the mark after it.
+
+    Chinese printed a line opening with `。`, which CJK typesetting forbids.
+    The line before it ended on an inline formula, and there is no space
+    between them: the HTML reads `</math>。`. Chromium is treating the maths
+    as a replaced element and taking the break opportunity beside it (UAX #14
+    LB20), where LB13 should already have refused to break before closing
+    punctuation.
+
+    U+2060 WORD JOINER is what the standard provides for this: LB11 forbids a
+    break on either side of it and outranks LB20, so the mark is held against
+    the formula it belongs to. It is zero-width and prints nothing.
+
+    Not scoped to a language. The prohibition belongs to the punctuation, and
+    Korean and Japanese carry the same marks; that neither showed a break in
+    this paper is where the lines happened to fall, not a difference in kind.
+    Measured here: 21 such sites in the Chinese edition, one of which broke.
+    """
+    return _MATH_THEN_CLOSER_RE.subn('\\1\u2060\\2', html)
+
+
 def mark_cjk_emphasis(html):
     r"""Tag emphasis that actually contains CJK. Returns (html, marked).
 
@@ -6960,6 +6991,11 @@ def convert_md_to_html(temp_dir, title, lang_cfg, author=None,
     if eq_tagged or docx_tagged:
         print("Equations: %d numbered (%d in the DOCX copy)"
               % (eq_tagged, docx_tagged))
+
+    body_content, joined = join_maths_to_following_punctuation(body_content)
+    if joined:
+        print("Line breaking: %d formula(s) held against the CJK punctuation "
+              "that follows them" % joined)
 
     body_content, cjk_em = mark_cjk_emphasis(body_content)
     if cjk_em:
