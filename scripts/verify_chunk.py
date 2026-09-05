@@ -42,12 +42,42 @@ except ImportError:                                              # pragma: no co
 # --------------------------------------------------------------------------
 # Target scripts. A latin target cannot be checked this way, and this says so
 # rather than inventing a number it cannot stand behind (KNOWLEDGE K68).
+# A tuple of ranges per language, not one range: Japanese needs two.
 _SCRIPT_RANGES = {
-    'ko': (0xAC00, 0xD7A3),
-    'ja': (0x3040, 0x30FF),
-    'zh': (0x4E00, 0x9FFF),
-    'ru': (0x0400, 0x04FF),
+    'ko': ((0xAC00, 0xD7A3),),
+    # Kana AND kanji. Kana alone was the whole range, and Japanese academic
+    # prose is kanji-dense, so a correctly translated paragraph counted as
+    # almost no Japanese at all.
+    'ja': ((0x3040, 0x30FF), (0x4E00, 0x9FFF)),
+    'zh': ((0x4E00, 0x9FFF),),
+    'ru': ((0x0400, 0x04FF),),
 }
+
+
+def _in_target_script(ch, ranges):
+    code = ord(ch)
+    return any(lo <= code <= hi for lo, hi in ranges)
+
+
+def config_lang(temp_dir):
+    r"""`output_lang` from the run's own config.txt, or None.
+
+    The `--lang` flag defaulted to `ko` while the answer sat in the temp
+    directory the command is already pointed at, and nothing read it. Every
+    chunk of every non-Korean book was therefore checked against Hangul:
+    five of nine correct Japanese chunks reported "only 0% of the letters
+    are ko" and would have been sent back for re-translation, on a book
+    whose own config.txt said `output_lang=ja`.
+    """
+    try:
+        with io.open(os.path.join(temp_dir or '', 'config.txt'),
+                     encoding='utf-8', errors='replace') as fh:
+            for line in fh:
+                if line.startswith('output_lang='):
+                    return line.split('=', 1)[1].strip() or None
+    except OSError:
+        return None
+    return None
 
 _LATIN_WORD_RE = re.compile(r'[A-Za-z][A-Za-z\'-]{1,}')
 _PLACEHOLDER_RE = re.compile(r'\u27e6[MCT]\d{4}\u27e7')
@@ -325,10 +355,10 @@ def is_all_references(text):
 
 
 def _script_ratio(text, lang):
-    lo, hi = _SCRIPT_RANGES.get(lang, (0, 0))
-    if not hi:
+    ranges = _SCRIPT_RANGES.get(lang)
+    if not ranges:
         return None
-    target = sum(1 for ch in text if lo <= ord(ch) <= hi)
+    target = sum(1 for ch in text if _in_target_script(ch, ranges))
     latin = sum(1 for ch in text if ('a' <= ch <= 'z') or ('A' <= ch <= 'Z'))
     if target + latin == 0:
         return None
@@ -510,15 +540,15 @@ def check_untranslated_blocks(output, lang, min_words=14):
     looks only for long runs of ORDINARY WORDS in a line carrying no target
     script at all.
     """
-    lo, hi = _SCRIPT_RANGES.get(lang, (0, 0))
-    if not hi:
+    ranges = _SCRIPT_RANGES.get(lang)
+    if not ranges:
         return []
     findings = []
     for raw_line in _strip_verbatim(_prose_only(output)).split('\n'):
         line = raw_line.strip()
         if not line or line.startswith('|'):
             continue
-        if any(lo <= ord(ch) <= hi for ch in line):
+        if any(_in_target_script(ch, ranges) for ch in line):
             continue
         if is_contact_line(line):
             continue
@@ -878,7 +908,10 @@ def main():
     parser.add_argument('temp_dir')
     parser.add_argument('chunks', nargs='*',
                         help='chunk ids to check; default is all of them')
-    parser.add_argument('--lang', default='ko')
+    parser.add_argument('--lang', default=None,
+                        help="target language code; taken from the temp "
+                             "dir's config.txt when not given, and 'ko' "
+                             "only if that has nothing to say")
     parser.add_argument('--strict', action='store_true',
                         help='exit 1 when any chunk fails')
     parser.add_argument('--json', action='store_true',
@@ -887,7 +920,8 @@ def main():
                         help='print only the chunks that failed')
     args = parser.parse_args()
 
-    results = [verify_chunk(args.temp_dir, name, args.lang)
+    lang = args.lang or config_lang(args.temp_dir) or 'ko'
+    results = [verify_chunk(args.temp_dir, name, lang)
                for name in chunk_names(args.temp_dir, args.chunks)]
     failed = [r for r in results if not r['ok']]
     warned = [r for r in results
