@@ -599,6 +599,27 @@ def check_fences(source, output):
 
 
 _GROUPED_NUMERAL_RE = re.compile(r'(?<![\w.,])(\d+[.,]\d+)(?![\d.,])')
+# A numeral with a UNIT glued to it. The separator rule missed these because
+# the digits themselves do not move: French and German wrote `58.9 %` for
+# `58.9%` and `10 ms` for `10ms`, thirteen times each, so a page carried
+# `58.9 %` in a sentence and `58.9%` in the table it was about.
+#
+# A magnitude suffix is deliberately NOT here. `85M` becomes 8500만 in Korean,
+# 8500万 in Japanese and 8500 万 in Chinese, and all three are how those
+# languages write the quantity; a check that fires on every CJK book is the
+# mistake K157 is about. The real defect there is narrower and is a
+# CONSISTENCY one -- the Japanese book prints `85M` on one page and `8500万`
+# four pages later -- which this cannot see and should not pretend to.
+_ATTACHED_NUMERAL_RE = re.compile(
+    r'(?<![\w.,])(\d+(?:[.,]\d+)?(?:%|ms|GB|Hz))(?![\w.,])')
+# A numeral in front of a magnitude WORD is regrouped, not respelled, when
+# the target counts in myriads: Korean writes "1.4 billion" as 14억 because
+# 억 is 10^8, so the digits themselves legitimately change. TinyVLA, a book
+# shipped long before any of this, is where that surfaced -- the check
+# written this morning had never been run against it.
+_MAGNITUDE_RE = re.compile(
+    r'(?<![\w.,])(\d+(?:[.,]\d+)?)\s*'
+    r'(?:million|billion|trillion|thousand|hundred)\b', re.IGNORECASE)
 
 
 def check_numerals(source, output):
@@ -623,6 +644,8 @@ def check_numerals(source, output):
     that spelling one out in words is still allowed.
     """
     wanted = set(_GROUPED_NUMERAL_RE.findall(source))
+    wanted |= set(_ATTACHED_NUMERAL_RE.findall(source))
+    wanted -= set(_MAGNITUDE_RE.findall(source))
     if not wanted:
         return []
     missing = sorted(n for n in wanted if n not in output)

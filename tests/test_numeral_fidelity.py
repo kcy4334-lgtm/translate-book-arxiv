@@ -117,6 +117,67 @@ class ItStaysQuietOnCorrectWork(unittest.TestCase):
         self.quiet(biblio, biblio)
 
 
+class AUnitGluedToItsNumberStaysGlued(unittest.TestCase):
+    r"""The separator rule missed these: the digits themselves do not move.
+
+    French and German wrote `58.9 %` for `58.9%` and `10 ms` for `10ms`,
+    thirteen times each. A page then carried `58.9 %` in a sentence and
+    `58.9%` in the table that sentence was about, which is the contradiction
+    the whole numerals rule exists to prevent. Found by reading the finished
+    books, not by any check.
+    """
+
+    SOURCE = ('The baseline reaches 58.9% frame accuracy at a 10ms advance '
+              'per frame, closing 28% of the gap.\n')
+
+    def test_a_space_before_the_percent_sign(self):
+        found = verify_chunk.check_numerals(
+            self.SOURCE, self.SOURCE.replace('58.9%', '58.9 %'))
+        self.assertEqual(len(found), 1)
+        self.assertIn('58.9%', found[0]['detail'])
+
+    def test_a_space_before_a_unit(self):
+        found = verify_chunk.check_numerals(
+            self.SOURCE, self.SOURCE.replace('10ms', '10 ms'))
+        self.assertEqual(len(found), 1)
+
+    def test_a_faithful_translation_is_quiet(self):
+        self.assertEqual(verify_chunk.check_numerals(
+            self.SOURCE, 'La référence atteint 58.9% par trame avec une '
+                         'avance de 10ms, comblant 28% de l\'écart.\n'), [])
+
+
+class AMyriadRegroupingIsNotARespelling(unittest.TestCase):
+    r"""Korean, Japanese and Chinese count in myriads, so a magnitude word
+    changes the digits legitimately: 1.4 billion is 14억, because 억 is 10^8.
+
+    The first version of this check flagged that, and it took running it over
+    five books shipped long beforehand to notice -- TinyVLA says "parameters
+    ranging from 70 million to 1.4 billion". K163 again: a rule measured on
+    one set of books fires on the next.
+    """
+
+    def test_a_decimal_before_a_magnitude_word(self):
+        source = 'parameters ranging from 70 million to 1.4 billion.\n'
+        self.assertEqual(verify_chunk.check_numerals(
+            source, '70억에서 14억 개의 '
+                    '파라미터.\n'), [])
+
+    def test_but_a_decimal_with_no_magnitude_word_is_still_checked(self):
+        source = 'it falls to 13.2 test errors on the set.\n'
+        found = verify_chunk.check_numerals(source, 'passe à 13,2 erreurs.\n')
+        self.assertEqual(len(found), 1)
+
+    def test_a_bare_magnitude_suffix_is_not_checked_either(self):
+        r"""`85M` is 8500만 in Korean, 8500万 in Japanese. A check that fires
+        on every CJK book is the mistake K157 is about. The real defect is
+        narrower -- one book printing both forms -- and this cannot see it."""
+        source = 'to fit the 85M parameters of the baseline model.\n'
+        self.assertEqual(verify_chunk.check_numerals(
+            source, '기준 모델의 8500만 개 '
+                    '파라미터.\n'), [])
+
+
 class ItRunsOnEveryChunk(unittest.TestCase):
 
     def test_verify_chunk_calls_it(self):
