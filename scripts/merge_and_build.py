@@ -4028,6 +4028,19 @@ def expand_thebibliography(md_text, label, pandoc=None):
     if not rendered:                       # no pandoc: the text, unformatted
         rendered = [' '.join(e.split()) for e in entries]
 
+    # Number them. `build_bibitem_numbers` numbers the in-text citations 1..N
+    # from this same `\bibitem` list in this same order, and the list itself
+    # was rendered as bare paragraphs with no labels at all, so every book
+    # this pipeline has produced carries citations reading [1] to [9] over a
+    # list of nine unlabelled paragraphs. The reader cannot resolve any of
+    # them. It reached the English pass-through edition too, which is what
+    # says it was never a translation defect; six reading passes found it and
+    # no check did, because nothing had ever compared the two.
+    #
+    # `[n]` and not `n.`: the citations print `[1]` and a multi-key one
+    # prints `[1, 3]`, so the list has to answer in the same notation.
+    rendered = ['[%d] %s' % (i + 1, text) for i, text in enumerate(rendered)]
+
     return (md_text[:m.start()] + '\n\n# %s\n\n' % label
             + '\n\n'.join(rendered) + '\n\n' + md_text[m.end():],
             len(entries))
