@@ -176,38 +176,68 @@ def printed_equation_count(markers):
     return total
 
 
+def caption_probe(region):
+    """The prose probe for the first caption inside a float's region."""
+    cap = mb._CAPTION_CMD_RE.search(region)
+    if not cap:
+        return None
+    start = region.index('{', cap.end() - 1)
+    close = mb._balanced_group(region, start)
+    if close < 0:
+        return None
+    return probe_of(region[start + 1:close - 1])
+
+
+def caption_sites(pdf_flat, needle, rivals):
+    r"""Every place in the PDF that could be where this caption was printed.
+
+    Two reasons there can be more than one, and the first hit be the wrong
+    one. A caption gets quoted in the body before it is printed. And a
+    shorter caption opens a longer one: DeeR-VLA's `Detailed results in the
+    setting ABC$\rightarrow$D` is a prefix of `...ABCD$\rightarrow$D`, so
+    `find` stopped at the ABCD table and the probe reported a float number
+    the build had not got wrong.
+
+    An occurrence that a LONGER caption also starts at belongs to that
+    caption. Yield the rest in order and let the caller take the first one
+    with a float label printed in front of it.
+    """
+    at = pdf_flat.find(needle)
+    while at >= 0:
+        if not any(len(rival) > len(needle) and pdf_flat.startswith(rival, at)
+                   for rival in rivals):
+            yield at
+        at = pdf_flat.find(needle, at + 1)
+
+
 def check_floats(temp_dir, flat, pdf_flat):
     """Each float's caption, against the Figure/Table number beside it."""
     agree = disagree = skipped = 0
     problems = []
     tex = flat                        # probe() strips comments once, up front
+    units = []
     for unit in mb.float_units(tex):
         if unit['number'] is None:
             continue
-        region = tex[unit['start']:unit['stop']]
-        cap = mb._CAPTION_CMD_RE.search(region)
-        if not cap:
-            skipped += 1
-            continue
-        start = region.index('{', cap.end() - 1)
-        close = mb._balanced_group(region, start)
-        if close < 0:
-            skipped += 1
-            continue
-        probe = probe_of(region[start + 1:close - 1])
+        units.append((unit, caption_probe(tex[unit['start']:unit['stop']])))
+    probes = [probe for _unit, probe in units if probe]
+    for unit, probe in units:
         if not probe:
             skipped += 1
             continue
-        at = pdf_flat.find(probe[:44])
-        if at < 0:
-            skipped += 1
-            continue
-        head = pdf_flat[max(0, at - 30):at]
-        # Dotted here too: a float counter reset per section prints
-        # `Table 3.1`. Comparison is by STRING, because `3.1` has no integer
-        # form and `int()` threw the number away rather than disagreeing.
-        got = re.search(r'(?:Figure|Fig\.?|Table|Tab\.?)\s*'
-                        r'(\d+(?:\.\d+)*)\s*[:.]?\s*$', head)
+        needle = probe[:44]
+        rivals = [other for other in probes if other != probe]
+        got = None
+        for at in caption_sites(pdf_flat, needle, rivals):
+            head = pdf_flat[max(0, at - 30):at]
+            # Dotted here too: a float counter reset per section prints
+            # `Table 3.1`. Comparison is by STRING, because `3.1` has no
+            # integer form and `int()` threw the number away rather than
+            # disagreeing.
+            got = re.search(r'(?:Figure|Fig\.?|Table|Tab\.?)\s*'
+                            r'(\d+(?:\.\d+)*)\s*[:.]?\s*$', head)
+            if got:
+                break
         if not got:
             skipped += 1
             continue
@@ -217,7 +247,7 @@ def check_floats(temp_dir, flat, pdf_flat):
             disagree += 1
             problems.append('we number this %s %s, the paper prints %s: %s'
                             % (unit['kind'], unit['number'], got.group(1),
-                               probe[:44]))
+                               needle))
     return agree, disagree, skipped, problems
 
 

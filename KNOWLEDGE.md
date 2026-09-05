@@ -186,6 +186,7 @@ here; the test is the real record. This file is for the *reasoning*, the
 | Inline maths sits above or below the words beside it | [K166](#k166) |
 | A grep of output.md disagrees with the finished PDF | [K167](#k167) |
 | A CJK line opens with 。 or 、 after an inline formula | [K168](#k168) |
+| source_probe says a float number disagrees with the paper | [K169](#k169) |
 
 ---
 
@@ -2399,6 +2400,20 @@ white-space reaches that decision, so a standards argument is not a
 measurement. Nor was the second try neutral: it fixed page 9 and exposed the
 same shape on page 6, since moving one line moves every line after it.
 *Status: both reverted. One line in one of seven editions, left on the record.*
+
+### K169
+**A caption that opens another caption is not that caption.** `source_probe`
+said the build numbered a table 11 where the paper printed 10; the build was
+right. `check_floats` found a caption by the first `pdf_flat.find` of its
+longest prose run, and once the arrow ends that run DeeR-VLA's `Detailed
+results in the setting ABC$\rightarrow$D` is a literal prefix of
+`...ABCD$\rightarrow$D`, so the search stopped at the ABCD table and read its
+number. Four throwaway comparators fell to the same collision before the
+check's own code was read; the shipped check already built the sentence
+naming the float, and only its count was being looked at. `caption_sites` now
+walks past an occurrence a LONGER caption also starts at, or one with no
+float label in front of it.
+*Status: fixed. 11 agree, 0 disagree; every other temp dir byte-identical.*
 
 ---
 
