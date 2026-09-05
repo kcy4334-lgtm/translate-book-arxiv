@@ -598,6 +598,46 @@ def check_fences(source, output):
                             len(_FENCE_RE.findall(output)))}]
 
 
+_GROUPED_NUMERAL_RE = re.compile(r'(?<![\w.,])(\d+[.,]\d+)(?![\d.,])')
+
+
+def check_numerals(source, output):
+    r"""A numeral keeps the spelling the source gave it.
+
+    French, German and Spanish write 58,9 where English writes 58.9, and
+    German writes 60.000 for sixty thousand. Translators apply those
+    conventions, correctly by the rules of their languages, and the book
+    cannot follow: a table float is protected LaTeX reproduced verbatim from
+    the paper, and `verify_tables` refuses any change to the numbers inside
+    one, which is the guard that stops a retyped value reaching a reader. The
+    page then carries 58,9 % in a sentence and 58.9\% in the table it is
+    about, and a reader who reads the source convention meets 60.000 as a
+    decimal.
+
+    Consistency is only reachable from one side, so the prose follows the
+    tables. Nothing else in the pipeline compares the two, and the CJK books
+    never showed it because their convention is the source's already.
+
+    Only numerals with an internal separator are checked. Those are the ones
+    whose spelling moves between locales, and a bare integer is left alone so
+    that spelling one out in words is still allowed.
+    """
+    wanted = set(_GROUPED_NUMERAL_RE.findall(source))
+    if not wanted:
+        return []
+    missing = sorted(n for n in wanted if n not in output)
+    if not missing:
+        return []
+    return [{
+        'check': 'numerals',
+        'severity': 'fail',
+        'detail': '%d numeral(s) the source writes are not in the '
+                  'translation, most likely respelled for the target '
+                  'locale: %s' % (len(missing), ', '.join(missing[:6])),
+        'evidence': _quote_around(source, missing[0]),
+    }]
+
+
 def check_structure(source, output):
     """Headings, table rows and list items may be added -- not lost."""
     out = []
@@ -878,6 +918,7 @@ def verify_chunk(temp_dir, chunk_name, lang):
     findings += check_commentary(output)
     findings += check_fences(source, output)
     findings += check_structure(source, output)
+    findings += check_numerals(source, output)
     findings += check_length(source, output, lang)
     findings += check_neighbor_leak(temp_dir, chunk_name, output, source)
     findings += check_glossary(temp_dir, source, output)
