@@ -499,8 +499,16 @@
                The remedy is also the ordinary convention: a gothic for
                emphasis and navigation over a 宋体 body. Every sans named for
                zh has a real bold. Scoped to zh because Korean and Japanese
-               reach faces that do have one. */
+               reach faces that do have one.
+
+               `em.cjk` belongs here for a second reason. The italic
+               substitute below turns CJK emphasis into BOLD, because no CJK
+               face has a real italic -- and on SimSun that lands straight
+               back on the synthesised bold this rule exists to avoid. The
+               two remedies collided and produced the last two Type3 glyphs
+               in the book. */
             html:lang(zh) strong, html:lang(zh) b,
+            html:lang(zh) em.cjk, html:lang(zh) i.cjk,
             html:lang(zh) .print-toc .toc-text {
                 font-family: var(--p-sans);
             }

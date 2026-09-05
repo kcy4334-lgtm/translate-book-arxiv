@@ -424,6 +424,15 @@ class BoldChineseTests(unittest.TestCase):
         family, so it inherited the serif from the body."""
         self.assertIn('.toc-text', self.rule())
 
+    def test_it_covers_marked_cjk_emphasis(self):
+        r"""The last two, and the subtlest. No CJK face has a real italic,
+        so `em.cjk` is rendered BOLD instead of a synthesised oblique -- and
+        on SimSun that lands straight back on the synthesised bold this rule
+        exists to avoid. Two remedies, colliding."""
+        rule = self.rule()
+        self.assertIn('em.cjk', rule)
+        self.assertIn('i.cjk', rule)
+
     def test_korean_and_japanese_are_not_swept_up(self):
         rule = self.rule()
         self.assertNotIn('lang(ko)', rule)
