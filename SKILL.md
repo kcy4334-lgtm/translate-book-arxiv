@@ -920,8 +920,38 @@ and leave untouched: every number, every model/benchmark/method name, all LaTeX
 structure (`&` and `\\` counts, `\multicolumn`/`\multirow` arguments, column
 specs, rules), and `\cite{}`/`\label{}` keys.
 
-Tell each agent to edit with a Python script, `json` for the sidecars, never
-a shell heredoc.
+**Have each agent edit through `sidecar_edit.py`, never through a script of
+its own.** The agents run at once and share one scratch directory, so when
+each has to invent a filename they converge on the same obvious one. In one
+session two of them wrote `translate_floats.py`; one had its file replaced on
+disk between writing it and running it, executed the other's code against the
+wrong book, and then restored that book from a backup older than a third
+agent's finished translation, which vanished. Nothing caught it, and nothing
+could have: a file reverted to the original carries exactly the numbers, rows
+and `&` counts the snapshot recorded, so `verify_tables.py` calls a perfect
+revert a PASS.
+
+```bash
+python {baseDir}/scripts/sidecar_edit.py read "<temp_dir>/chunk0006.math.json"
+#   ... translate the words, then write the replacement LaTeX to a file ...
+python {baseDir}/scripts/sidecar_edit.py write "<temp_dir>/chunk0006.math.json" \
+    --token T0004 --expect <the sha256 that read printed> --latex-file new.tex
+```
+
+`write` refuses when the file has changed since that `sha256` was issued, so
+an agent working from an older read cannot replace someone else's work; it is
+told to re-read and redo the edit, because a restore from a backup is that
+same stale write wearing a different name. It also refuses a changed number
+(anywhere in the float, captions included, which `verify_tables.py` never
+looks at), row, cell count, spanning cell, LaTeX command, placeholder or
+citation key, so no agent hand-rolls that check any more. Every accepted write
+is appended to `<temp_dir>/.sidecar_edits.jsonl`, so a caption that was
+translated and then overwritten leaves both events on the record instead of
+neither.
+
+Inline tables live in `output_chunkNNNN.md`, which is markdown: edit those
+with the ordinary file-editing tool. The per-agent script only ever existed
+because JSON needs programmatic editing, and now it does not.
 
 **Take the baseline before they start, and check it yourself afterwards.** An
 agent that dropped an `&` or retyped a number reports exactly what a careful

@@ -178,6 +178,7 @@ here; the test is the real record. This file is for the *reasoning*, the
 | The paper's own rows print like every baseline's | [K158](#k158) |
 | Text that should be on the page is in the stylesheet instead | [K159](#k159) |
 | The book opens on its table of contents, with no title page | [K160](#k160) |
+| A sub-agent's finished edit is gone and every check still passes | [K161](#k161) |
 
 ---
 
@@ -2286,6 +2287,20 @@ its heading by the existing path, and the contents page is inserted after
 the title page rather than pinned to `<body>`, or the book still opens on
 its index with the title on the leaf behind it.
 *Status: LOCKED, `BuildingIt`, `TheContentsComeSecond`.*
+
+### K161
+**Parallel agents sharing a scratch directory converge on the same filename.**
+Two table agents each wrote `translate_floats.py`. One had its file replaced
+between writing it and running it, so it ran the other's code against the
+wrong book, then restored that book from a backup older than a third agent's
+finished Japanese, which vanished. Nothing could catch it: a file reverted to
+the original carries exactly the numbers, rows and `&` counts the snapshot
+holds, so `verify_tables` calls a perfect revert a PASS. Telling the agents to
+choose unique names is not the fix; the same collision happened again in the
+next round, before the message saying so could arrive. The fix is having no
+script to name: `sidecar_edit.py` makes the edit and refuses a write whose
+`sha256` predates someone else's, which is what a restore is.
+*Status: LOCKED, `TheIncident`, `EveryEditIsOnTheRecord`; 15/15 captions.*
 
 ---
 
