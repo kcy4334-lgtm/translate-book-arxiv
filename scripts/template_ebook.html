@@ -506,8 +506,19 @@
                face has a real italic -- and on SimSun that lands straight
                back on the synthesised bold this rule exists to avoid. The
                two remedies collided and produced the last two Type3 glyphs
-               in the book. */
-            html:lang(zh) strong, html:lang(zh) b,
+               in the book.
+
+               `th` belongs here for a third reason, and it was the one this
+               list was missing: a table header is bold by the browser's own
+               stylesheet, not by any `<strong>`, so nothing above matched it
+               and every header cell went back to 宋体 at weight 700. The
+               Chinese edition carried 97 synthesised glyphs on its three
+               table pages -- 系统, 测试帧准确率, 覆盖的专用模型数量 -- while
+               the Latin `WER` beside them, having a real bold, stayed
+               NotoSerif-Bold. Half the header row in one family, half in
+               another, and the whole of it Type3. Korean and Japanese have
+               none: HCR Batang and BIZ UDMincho ship a bold. */
+            html:lang(zh) strong, html:lang(zh) b, html:lang(zh) th,
             html:lang(zh) em.cjk, html:lang(zh) i.cjk,
             html:lang(zh) .print-toc .toc-text {
                 font-family: var(--p-sans);

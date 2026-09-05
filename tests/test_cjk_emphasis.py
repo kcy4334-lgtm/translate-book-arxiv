@@ -27,6 +27,57 @@ sys.path.insert(0, os.path.join(ROOT, 'scripts'))
 import merge_and_build as mb
 
 
+class EveryBoldChineseElementReachesAFaceWithABold(unittest.TestCase):
+    r"""A table header is bold without any `<strong>` in it.
+
+    The print sheet routes bold Chinese to the sans stack because 宋体 has no
+    bold companion and Chromium synthesises one as a Type3 object per glyph.
+    The selector listed `strong`, `b` and the two emphasis classes, all of
+    which are markup somebody wrote. A `<th>` is bold by the browser's own
+    stylesheet instead, so nothing matched it, and the Chinese edition
+    carried 97 synthesised glyphs across its three table pages while Korean
+    and Japanese carried none.
+
+    Asserted against the template rather than a render: the suite runs on the
+    standard library and there is no browser on CI.
+    """
+
+    def sheet(self):
+        import io
+        path = os.path.join(ROOT, 'scripts', 'template_ebook.html')
+        with io.open(path, encoding='utf-8') as handle:
+            return handle.read()
+
+    def sans_rule(self):
+        """The declaration block that sends bold Chinese to the sans stack."""
+        text = self.sheet()
+        at = text.index('html:lang(zh) strong')
+        return text[at:text.index('}', at)]
+
+    def test_a_chinese_table_header_is_in_the_sans_stack(self):
+        self.assertIn('html:lang(zh) th', self.sans_rule())
+
+    def test_the_rule_still_covers_what_it_always_did(self):
+        rule = self.sans_rule()
+        for selector in ('html:lang(zh) strong', 'html:lang(zh) b',
+                         'html:lang(zh) em.cjk', 'html:lang(zh) i.cjk'):
+            self.assertIn(selector, rule)
+        self.assertIn('var(--p-sans)', rule)
+
+    def test_korean_and_japanese_are_left_alone(self):
+        r"""They reach HCR Batang and BIZ UDMincho, which ship a bold, so
+        sending their headers to a gothic would change the page for nothing.
+
+        Asked of the sans rule and not of the whole sheet: `html:lang(ja) th`
+        appears elsewhere in perfectly good standing, in the rule that turns
+        `word-break: keep-all` off for languages that do not put spaces
+        between words. A first version of this test searched the file and
+        failed on that."""
+        rule = self.sans_rule()
+        self.assertNotIn('lang(ko)', rule)
+        self.assertNotIn('lang(ja)', rule)
+
+
 class MarkTests(unittest.TestCase):
 
     def test_korean_emphasis_is_marked(self):
