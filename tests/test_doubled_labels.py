@@ -27,6 +27,58 @@ KO = {'particle_agreement': True}
 EQ = {'equation': '{label} ({number})'}
 
 
+class ANumberInBracketsIsStillANumber(unittest.TestCase):
+    r"""`式 式 (3)`.
+
+    An equation reference is written `式 (3)`, not `式 3`, and this rule was
+    anchored on a bare digit -- so it could never see a doubling in one. The
+    Chinese edition printed `那么式 式 (3)` and `针对式 式 (5)` while every
+    count reported zero.
+
+    They reach this stage at all because Chinese leaves no space between
+    words: the translator's own 式 sits inside 那么式, and the absorbing pass
+    deliberately refuses to lift a label out of the middle of a word.
+    """
+
+    EQ = {'equation': '{label} ({number})'}
+
+    def collapse(self, text, label='式'):
+        return mb.drop_doubled_labels(text, {'equation': label}, self.EQ, {})
+
+    def test_the_two_that_shipped(self):
+        for text, want in (
+                ('使得 ∑ = 0，那么式 式 (3) 可简化为：',
+                 '使得 ∑ = 0，那么式 (3) 可简化为：'),
+                ('并使用梯度下降针对式 式 (5) 优化 logits。',
+                 '并使用梯度下降针对式 (5) 优化 logits。')):
+            got, n = self.collapse(text)
+            self.assertEqual(got, want)
+            self.assertEqual(n, 1)
+
+    def test_a_full_width_bracket_too(self):
+        got, n = self.collapse('见式 式（7）的推导')
+        self.assertEqual(got, '见式（7）的推导')
+        self.assertEqual(n, 1)
+
+    def test_a_single_reference_is_untouched(self):
+        for text in ('那么式 (3) 可简化为', '见式（7）的推导', '式 (5) 没有解'):
+            got, n = self.collapse(text)
+            self.assertEqual((got, n), (text, 0))
+
+    def test_the_bare_digit_form_still_collapses(self):
+        """`그림 그림 1` is what this rule was written for; it must survive."""
+        got, n = mb.drop_doubled_labels('그림 그림 1 에서 보듯',
+                                        {'figure': '그림'}, PREFIX, KO)
+        self.assertEqual(got, '그림 1 에서 보듯')
+        self.assertEqual(n, 1)
+
+    def test_an_appendix_letter_still_collapses(self):
+        got, n = mb.drop_doubled_labels('표 표 C1에 정리했다', {'table': '표'},
+                                        {'table': '{label} {number}'}, KO)
+        self.assertEqual(got, '표 C1에 정리했다')
+        self.assertEqual(n, 1)
+
+
 class AnAbbreviationIsTheSameDoubling(unittest.TestCase):
     r"""`l'éq. Équation (3)`.
 

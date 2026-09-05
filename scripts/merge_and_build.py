@@ -3694,7 +3694,26 @@ def drop_doubled_labels(md_text, words, formats, lang_cfg=None):
             # while missing every appendix one: sixteen `그림 그림 A1` and
             # `표 표 C1` reached the finished book while the check that had
             # just been written reported zero.
-            pattern = re.compile(esc + r'\s+(' + esc + r'\s*[A-Za-z]?\d)')
+            # The number can also be parenthesised. An equation reference is
+            # written `式 (3)`, not `式 3`, so this rule could never see the
+            # doubling in one: Chinese printed `那么式 式 (3)` and `针对式 式
+            # (5)` with every count reporting zero.
+            #
+            # Those two are only reachable here, and not at the absorbing
+            # stage, because Chinese leaves no space between words: the
+            # translator's own 式 sits inside 那么式, and `_xref_regex`
+            # deliberately refuses to take a label out of the middle of a
+            # word -- the same guard that stops 수식 being split at 식.
+            #
+            # The residual risk is the mirror of that guard: a Chinese word
+            # ending in 式 (模式, 方式, 形式) standing immediately before a
+            # reference would lose the label rather than the duplicate. The
+            # two shapes are identical in a script with no word boundaries,
+            # so this cannot tell them apart; it chooses the visible defect
+            # over the invisible one, since a bare `(3)` still reads as an
+            # equation reference and `式 式 (3)` reads as nothing.
+            pattern = re.compile(esc + r'\s+(' + esc
+                                 + r'\s*[（(]?\s*[A-Za-z]?\d)')
             md_text, n = pattern.subn(r'\1', md_text)
             total += n
             md_text, n = drop_abbreviated_label(md_text, label)
