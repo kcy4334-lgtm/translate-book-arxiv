@@ -31,6 +31,15 @@ and `REFEREE.md`, which is your own ledger of what was decided before.
 - **CHRONIC**: the same check has fired in three or more runs. Nobody has
   fixed it; it belongs in KNOWLEDGE and a fix, not in another re-translation.
 
+A count includes what fired and was then REPAIRED, so expect BRIEF on a run
+whose chunks all pass now. `verify_chunk` journals each verdict as it goes and
+the tally reads that back. Before, the run was described by one check taken at
+build time, when every chunk must pass or the build would have refused, so the
+run most worth remembering was recorded as clean: one edition had a check fire
+on five chunks of eight, past the 30%, and was stored as `failed: 0`. The
+question you are answering is what the run went through, not what survives in
+the folder afterwards.
+
 ## Before any card: whose fault is it?
 
 Three possibilities, and they are not distinguishable from the count alone:
