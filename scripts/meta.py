@@ -32,7 +32,19 @@ import hashlib
 import json
 import os
 import re
+import sys
 import tempfile
+
+# `prompt-block` prints an em dash, and a Windows console on a Korean locale
+# encodes stdout as cp949, which has no character for it: the command died with
+# UnicodeEncodeError and took `verify_chunk`-style callers down with it. Eight
+# other scripts here already carry this guard; this one did not, so the failure
+# only showed when the suite ran without PYTHONIOENCODING set.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding='utf-8', errors='replace')
+    except (AttributeError, ValueError, OSError):
+        pass
 
 
 META_SCHEMA_VERSION = 1

@@ -99,6 +99,27 @@ class CliTests(unittest.TestCase):
         self.assertEqual(out.returncode, 0, out.stderr)
         self.assertIn("target_proposal", out.stdout)
 
+    def test_it_survives_a_console_that_cannot_spell_an_em_dash(self):
+        r"""The block prints an em dash. A Windows console under a Korean
+        locale encodes stdout as cp949, which has no character for it, and the
+        command died with UnicodeEncodeError. Eight other scripts here carry a
+        UTF-8 stdout guard; this one did not.
+
+        It hid because the guard was supplied from outside: every invocation
+        that passed had PYTHONIOENCODING set in its environment, so the suite
+        went green from one shell and red from another with no code between.
+
+        Forced to ASCII rather than cp949, so this reproduces on the Ubuntu CI
+        as readily as on the machine that found it.
+        """
+        env = dict(os.environ, PYTHONIOENCODING="ascii")
+        out = subprocess.run(
+            [sys.executable, str(REPO / "scripts" / "meta.py"), "prompt-block"],
+            capture_output=True, env=env)
+        self.assertEqual(out.returncode, 0,
+                         out.stderr.decode("utf-8", "replace"))
+        self.assertIn(b"target_proposal", out.stdout)
+
 
 class WorkflowWiringTests(unittest.TestCase):
     """A generated block nobody is told to generate is a block nobody pastes."""
