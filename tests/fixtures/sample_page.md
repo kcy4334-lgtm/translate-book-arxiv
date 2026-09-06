@@ -1,33 +1,31 @@
 # Budgeted Early Exit for Robot Policies
 
-## 1. Introduction
+## 3. Method
 
-A robot policy built on a large multimodal model spends the same computation on
-every step, whether the gripper is crossing empty space or closing on a handle.
-This paper asks whether it can decide, at each step, how much of its own
-network to run.
+### 3.1 Exit rule
 
-### 1.1 Contributions
+Early exits have been studied since BranchyNet (Teerapittayanon et al., 2016),
+where a confidence threshold at an intermediate layer decides whether to stop.
+A policy has no such confidence to read, so we compare the actions two
+adjacent exits predict and stop once they agree.
 
-- An exit rule reading the agreement between two adjacent internal predictions.
-- A budget allocator that spends what is left over the steps that remain.
+Let $o_t$ be the observation at step $t$ and $a^{(k)}_t$ the action predicted
+at exit $k$. The policy leaves at the first $k$ satisfying
 
-## 2. Method
+$$\lVert a^{(k)}_t - a^{(k-1)}_t \rVert_2 < \alpha$$
 
-Let $o_t$ be the observation at step $t$ and $\pi_\theta$ the policy. The
-training objective is the usual behaviour-cloning loss over a demonstration
-set $\mathcal{D}$:
+with $\alpha = 0.15$ throughout. The rule needs no network of its own: both
+actions are already computed on the way through the backbone
+(Vaswani et al., 2017).
 
-$$\mathcal{L}(\theta) = \mathbb{E}_{(o,a) \sim \mathcal{D}}
-\left[ -\log \pi_\theta(a \mid o) \right]$$
+## 4. Experiments
 
-## 3. Experiments
-
-| Method | Success | Latency | Parameters |
-| --- | --- | --- | --- |
-| Full model | 74.8% | 240 ms | 7B |
-| Greedy exit | 72.0% | 104 ms | 7B |
-| Budgeted exit (ours) | 74.3% | 88 ms | 7B |
+| Method | Success | Latency | GFLOPs | Parameters |
+| --- | --- | --- | --- | --- |
+| Full model (Brohan et al., 2023) | 74.8% | 240 ms | 31.2 | 7B |
+| Fixed half-depth | 68.1% | 121 ms | 15.6 | 7B |
+| Greedy exit | 72.0% | 104 ms | 11.4 | 7B |
+| Budgeted exit (ours) | 74.3% | 88 ms | 9.7 | 7B |
 
 ![](images/fig1.png)
 

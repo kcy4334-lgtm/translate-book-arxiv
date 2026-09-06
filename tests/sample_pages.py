@@ -15,8 +15,14 @@ as `sample_page.<lang>.md`, produced by the pipeline and reviewed. Rendering is
 deterministic, so a reader is trusting the checked-in text, not a claim about
 it.
 
-The figure is drawn by `layout_probe.make_figure` rather than checked in as a
-binary, and the page geometry is the shipped `a4-book` profile.
+The page reads like the middle of a paper -- numbered sections, a display
+equation, citations, a results table and a figure -- because a thin one-page
+summary shows the typography without showing what a reader is actually
+judging. The results are invented; the papers it cites are real, since citing
+work is not republishing it.
+
+The figure is drawn by `draw_chart` rather than checked in as a binary, and
+the page geometry is the shipped `a4-book` profile.
 """
 import argparse
 import io
@@ -50,6 +56,58 @@ creator=translate-book
 publisher=translate-book
 source_language=en
 """
+
+
+def draw_chart(path, width=900, height=160):
+    r"""A small line chart, drawn here rather than checked in as a binary.
+
+    The first version of this reused `layout_probe.make_figure`, which draws a
+    labelled rectangle: fine for measuring a page, and obviously a placeholder
+    on one meant to show what the pipeline produces. A reader judging a sample
+    should be looking at something a paper would actually print.
+    """
+    import pymupdf
+    doc = pymupdf.open()
+    page = doc.new_page(width=width, height=height)
+    left, right = 96, width - 40
+    top, bottom = 28, height - 46
+    ink = (0.15, 0.15, 0.15)
+
+    page.draw_line(pymupdf.Point(left, bottom), pymupdf.Point(right, bottom),
+                   color=ink, width=1.4)
+    page.draw_line(pymupdf.Point(left, bottom), pymupdf.Point(left, top),
+                   color=ink, width=1.4)
+
+    def at(fx, fy):
+        return pymupdf.Point(left + (right - left) * fx,
+                             bottom - (bottom - top) * fy)
+
+    # Two curves: a fixed-depth baseline that falls away as the budget
+    # tightens, and a budgeted rule that holds until it cannot.
+    budgeted = [(0.00, 0.93), (0.18, 0.92), (0.36, 0.91), (0.54, 0.90),
+                (0.72, 0.86), (0.86, 0.72), (1.00, 0.48)]
+    fixed = [(0.00, 0.92), (0.18, 0.84), (0.36, 0.74), (0.54, 0.62),
+             (0.72, 0.49), (0.86, 0.37), (1.00, 0.24)]
+    for pts, dash in ((budgeted, None), (fixed, '[4 3] 0')):
+        for a, b in zip(pts, pts[1:]):
+            page.draw_line(at(*a), at(*b), color=ink, width=2.0, dashes=dash)
+    for fx, fy in budgeted:
+        page.draw_circle(at(fx, fy), 3.4, color=ink, fill=ink)
+
+    page.insert_text(pymupdf.Point(left - 78, top + 46), 'success',
+                     fontname='helv', fontsize=15, color=ink)
+    page.insert_text(pymupdf.Point(left - 78, top + 66), 'rate',
+                     fontname='helv', fontsize=15, color=ink)
+    page.insert_text(pymupdf.Point(right - 150, bottom + 30),
+                     'compute per step', fontname='helv', fontsize=15,
+                     color=ink)
+    page.insert_text(at(0.06, 0.30), 'budgeted', fontname='helv',
+                     fontsize=15, color=ink)
+    page.insert_text(at(0.06, 0.16), 'fixed depth', fontname='helv',
+                     fontsize=15, color=ink)
+
+    page.get_pixmap(matrix=pymupdf.Matrix(1, 1), alpha=False).save(path)
+    doc.close()
 
 
 def fixture_for(lang):
@@ -106,7 +164,6 @@ def build_one(lang, workdir):
     import layout
     import merge_and_build
     import chromium_pdf
-    import layout_probe
 
     fixture = fixture_for(lang)
     if not os.path.isfile(fixture):
@@ -125,8 +182,8 @@ def build_one(lang, workdir):
         fh.write(CONFIG_TXT.format(lang=lang, title=title))
     # Short and wide, so the figure and its caption land on the same page as
     # the table. The caption is where the per-language float label shows.
-    layout_probe.make_figure(os.path.join(workdir, 'images', 'fig1.png'),
-                             width=900, height=95)
+    draw_chart(os.path.join(workdir, 'images', 'fig1.png'),
+               width=900, height=160)
 
     ok = merge_and_build.convert_md_to_html(
         workdir, title, lang_cfg, 'translate-book',

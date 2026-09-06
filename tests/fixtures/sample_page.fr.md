@@ -1,33 +1,32 @@
 # Sortie anticipée sous budget pour les politiques robotiques
 
-## 1. Introduction
+## 3. Méthode
 
-Une politique robotique fondée sur un grand modèle multimodal consacre la même
-quantité de calcul à chaque pas, que la pince traverse un espace vide ou se
-referme sur une poignée. Cet article se demande si elle peut décider, à chaque
-pas, quelle part de son propre réseau exécuter.
+### 3.1 Règle de sortie
 
-### 1.1 Contributions
+Les sorties anticipées sont étudiées depuis BranchyNet (Teerapittayanon et al.,
+2016), où un seuil de confiance placé sur une couche intermédiaire décide de
+l’arrêt. Une politique n’offre aucune confiance de ce type ; nous comparons donc
+les actions prédites par deux sorties voisines et nous arrêtons dès qu’elles
+concordent.
 
-- Une règle de sortie qui lit l’accord entre deux prédictions internes voisines.
-- Un allocateur de budget qui répartit ce qu’il reste sur les pas restants.
+Soit $o_t$ l’observation au pas $t$ et $a^{(k)}_t$ l’action prédite à la sortie
+$k$. La politique sort au premier $k$ vérifiant
 
-## 2. Méthode
+$$\lVert a^{(k)}_t - a^{(k-1)}_t \rVert_2 < \alpha$$
 
-Soit $o_t$ l’observation au pas $t$ et $\pi_\theta$ la politique. L’objectif
-d’entraînement est la perte usuelle de clonage comportemental sur un ensemble
-de démonstrations $\mathcal{D}$ :
+avec $\alpha = 0.15$ partout. La règle ne requiert aucun réseau propre : les deux
+actions sont déjà calculées lors du passage dans le réseau dorsal
+(Vaswani et al., 2017).
 
-$$\mathcal{L}(\theta) = \mathbb{E}_{(o,a) \sim \mathcal{D}}
-\left[ -\log \pi_\theta(a \mid o) \right]$$
+## 4. Expériences
 
-## 3. Expériences
-
-| Méthode | Succès | Latence | Paramètres |
-| --- | --- | --- | --- |
-| Modèle complet | 74.8 % | 240 ms | 7B |
-| Sortie gloutonne | 72.0 % | 104 ms | 7B |
-| Sortie sous budget (notre méthode) | 74.3 % | 88 ms | 7B |
+| Méthode | Succès | Latence | GFLOPs | Paramètres |
+| --- | --- | --- | --- | --- |
+| Modèle complet (Brohan et al., 2023) | 74.8% | 240 ms | 31.2 | 7B |
+| Demi-profondeur fixe | 68.1% | 121 ms | 15.6 | 7B |
+| Sortie gloutonne | 72.0% | 104 ms | 11.4 | 7B |
+| Sortie sous budget (notre méthode) | 74.3% | 88 ms | 9.7 | 7B |
 
 ![](images/fig1.png)
 

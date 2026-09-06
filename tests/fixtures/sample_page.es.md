@@ -1,33 +1,31 @@
 # Salida anticipada presupuestada para políticas robóticas
 
-## 1. Introducción
+## 3. Método
 
-Una política robótica construida sobre un modelo multimodal de gran tamaño
-dedica la misma cantidad de cómputo a cada paso, tanto si la pinza atraviesa un
-espacio vacío como si se cierra sobre una manija. Este trabajo se pregunta si
-dicha política puede decidir, en cada paso, qué parte de su propia red ejecutar.
+### 3.1 Regla de salida
 
-### 1.1 Contribuciones
+Las salidas anticipadas se estudian desde BranchyNet (Teerapittayanon et al., 2016),
+donde un umbral de confianza en una capa intermedia decide si conviene detenerse.
+Una política no dispone de esa confianza, de modo que comparamos las acciones que
+predicen dos salidas contiguas y nos detenemos en cuanto coinciden.
 
-- Una regla de salida que interpreta la concordancia entre dos predicciones internas adyacentes.
-- Un asignador de presupuesto que reparte el cómputo sobrante entre los pasos restantes.
+Sea $o_t$ la observación en el paso $t$ y $a^{(k)}_t$ la acción predicha en la
+salida $k$. La política sale en el primer $k$ que cumple
 
-## 2. Método
+$$\lVert a^{(k)}_t - a^{(k-1)}_t \rVert_2 < \alpha$$
 
-Sea $o_t$ la observación en el paso $t$ y $\pi_\theta$ la política. El objetivo
-de entrenamiento es la habitual pérdida de clonación de comportamiento sobre un
-conjunto de demostraciones $\mathcal{D}$:
+con $\alpha = 0.15$ en todos los casos. La regla no necesita una red propia: ambas
+acciones ya se calculan al recorrer la red troncal
+(Vaswani et al., 2017).
 
-$$\mathcal{L}(\theta) = \mathbb{E}_{(o,a) \sim \mathcal{D}}
-\left[ -\log \pi_\theta(a \mid o) \right]$$
+## 4. Experimentos
 
-## 3. Experimentos
-
-| Método | Éxito | Latencia | Parámetros |
-| --- | --- | --- | --- |
-| Modelo completo | 74.8% | 240 ms | 7B |
-| Salida voraz | 72.0% | 104 ms | 7B |
-| Salida presupuestada (nuestra) | 74.3% | 88 ms | 7B |
+| Método | Éxito | Latencia | GFLOPs | Parámetros |
+| --- | --- | --- | --- | --- |
+| Modelo completo (Brohan et al., 2023) | 74.8% | 240 ms | 31.2 | 7B |
+| Media profundidad fija | 68.1% | 121 ms | 15.6 | 7B |
+| Salida voraz | 72.0% | 104 ms | 11.4 | 7B |
+| Salida presupuestada (nuestra) | 74.3% | 88 ms | 9.7 | 7B |
 
 ![](images/fig1.png)
 

@@ -804,6 +804,98 @@ def find_bib_files(root):
     return sorted(found)
 
 
+_BIB_ENTRY_RE = re.compile(r'(?m)^[ \t]*@[A-Za-z]+[ \t]*\{')
+
+
+def _closes_at(text, start, escaped):
+    r"""Where the brace opened at `start` closes, or -1.
+
+    `escaped=True` reads a backslash as escaping the next character, which is
+    what pandoc does. `escaped=False` counts every brace, which is what BibTeX
+    does. Two readings of one file are the whole of this problem.
+    """
+    depth, i = 0, start
+    while i < len(text):
+        ch = text[i]
+        if escaped and ch == '\\':
+            i += 2
+            continue
+        if ch == '{':
+            depth += 1
+        elif ch == '}':
+            depth -= 1
+            if depth == 0:
+                return i
+        i += 1
+    return -1
+
+
+def repair_bib_braces(path):
+    r"""Make one `.bib` readable by pandoc without changing what it says.
+
+    BibTeX does not treat a backslash as escaping a brace: it counts `{` and
+    `}` and nothing else. pandoc's reader follows the LaTeX convention, where
+    `\}` is a literal brace. A file can therefore be valid to BibTeX, the
+    program a `.bib` is written for, and unreadable to pandoc.
+
+    One paper ends a field with an escaped brace where the closer belonged.
+    BibTeX closes the field there and is content, which is why the paper
+    builds on arXiv. pandoc reads that brace as text, never closes the entry,
+    meets the next `@` and exits 25 -- taking the whole conversion with it,
+    for a paper whose body cites 22 keys that live only in that file
+    (KNOWLEDGE.md K145).
+
+    Repairing it by hand does not survive, because the work directory is
+    re-unpacked before every run. So repair it here, after unpacking and
+    before pandoc reads it.
+
+    Only an entry pandoc cannot close is touched, and only by dropping a
+    backslash BibTeX was already ignoring, so the file still says the same
+    thing to the program it was written for. An entry that will not close even
+    then is left exactly as it was: a file this cannot fix is one to report,
+    not to guess at.
+
+    Returns the number of entries repaired.
+    """
+    try:
+        with open(path, encoding='utf-8', errors='replace') as fh:
+            text = fh.read()
+    except (IOError, OSError):
+        return 0
+
+    starts = [m.end() - 1 for m in _BIB_ENTRY_RE.finditer(text)]
+    if not starts:
+        return 0
+
+    repaired, pieces, cursor = 0, [], 0
+    for n, start in enumerate(starts):
+        nxt = starts[n + 1] if n + 1 < len(starts) else len(text)
+        closes = _closes_at(text, start, escaped=True)
+        if 0 <= closes < nxt:
+            continue                      # pandoc closes it: nothing to do
+        bibtex_closes = _closes_at(text, start, escaped=False)
+        if not 0 <= bibtex_closes < nxt:
+            continue                      # BibTeX cannot close it either
+        entry = text[start:nxt]
+        fixed = entry.replace('\\}', '}').replace('\\{', '{')
+        if _closes_at(fixed, 0, escaped=True) < 0:
+            continue                      # still broken; leave it alone
+        pieces.append(text[cursor:start])
+        pieces.append(fixed)
+        cursor = nxt
+        repaired += 1
+
+    if not repaired:
+        return 0
+    pieces.append(text[cursor:])
+    try:
+        with open(path, 'w', encoding='utf-8', newline='') as fh:
+            fh.write(''.join(pieces))
+    except (IOError, OSError):
+        return 0
+    return repaired
+
+
 # Presentation-only markup that pandoc does not consume and that therefore
 # reaches the markdown as literal text. \cellcolor is the one that does real
 # damage: pandoc writes wide tables as *simple tables*, whose columns are
@@ -2197,6 +2289,12 @@ def build(input_file, temp_dir, arxiv_id, allow_network=True):
     # citations AND the reference list, whereas an inlined thebibliography
     # leaves every in-text \cite as a bare `[@key]`.
     bib_files = find_bib_files(work_dir)
+    # Before pandoc reads them, and after the unpack that would have thrown
+    # away any hand repair (K145).
+    mended = sum(repair_bib_braces(p) for p in bib_files)
+    if mended:
+        print(f"Bibliography: {mended} entry(ies) closed with a brace pandoc "
+              f"read as literal text; BibTeX had already closed them")
     if not bib_files:
         flat = inline_bibliography(flat, work_dir)
 

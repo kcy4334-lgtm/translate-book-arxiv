@@ -47,7 +47,9 @@ Each chunk gets its own independent subagent with a fresh context window. This p
 
 ## What it prints
 
-One printed page, the same page, in each language. Click any of them for the full-size render.
+A page from the middle of a paper: numbered sections, a display equation,
+citations, a results table and a figure. The same page, in each language.
+Click any of them for the full-size render.
 
 | | | | |
 |:--:|:--:|:--:|:--:|
@@ -57,13 +59,15 @@ One printed page, the same page, in each language. Click any of them for the ful
 | Français | Deutsch | Español | |
 
 What changes across the row is not only the prose. The float label follows the
-language (`Figure 1`, `그림 1 (Fig. 1)`, `图 1`), the table header cells are
-translated while every number is not, the body font is chosen per script, and
-the line breaking follows each language's own rules.
+language (`Figure 1`, `그림 1 (Fig. 1)`, `図 1`), the table header cells and the
+method names are translated while every number, unit and citation is not, the
+body font is chosen per script, and the line breaking follows each language's
+own rules.
 
-**This is a page written for this repository, not a page of somebody's paper.**
-An arXiv paper is its authors' work and this project has no licence to
-republish one, so the sample is a short synthetic paper with invented numbers:
+**The page is written for this repository; the work it cites is real.** An
+arXiv paper is its authors' work and this project has no licence to republish
+a page of one, so the sample is a short paper of our own, with invented
+results and citations to the papers a real one would cite. It lives at
 `tests/fixtures/sample_page.md`, with each translation checked in beside it as
 `sample_page.<lang>.md`. Regenerate every image with
 

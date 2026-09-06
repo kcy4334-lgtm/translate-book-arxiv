@@ -1,35 +1,31 @@
-# Budgetierter vorzeitiger Ausstieg für Roboter-Policies
+# Budgetierter Frühausstieg für Roboter-Policies
 
-## 1. Einleitung
+## 3. Methode
 
-Eine Roboter-Policy, die auf einem großen multimodalen Modell aufbaut, wendet in
-jedem Schritt denselben Rechenaufwand auf, gleichgültig ob der Greifer leeren
-Raum durchquert oder sich um einen Griff schließt. Die vorliegende Arbeit geht
-der Frage nach, ob sie in jedem Schritt selbst entscheiden kann, welchen Anteil
-ihres eigenen Netzes sie ausführt.
+### 3.1 Ausstiegsregel
 
-### 1.1 Beiträge
+Vorzeitige Ausstiege werden seit BranchyNet (Teerapittayanon et al., 2016)
+untersucht, wo eine Konfidenzschwelle in einer Zwischenschicht den Abbruch
+auslöst. Da Policies diese Konfidenz fehlt, vergleichen wir zwei benachbarte
+Ausstiege und brechen bei übereinstimmenden Aktionen ab.
 
-- Eine Ausstiegsregel, die die Übereinstimmung zwischen zwei benachbarten internen Vorhersagen ausliest.
-- Ein Budgetzuteiler, der das Verbleibende auf die noch ausstehenden Schritte verteilt.
+Sei $o_t$ die Beobachtung in Schritt $t$, $a^{(k)}_t$ die an Ausstieg $k$
+vorhergesagte Aktion. Die Policy steigt beim ersten $k$ aus, für das gilt:
 
-## 2. Methode
+$$\lVert a^{(k)}_t - a^{(k-1)}_t \rVert_2 < \alpha$$
 
-Sei $o_t$ die Beobachtung im Schritt $t$ und $\pi_\theta$ die Policy. Das
-Trainingsziel ist der übliche Behaviour-Cloning-Verlust über einer
-Demonstrationsmenge $\mathcal{D}$:
+mit durchgängig $\alpha = 0.15$. Die Regel braucht kein eigenes Netz; beide
+Aktionen fallen im Backbone-Durchlauf ohnehin an (Vaswani et al., 2017).
 
-$$\mathcal{L}(\theta) = \mathbb{E}_{(o,a) \sim \mathcal{D}}
-\left[ -\log \pi_\theta(a \mid o) \right]$$
+## 4. Experimente
 
-## 3. Experimente
-
-| Verfahren | Erfolg | Latenz | Parameter |
-| --- | --- | --- | --- |
-| Vollständiges Modell | 74.8% | 240 ms | 7B |
-| Gieriger Ausstieg | 72.0% | 104 ms | 7B |
-| Budgetierter Ausstieg (unser Verfahren) | 74.3% | 88 ms | 7B |
+| Verfahren | Erfolg | Latenz | GFLOPs | Parameter |
+| --- | --- | --- | --- | --- |
+| Vollständiges Modell (Brohan et al., 2023) | 74.8% | 240 ms | 31.2 | 7B |
+| Feste halbe Tiefe | 68.1% | 121 ms | 15.6 | 7B |
+| Gieriger Ausstieg | 72.0% | 104 ms | 11.4 | 7B |
+| Budgetierter Ausstieg (unser Verfahren) | 74.3% | 88 ms | 9.7 | 7B |
 
 ![](images/fig1.png)
 
-Erfolgsquote in Abhängigkeit vom durchschnittlichen Rechenaufwand pro Schritt.
+Erfolgsquote über dem mittleren Rechenaufwand pro Schritt.
