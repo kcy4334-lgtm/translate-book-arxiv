@@ -1795,14 +1795,30 @@ class FragmentWriterTests(unittest.TestCase):
     it chooses a simple table -- columns by character position, no `|` at all
     -- which _is_markdown_table cannot recognise, so nine of AlphaQ's twelve
     tables were dropped to plain text in the Word file while the HTML had all
-    twelve and every count agreed with itself."""
+    twelve and every count agreed with itself.
 
-    def test_only_pipe_tables_are_allowed(self):
+    Grid tables were turned off in the same change, which went further than
+    that reason required: a grid table opens with `+---+`, which the check has
+    always recognised. It cost four tables per book, because a table needing
+    more than a pipe table can express came back as prose and stayed raw
+    LaTeX. Grid is allowed now; the two styles with no `|` still are not."""
+
+    def test_the_styles_without_pipes_are_refused(self):
         spec = merge_and_build._FRAGMENT_WRITER
         self.assertIn('+pipe_tables', spec)
-        for style in ('simple_tables', 'multiline_tables', 'grid_tables'):
+        for style in ('simple_tables', 'multiline_tables'):
             self.assertIn('-' + style, spec,
                           '%s can still be chosen' % style)
+
+    def test_grid_tables_are_allowed(self):
+        """The style that carries a spanned or multi-line cell."""
+        self.assertIn('+grid_tables', merge_and_build._FRAGMENT_WRITER)
+
+    def test_every_allowed_style_is_one_the_check_can_see(self):
+        """The contract binding the writer to `_is_markdown_table`: whatever
+        pandoc is allowed to emit must be recognisable as a table."""
+        for sample in ('| a | b |', '+---+---+'):
+            self.assertTrue(merge_and_build._is_markdown_table(sample), sample)
 
     def test_the_div_wrapper_is_off(self):
         """`::: table*` around a float prints literally in the DOCX."""

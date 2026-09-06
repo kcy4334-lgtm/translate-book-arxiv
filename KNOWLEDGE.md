@@ -189,6 +189,7 @@ here; the test is the real record. This file is for the *reasoning*, the
 | source_probe says a float number disagrees with the paper | [K169](#k169) |
 | A caption check counts one more table than the book has | [K170](#k170) |
 | A Chinese book prints 第 第3.2节 节, or a probe reads it as Korean | [K171](#k171) |
+| The DOCX carries fewer tables than the EPUB | [K172](#k172) |
 
 ---
 
@@ -2444,6 +2445,20 @@ because `--lang` defaulted to `ko` and it never read config.txt: it judged a
 Chinese book by the Hangul range. `verify_chunk` had been fixed for that same
 default and left a note saying so -- K114's shape exactly.
 *Status: both fixed. Korean unchanged across the suite.*
+
+### K172
+**A grid table is one the check can see; a simple table is not.** The DOCX
+path renders each raw LaTeX table to markdown, since raw HTML is dropped when
+pandoc writes DOCX. `_FRAGMENT_WRITER` disabled simple, multiline AND grid,
+leaving only pipe. The recorded reason was simple tables: they mark columns by
+character position with no `|` anywhere, so `_is_markdown_table` cannot see
+one, and nine of AlphaQ's twelve fell to plain text in Word. Grid went off in
+the same breath and did not need to: it opens `+---+`, which that check has
+always accepted. The cost was four tables per book, each needing a multi-line
+cell or a spanned column. DeeR-VLA's DOCX went from 7 tables to 16, matching
+the EPUB, and its values from 4/6 to 6/6. The hazard in `grid_tables_to_pipe`
+is a different one, about markdown a translator edits; nothing edits this.
+*Status: fixed. PDF byte-identical, so only the DOCX path moved.*
 
 ---
 

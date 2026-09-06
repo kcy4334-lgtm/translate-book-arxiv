@@ -4667,7 +4667,22 @@ def _latex_fragment_to_html(latex, pandoc, work, name, inline=False,
 # recognise, so nine of AlphaQ's twelve tables were dropped to plain text in
 # the Word file while the HTML had all twelve. It also wraps the table in a
 # `::: table*` div that prints literally. Pipe tables and nothing else.
-_FRAGMENT_WRITER = ('markdown-simple_tables-multiline_tables-grid_tables'
+# Grid is allowed; simple and multiline are not. The rule that matters is
+# that the table pandoc writes must be one `_is_markdown_table` can see and
+# pandoc can read back, and a simple table satisfies neither: it marks columns
+# by character position with no `|` anywhere, which is how nine of AlphaQ's
+# twelve tables fell to plain text in the Word file while the HTML had all
+# twelve. A grid table opens with `+---+`, which that check has always
+# recognised.
+#
+# Turning grid off as well went further than the reason required, and it cost
+# four tables per book: a table needing more than a pipe table can say -- a
+# multi-line cell, a spanned column -- came back as prose and was left as raw
+# LaTeX, so DeeR-VLA's DOCX carried 7 of its 11 tables. The hazard recorded
+# for grid tables in `grid_tables_to_pipe` is a different one: it belongs to
+# markdown a translator edits, where a widened CJK cell no longer lines up.
+# Nothing edits this markdown between pandoc writing it and pandoc reading it.
+_FRAGMENT_WRITER = ('markdown-simple_tables-multiline_tables+grid_tables'
                     '+pipe_tables-fenced_divs-native_divs-raw_html')
 
 
