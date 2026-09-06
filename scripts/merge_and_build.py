@@ -619,6 +619,32 @@ PANDOC_FROM = ('markdown+smart+east_asian_line_breaks+tex_math_dollars'
                '+tex_math_single_backslash+pipe_tables+grid_tables+raw_html'
                '-markdown_in_html_blocks')
 
+# Scripts that write no space between words, so a wrapped line has none to
+# lose. Korean is East Asian to pandoc and to Unicode, and is NOT one of them.
+_NO_INTERWORD_SPACE = ('zh', 'ja')
+
+
+def pandoc_from(lang=None):
+    r"""The reader extensions, minus any this language must not have.
+
+    `east_asian_line_breaks` deletes the newline between two East Asian
+    characters. That is right for Chinese and Japanese, where a line wrapped
+    in the source carries no space to begin with. Korean separates words with
+    spaces and pandoc classifies Hangul as East Asian too, so a paragraph
+    wrapped across lines in the merged markdown came back with its words run
+    together: `가로지르고 있든\n손잡이를` printed as `있든손잡이를`.
+
+    No shipped book has shown it, for one reason: translator sub-agents happen
+    to write each paragraph as a single long line. That is luck rather than
+    design -- the merged markdown is an ordinary text file, a hand edit or a
+    differently-behaved agent can wrap it, and the damage is silent because
+    every count still agrees.
+    """
+    base = (lang or '').split('-')[0].lower()
+    if base in _NO_INTERWORD_SPACE:
+        return PANDOC_FROM
+    return PANDOC_FROM.replace('+east_asian_line_breaks', '')
+
 # [] = not yet resolved, [None] = definitively absent
 _PANDOC_PATH = []
 
@@ -5592,7 +5618,7 @@ def convert_with_pandoc(md_file, html_file, title, lang_attr, math_mode='mathml'
         '--standalone',
         '--metadata', f'title={title}',
         '--metadata', f'lang={lang_attr}',
-        '--from', PANDOC_FROM,
+        '--from', pandoc_from(lang_attr),
         '--to', 'html5',
         '--wrap=preserve',
     ]
@@ -7730,7 +7756,7 @@ def generate_docx_with_pandoc(temp_dir, title, author, lang_attr,
     # and silently downgrades the whole DOCX to the math-less Calibre path.
     cmd = [
         pandoc, os.path.basename(md_file), '-o', os.path.basename(out_file),
-        '--from', PANDOC_FROM, '--to', 'docx',
+        '--from', pandoc_from(lang_attr), '--to', 'docx',
         '--standalone', '--toc', '--toc-depth=3',
         '--metadata', f'title={title}',
         '--metadata', f'author={author}',

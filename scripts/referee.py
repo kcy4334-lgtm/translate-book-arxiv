@@ -146,13 +146,31 @@ def judge(run, history):
     return lines, flags
 
 
+def edition_of(run):
+    r"""What counts as the same run coming round again.
+
+    The paper alone did, and one paper's two language editions then shared a
+    single row. DeeR-VLA was translated into Korean and then Chinese in one
+    session; the Chinese row replaced the Korean one, and what it erased was
+    the Korean run's `meta_evidence` firing on five chunks of eight -- past
+    BRIEF_FAULT_SHARE, the exact shape this store exists to remember.
+
+    A second edition is not a re-run. It has its own brief, its own glossary
+    and its own agents, so it votes on its own. And a defect that appears in
+    BOTH editions of one paper is the most useful repeat there is: it says
+    the fault is in the brief or the tool rather than in the language.
+    """
+    return (run.get('paper'), run.get('lang'))
+
+
 def cmd_tally(args):
     run = collect(args.temp_dir, args.lang)
     data = load()
-    # This paper's own earlier row is not history: comparing a run against
+    # This edition's own earlier row is not history: comparing a run against
     # itself reports every defect as a repeat, which is the one thing a
-    # repeat-detector must never do.
-    history = [r for r in data['runs'] if r.get('paper') != run['paper']]
+    # repeat-detector must never do. Another edition of the same paper is
+    # history, and the most informative kind.
+    history = [r for r in data['runs'] if edition_of(r) != edition_of(run)]
     lines, flags = judge(run, history)
     for line in lines:
         print(line)
@@ -175,9 +193,12 @@ def cmd_tally(args):
 def cmd_record(args):
     run = collect(args.temp_dir, args.lang)
     data = load()
-    # One row per paper: a re-run replaces its own row rather than voting
-    # twice, or a book re-translated five times would look like an epidemic.
-    data['runs'] = [r for r in data['runs'] if r.get('paper') != run['paper']]
+    # One row per paper AND language: a re-run replaces its own row rather
+    # than voting twice, or a book re-translated five times would look like an
+    # epidemic. A different language edition is not a re-run and keeps its own
+    # row -- see `edition_of`.
+    data['runs'] = [r for r in data['runs']
+                    if edition_of(r) != edition_of(run)]
     data['runs'].append(run)
     save(data)
     print('Referee: %s recorded (%d run(s) known, %d check(s) this run)'

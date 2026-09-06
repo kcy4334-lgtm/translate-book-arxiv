@@ -45,6 +45,37 @@ Merge → Pandoc → HTML (with TOC) → pandoc DOCX / Calibre EPUB / Chromium P
 
 Each chunk gets its own independent subagent with a fresh context window. This prevents context accumulation and output truncation that happen when translating a full book in a single session.
 
+## What it prints
+
+One printed page, the same page, in each language. Click any of them for the full-size render.
+
+| | | | |
+|:--:|:--:|:--:|:--:|
+| [<img src="docs/samples/sample_en.png" width="200">](docs/samples/sample_en.png) | [<img src="docs/samples/sample_ko.png" width="200">](docs/samples/sample_ko.png) | [<img src="docs/samples/sample_ja.png" width="200">](docs/samples/sample_ja.png) | [<img src="docs/samples/sample_zh.png" width="200">](docs/samples/sample_zh.png) |
+| English (source) | 한국어 | 日本語 | 简体中文 |
+| [<img src="docs/samples/sample_fr.png" width="200">](docs/samples/sample_fr.png) | [<img src="docs/samples/sample_de.png" width="200">](docs/samples/sample_de.png) | [<img src="docs/samples/sample_es.png" width="200">](docs/samples/sample_es.png) | |
+| Français | Deutsch | Español | |
+
+What changes across the row is not only the prose. The float label follows the
+language (`Figure 1`, `그림 1 (Fig. 1)`, `图 1`), the table header cells are
+translated while every number is not, the body font is chosen per script, and
+the line breaking follows each language's own rules.
+
+**This is a page written for this repository, not a page of somebody's paper.**
+An arXiv paper is its authors' work and this project has no licence to
+republish one, so the sample is a short synthetic paper with invented numbers:
+`tests/fixtures/sample_page.md`, with each translation checked in beside it as
+`sample_page.<lang>.md`. Regenerate every image with
+
+```bash
+python tests/sample_pages.py
+```
+
+Rendering is deterministic and the figure is drawn by the script rather than
+checked in, so what a reader is trusting is the text in the repository, not a
+claim about it. Geometry is the shipped `a4-book` profile: A4, 18/18/22/18 mm,
+11.5 pt body.
+
 ## Features
 
 - **Numbers come from the paper**: equation, theorem, section, float and subfigure numbers are reconstructed from the LaTeX source and checked against the original PDF by `tests/source_probe.py`, not against the build's own output
@@ -253,6 +284,38 @@ python3 ../../scripts/merge_and_build.py --temp-dir standard-alice_temp --title 
 ## Feedback and Contributions
 
 Please open a detailed GitHub issue instead of starting with a pull request. A change here has to be checked against the orchestration rules in `SKILL.md`, the chunk and manifest contracts, the baseline assets, and the release flow, and those only hold together when one person reads them side by side.
+
+## Releases
+
+Versions are git tags on `main`, and the tag is the only version anchor in the
+repository: there is no version string in a file to drift away from it.
+
+```bash
+git push origin main
+git tag v0.3.0 && git push --tags
+```
+
+The argument is bare semver; the `v` prefix belongs to the tag alone. The
+`/release` command in `.claude/commands/release.md` runs exactly those two
+steps and stops on the first failure rather than trying to recover. A tag that
+is already on the remote is not re-pointed without asking, because somebody may
+have fetched it.
+
+Before tagging, the suite has to be green on a clean checkout:
+
+```bash
+python -m unittest discover -s tests -p "test_*.py"
+```
+
+**ClawHub is not part of this fork's release.** Upstream,
+[deusyu/translate-book](https://github.com/deusyu/translate-book), publishes
+there under the name `translate-book`. This repository does not, and publishing
+a fork under a name someone else owns is not ours to do.
+
+Built books are not attached as release assets. A translated paper is a
+derivative of somebody else's work, and this project has no licence to
+redistribute one. The per-language samples above are written for this
+repository precisely so that they can be shown without that question arising.
 
 Pull requests are not the preferred contribution path and may be closed in favor of an issue. If you already have a patch, include the idea, key diff, failing case, or verification notes in the issue; the maintainer may rework or split the implementation before merging.
 
