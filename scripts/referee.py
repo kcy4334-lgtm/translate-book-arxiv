@@ -78,6 +78,49 @@ def paper_of(temp_dir):
         return os.path.basename(os.path.abspath(temp_dir))
 
 
+def journalled_checks(temp_dir):
+    r"""Every check the gate saw fire while this book was being translated.
+
+    `collect` used to describe a run by running the gate once, at the end. By
+    then the failures are repaired -- the build refuses to finish otherwise --
+    so the run that most needed remembering, the one whose brief was wrong,
+    was recorded as clean. `verify_chunk` now appends each verdict to
+    `.verify_history.jsonl` as it goes, and this reads it back.
+
+    The union across rows, worst severity wins. A chunk that failed and was
+    fixed still counts: BRIEF_FAULT_SHARE asks how many chunks a check fired
+    on, not how many are still broken.
+    """
+    checks, seen = {}, 0
+    if not temp_dir:
+        return checks, seen          # a relative path would read the cwd's
+    path = os.path.join(temp_dir, '.verify_history.jsonl')
+    try:
+        with io.open(path, encoding='utf-8', errors='replace') as fh:
+            lines = fh.readlines()
+    except (IOError, OSError):
+        return checks, seen
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            row = json.loads(line)
+        except ValueError:
+            continue
+        seen = max(seen, len(row.get('chunks') or []))
+        for key, slot in (row.get('checks') or {}).items():
+            into = checks.setdefault(key, {'severity': slot.get('severity',
+                                                                'warn'),
+                                           'chunks': []})
+            for chunk in slot.get('chunks') or []:
+                if chunk not in into['chunks']:
+                    into['chunks'].append(chunk)
+            if slot.get('severity') == 'fail':
+                into['severity'] = 'fail'
+    return checks, seen
+
+
 def collect(temp_dir, lang):
     """Run verify_chunk and fold its per-chunk report into per-check counts."""
     cmd = [sys.executable, os.path.join(SKILL_DIR, 'scripts',
@@ -100,8 +143,21 @@ def collect(temp_dir, lang):
                                            'chunks': []})
             if row['chunk'] not in slot['chunks']:
                 slot['chunks'].append(row['chunk'])
+    # What the gate saw earlier in the run, folded in. `failed` stays the
+    # count that is true NOW, because that is what it claims to be; `checks`
+    # carries everything that fired, because that is what a repeat-detector
+    # needs and a final snapshot cannot hold.
+    journalled, seen = journalled_checks(temp_dir)
+    for key, slot in journalled.items():
+        into = checks.setdefault(key, {'severity': slot['severity'],
+                                       'chunks': []})
+        for chunk in slot['chunks']:
+            if chunk not in into['chunks']:
+                into['chunks'].append(chunk)
+        if slot['severity'] == 'fail':
+            into['severity'] = 'fail'
     return {'paper': paper_of(temp_dir), 'lang': lang,
-            'chunks': len(results),
+            'chunks': max(len(results), seen),
             'failed': sum(1 for r in results if not r.get('ok', True)),
             'checks': checks}
 

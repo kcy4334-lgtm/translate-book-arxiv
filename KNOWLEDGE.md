@@ -190,6 +190,7 @@ here; the test is the real record. This file is for the *reasoning*, the
 | A caption check counts one more table than the book has | [K170](#k170) |
 | A Chinese book prints 第 第3.2节 节, or a probe reads it as Korean | [K171](#k171) |
 | The DOCX carries fewer tables than the EPUB | [K172](#k172) |
+| The referee remembers a run as clean that was not | [K173](#k173) |
 
 ---
 
@@ -2459,6 +2460,20 @@ cell or a spanned column. DeeR-VLA's DOCX went from 7 tables to 16, matching
 the EPUB, and its values from 4/6 to 6/6. The hazard in `grid_tables_to_pipe`
 is a different one, about markdown a translator edits; nothing edits this.
 *Status: fixed. PDF byte-identical, so only the DOCX path moved.*
+
+### K173
+**A record written after the repair records the repair.** The referee learned
+a run's shape by running `verify_chunk` once, at build time, and the build
+refuses to finish while a chunk fails, so every run reached that moment
+clean. DeeR-VLA's Korean edition had `meta_evidence` fire on five chunks of
+eight, past BRIEF_FAULT_SHARE, and was stored as `failed: 0`. Telling the
+operator to record after each batch is not the fix: that is a prose step, and
+it was skipped in the session that found the bug, by the agent that had just
+read the rule. The gate is the only thing present while the failure exists,
+so `verify_chunk` appends each verdict to `.verify_history.jsonl` and
+`referee.collect` unions it back. A chunk that failed and was then fixed
+still counts, because the share asks what FIRED, not what is still broken.
+*Status: fixed, along with the edition keying the build's inline copy missed.*
 
 ---
 

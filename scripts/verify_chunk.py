@@ -1039,6 +1039,54 @@ def _glob_chunks(temp_dir):
             if not os.path.basename(p).startswith('output_')]
 
 
+VERIFY_HISTORY = '.verify_history.jsonl'
+
+
+def journal_run(temp_dir, lang, results):
+    r"""Append what this run of the gate actually saw. Best effort.
+
+    The referee learned a run's shape from a snapshot taken at build time, and
+    by then every chunk must pass or the build would have refused. So a run
+    whose BRIEF was wrong -- `meta_evidence` firing on five chunks out of
+    eight, past BRIEF_FAULT_SHARE, which is the one thing that store exists to
+    catch -- was remembered as `failed: 0`. The signal most worth keeping was
+    the only one that could not survive to the moment somebody wrote it down.
+
+    Telling the operator to record after every batch is not a fix. That is a
+    prose step, and prose steps are skipped: this one was skipped in the very
+    session that found the bug, by the agent that had just read the rule.
+
+    The gate is the only thing present while the failure exists, so the gate
+    writes it down. Append-only, and never allowed to fail a check -- a record
+    that can break what it observes gets removed the first time it does.
+    """
+    # No directory means nowhere to write. `os.path.join('', name)` is a
+    # RELATIVE path, so the first version of this dropped the journal into
+    # whatever directory the gate happened to be run from.
+    if not temp_dir or not os.path.isdir(temp_dir):
+        return
+    checks = {}
+    for result in results:
+        for finding in result.get('findings') or []:
+            slot = checks.setdefault(finding['check'],
+                                     {'severity': finding['severity'],
+                                      'chunks': []})
+            if result['chunk'] not in slot['chunks']:
+                slot['chunks'].append(result['chunk'])
+            if finding['severity'] == 'fail':
+                slot['severity'] = 'fail'
+    row = {'lang': lang,
+           'chunks': [r['chunk'] for r in results],
+           'failed': [r['chunk'] for r in results if not r['ok']],
+           'checks': checks}
+    try:
+        with io.open(os.path.join(temp_dir or '', VERIFY_HISTORY), 'a',
+                     encoding='utf-8', newline='\n') as fh:
+            fh.write(json.dumps(row, ensure_ascii=False, sort_keys=True) + '\n')
+    except (IOError, OSError):
+        pass
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     parser.add_argument('temp_dir')
@@ -1059,6 +1107,9 @@ def main():
     lang = args.lang or config_lang(args.temp_dir) or 'ko'
     results = [verify_chunk(args.temp_dir, name, lang)
                for name in chunk_names(args.temp_dir, args.chunks)]
+    # Written before anything is reported or repaired, because this is the
+    # only moment the failure exists to be written down.
+    journal_run(args.temp_dir, lang, results)
     failed = [r for r in results if not r['ok']]
     warned = [r for r in results
               if r['ok'] and any(f['severity'] == 'warn' for f in r['findings'])]

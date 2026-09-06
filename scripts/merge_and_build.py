@@ -8049,7 +8049,13 @@ def main():
         run = referee.collect(temp_dir, lang_code)
         if run['chunks']:
             data = referee.load()
-            history = [r for r in data['runs'] if r.get('paper') != run['paper']]
+            # Keyed on the edition, not the paper. Keying on the paper alone
+            # let one book's second language replace its first, and the row it
+            # erased was the one carrying a brief fault. `referee.py` was
+            # fixed for that and this inline copy was not, which is K114's
+            # shape a second time in one session.
+            history = [r for r in data['runs']
+                       if referee.edition_of(r) != referee.edition_of(run)]
             lines, flags = referee.judge(run, history)
             print()
             for line in lines:
@@ -8066,7 +8072,7 @@ def main():
             # One row per paper: a re-run replaces its own row rather than
             # voting twice.
             data['runs'] = [r for r in data['runs']
-                            if r.get('paper') != run['paper']]
+                            if referee.edition_of(r) != referee.edition_of(run)]
             data['runs'].append(run)
             referee.save(data)
     except Exception as exc:                      # never fail a good build
