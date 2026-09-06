@@ -188,6 +188,7 @@ here; the test is the real record. This file is for the *reasoning*, the
 | A CJK line opens with 。 or 、 after an inline formula | [K168](#k168) |
 | source_probe says a float number disagrees with the paper | [K169](#k169) |
 | A caption check counts one more table than the book has | [K170](#k170) |
+| A Chinese book prints 第 第3.2节 节, or a probe reads it as Korean | [K171](#k171) |
 
 ---
 
@@ -2429,6 +2430,20 @@ to `float_units`, whose docstring says "Pass comment-stripped tex", making
 braces, so stripping the extracted body leaves its first line looking live.
 Strip the float, then read it.
 *Status: all four fixed. The build's own gate was right every time.*
+
+### K171
+**A Chinese reference is written AROUND the number.** zh's `ref_formats` is
+`第{number}{label}`, so a translator writes `第 (sec:x) 节` and both halves
+doubled: `第 第3.2节 节在任意...`. 第 is not a label word, so `_xref_regex`
+never absorbed it; the closing 节 was left to `drop_doubled_labels`, whose
+`(?!\w)` guard can never hold where the next character is an ideograph. After
+substitution that 节 is indistinguishable from the 节 of 节点, so take the
+closing word BEFORE it, where the placeholder's `)` bounds it, and put it
+back unless the emitted reference ends in it. `consistency_probe` missed this
+because `--lang` defaulted to `ko` and it never read config.txt: it judged a
+Chinese book by the Hangul range. `verify_chunk` had been fixed for that same
+default and left a note saying so -- K114's shape exactly.
+*Status: both fixed. Korean unchanged across the suite.*
 
 ---
 

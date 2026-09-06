@@ -2927,21 +2927,66 @@ _XREF_BODY = (
 _XREF_RE = re.compile(_XREF_LEAD + _XREF_BODY, re.IGNORECASE)
 
 
-def _xref_regex(labels):
+def template_affixes(formats, words):
+    r"""The literal words a reference template puts around the number.
+
+    Chinese writes a section reference `第3.2节`, so `ref_formats` carries
+    `第{number}{label}`. A translator writes that same 第 in front of the
+    placeholder and that same 节 after it. Neither was absorbed: 第 is not a
+    label word at all, and the closing 节 is only reachable after the
+    substitution, where `(?!\w)` can never hold because the next character in
+    Chinese is another ideograph. DeeR-VLA printed `第 第3.2节 节在任意...`.
+
+    Only non-ASCII affixes are returned. The equation template is
+    `{label} ({number})`, whose literal head is ` (` -- punctuation, not a
+    word a translator repeats, and absorbing a bracket would eat the
+    reference's own parenthesis.
+    """
+    lead, trail = [], []
+    for slot, template in (formats or {}).items():
+        head, _sep, after = template.partition('{number}')
+        opener = head.replace('{label}', ' ').strip()
+        if opener and not opener.isascii():
+            lead.append(opener)
+        label = (words or {}).get(slot)
+        if label and '{label}' in after and not label.isascii():
+            trail.append(label)
+        closer = after.replace('{label}', ' ').strip()
+        if closer and not closer.isascii():
+            trail.append(closer)
+    return lead, trail
+
+
+def _xref_regex(labels, trailing=()):
     """The reference pattern, also absorbing the target language's own words.
 
     A translator writes "표 (tab:main)에서", not "Tab. (tab:main)". Absorbing
     only the English word left the Korean one standing beside the label this
     emits -- "표 표 12". The lookbehind keeps compounds intact: the word has to
     start where it stands, so "수식 (eq:x)" is not split at "식".
+
+    `trailing` is for a language whose reference form CLOSES with a word.
+    Cleaning that up after the substitution means guessing, because 节 also
+    opens 节点 and a script with no word boundaries cannot tell a duplicate
+    from the next word. Here the placeholder's own `)` bounds it, so there is
+    nothing to guess. It is captured rather than dropped: `xref_sub` puts it
+    back unless the resolved reference already ends in it.
     """
     words = sorted({w.strip() for w in labels if w and w.strip()},
                    key=len, reverse=True)
+    close = sorted({w.strip() for w in trailing if w and w.strip()},
+                   key=len, reverse=True)
+    tail = ''
+    if close:
+        tail = (r'(?:[ \t\xa0~]*(%s))?'
+                % '|'.join(re.escape(w) for w in close))
     if not words:
-        return _XREF_RE
+        if not tail:
+            return _XREF_RE
+        return re.compile(_XREF_LEAD + _XREF_BODY + tail, re.IGNORECASE)
     native = (r'(?:(?<!\w)(?:%s)[ \t\u00a0~]*)?'
               % '|'.join(re.escape(w) for w in words))
-    return re.compile(_XREF_LEAD + native + _XREF_BODY, re.IGNORECASE)
+    return re.compile(_XREF_LEAD + native + _XREF_BODY + tail, re.IGNORECASE)
 
 # reference kind -> (which map holds the number, which label word to use)
 _XREF_KINDS = {
@@ -3536,9 +3581,22 @@ def resolve_references(md_text, temp_dir, lang_cfg=None):
             return m.group(0)
         stats['xrefs'] += 1
         template = formats.get(slot, '{label} {number}')
-        return template.format(label=words[slot], number=number)
+        out = template.format(label=words[slot], number=number)
+        # The translator's own closing word, if the pattern took one. Drop it
+        # only where the reference this emits already ends in it; otherwise it
+        # belonged to the sentence and goes back untouched.
+        closer = m.group(3) if m.re.groups >= 3 else None
+        if closer and not out.endswith(closer):
+            out += closer
+        return out
 
-    xref_re = _xref_regex(words.values())
+    # Whatever the template puts around the number is what a translator writes
+    # around the placeholder. Korean's closing label stays with the
+    # particle-aware pass below, which has carried it across five books.
+    lead_affix, trail_affix = template_affixes(formats, words)
+    if lang_cfg.get('particle_agreement') is True:
+        trail_affix = []
+    xref_re = _xref_regex(list(words.values()) + lead_affix, trail_affix)
     if floats or index:
         md_text = xref_re.sub(xref_sub, md_text)
     else:

@@ -707,14 +707,42 @@ def probe(temp_dir, lang='ko', strict=False):
     return 0
 
 
+def resolve_lang(temp_dir, given):
+    r"""The language to judge this book by: the flag, else its own config.
+
+    `--lang` defaulted to `ko` and nothing read the answer sitting in the
+    directory the command is already pointed at. `verify_chunk` was fixed for
+    exactly this and left a note saying so; this probe was not, which is
+    KNOWLEDGE.md K114's shape -- learned in one place, not the other.
+
+    Run against the Chinese DeeR-VLA it judged every heading by the Hangul
+    range, so three headings that ARE Chinese were reported untranslated,
+    while the doublet list it compared renderings against was the Korean one,
+    so `split renderings: 0` meant nothing. The reports it did print were
+    about a book that was not there, and the one real defect it should have
+    caught -- `第 第3.2节 节` -- was reported as a heading problem instead.
+    """
+    if given:
+        return given
+    try:
+        import verify_chunk
+        return verify_chunk.config_lang(temp_dir) or 'ko'
+    except Exception:                                     # noqa: BLE001
+        return 'ko'
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split('\n')[1])
     ap.add_argument('temp_dir', help='a built <name>_temp directory')
-    ap.add_argument('--lang', default='ko', help='target language code')
+    ap.add_argument('--lang', default=None,
+                    help="target language code; taken from the temp dir's "
+                         "config.txt when not given, and 'ko' only if that "
+                         "has nothing to say")
     ap.add_argument('--strict', action='store_true',
                     help='exit non-zero when a defect is found')
     args = ap.parse_args()
-    sys.exit(probe(args.temp_dir, args.lang, args.strict))
+    lang = resolve_lang(args.temp_dir, args.lang)
+    sys.exit(probe(args.temp_dir, lang, args.strict))
 
 
 if __name__ == '__main__':
