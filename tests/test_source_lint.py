@@ -424,10 +424,24 @@ class GrowthStoresAreWiredIn(unittest.TestCase):
     def test_the_build_records_and_prints_the_referee(self):
         body = self._main_body()
         self.assertIn('import referee', body)
-        self.assertIn('referee.collect(', body)
-        self.assertIn('referee.save(', body,
-                      'the referee must RECORD, not only comment: a judgement '
-                      'nobody stores cannot notice a repeat next time')
+        self.assertIn('referee.judge_and_record(', body)
+
+    def test_the_referee_entry_point_actually_records(self):
+        r"""A judgement nobody stores cannot notice a repeat next time.
+
+        This used to be checked by looking for `referee.save(` in `main`,
+        which pinned HOW the build did it rather than THAT it did: collecting,
+        judging and recording were inlined here as well as living in
+        `referee`, and the copies drifted. The build calls one function now,
+        so the promise has to be checked where the storing happens.
+        """
+        with open(os.path.join(SCRIPTS, 'referee.py'), 'r',
+                  encoding='utf-8') as fh:
+            text = fh.read()
+        at = text.index('def judge_and_record(')
+        end = text.index('\ndef ', at + 1)
+        self.assertIn('save(', text[at:end],
+                      'judge_and_record must store what it judged')
 
     def test_the_build_reports_advisors_never_consulted(self):
         # The one state nobody could see: an advisor that leaves no trace.
@@ -438,7 +452,7 @@ class GrowthStoresAreWiredIn(unittest.TestCase):
     def test_none_of_them_can_fail_the_build(self):
         # Observability must never break a good book.
         body = self._main_body()
-        for call in ('corpus_census.record(', 'referee.collect(',
+        for call in ('corpus_census.record(', 'referee.judge_and_record(',
                      'advisors.build_note('):
             at = body.index(call)
             window = body[max(0, at - 400):at]

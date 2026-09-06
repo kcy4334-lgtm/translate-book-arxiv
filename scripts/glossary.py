@@ -35,6 +35,16 @@ import sys
 import tempfile
 from pathlib import Path
 
+# A CLI prints, and what it prints may carry the book's text. A Windows
+# console under a non-UTF-8 locale then raises UnicodeEncodeError and the
+# command dies -- which stayed hidden while every caller happened to set
+# PYTHONIOENCODING for it.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding='utf-8', errors='replace')
+    except (AttributeError, ValueError, OSError):
+        pass
+
 
 GLOSSARY_SCHEMA_VERSION = 2
 DEFAULT_TOP_N = 20

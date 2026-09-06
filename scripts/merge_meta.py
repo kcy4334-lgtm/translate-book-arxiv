@@ -35,6 +35,16 @@ from pathlib import Path
 import glossary as glossary_mod
 import meta as meta_mod
 
+# A CLI prints, and what it prints may carry the book's text. A Windows
+# console under a non-UTF-8 locale then raises UnicodeEncodeError and the
+# command dies -- which stayed hidden while every caller happened to set
+# PYTHONIOENCODING for it.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding='utf-8', errors='replace')
+    except (AttributeError, ValueError, OSError):
+        pass
+
 
 META_GLOB = 'output_chunk*.meta.json'
 TRANSLATED_GLOB = 'output_chunk*.md'

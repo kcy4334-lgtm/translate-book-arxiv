@@ -8044,37 +8044,16 @@ def main():
     # re-translated, because calling it was left to whoever ran the build and
     # nobody did. An advisor you have to remember to consult is a document, not
     # an advisor. It speaks here whether or not anyone asked.
+    # Collecting, judging and recording all live in `referee`. They were
+    # inlined here as well, which put the history filter in three places, the
+    # record sequence in two and the flag wording in two -- and the wording had
+    # already drifted from the copy it was taken from. A fix that reaches one
+    # copy and not the other is what K114 names, and this module has been
+    # repaired for it twice.
     try:
         import referee
-        run = referee.collect(temp_dir, lang_code)
-        if run['chunks']:
-            data = referee.load()
-            # Keyed on the edition, not the paper. Keying on the paper alone
-            # let one book's second language replace its first, and the row it
-            # erased was the one carrying a brief fault. `referee.py` was
-            # fixed for that and this inline copy was not, which is K114's
-            # shape a second time in one session.
-            history = [r for r in data['runs']
-                       if referee.edition_of(r) != referee.edition_of(run)]
-            lines, flags = referee.judge(run, history)
-            print()
-            for line in lines:
-                print(line)
-            for kind, key, n, total in flags:
-                if kind == 'brief':
-                    print("REFEREE/BRIEF: `%s` fired on %d of %d chunks. Every "
-                          "instance of a role reads the same prompt; fix the "
-                          "prompt before you fault the agents." % (key, n, total))
-                else:
-                    print("REFEREE/CHRONIC: `%s` has now fired in %d runs. "
-                          "Nobody has fixed it — it belongs in KNOWLEDGE, not "
-                          "in another re-translation." % (key, n))
-            # One row per paper: a re-run replaces its own row rather than
-            # voting twice.
-            data['runs'] = [r for r in data['runs']
-                            if referee.edition_of(r) != referee.edition_of(run)]
-            data['runs'].append(run)
-            referee.save(data)
+        for line in referee.judge_and_record(temp_dir, lang_code, 'REFEREE/'):
+            print(line)
     except Exception as exc:                      # never fail a good build
         print(f"Referee: not recorded ({exc})")
 

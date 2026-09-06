@@ -219,28 +219,81 @@ def edition_of(run):
     return (run.get('paper'), run.get('lang'))
 
 
+def history_for(data, run):
+    r"""Every recorded run except this edition's own earlier row.
+
+    Comparing a run against itself reports every defect as a repeat, which is
+    the one thing a repeat-detector must never do. Another edition of the same
+    paper IS history, and the most informative kind.
+    """
+    return [r for r in data.get('runs', []) if edition_of(r) != edition_of(run)]
+
+
+def remember(data, run):
+    r"""Replace this edition's row with `run`. Returns the same `data`.
+
+    One row per paper AND language: a re-run replaces its own row rather than
+    voting twice, or a book re-translated five times would look like an
+    epidemic. A different language edition is not a re-run and keeps its own
+    row (`edition_of`).
+    """
+    data['runs'] = history_for(data, run)
+    data['runs'].append(run)
+    return data
+
+
+def flag_lines(flags, prefix=''):
+    r"""The sentences a raised flag prints. Written once.
+
+    They were written twice: here and inlined in `merge_and_build`, and the
+    two had already drifted -- one said "Whatever it is, nobody has fixed it"
+    and the other "Nobody has fixed it". Two hand-kept copies of one sentence
+    is how a fix reaches one caller and not the other, which is what this
+    module has just been repaired for twice.
+
+    `prefix` is the caller's, since the build prints into a page of other
+    output and the CLI does not.
+    """
+    out = []
+    for kind, key, n, total in flags:
+        if kind == 'brief':
+            out.append('%sBRIEF: `%s` fired on %d of %d chunks. Every instance '
+                       'of a role reads the same prompt; fix the prompt before '
+                       'you fault the agents.' % (prefix, key, n, total))
+        else:
+            out.append('%sCHRONIC: `%s` has now fired in %d runs. Whatever it '
+                       'is, nobody has fixed it: it belongs in KNOWLEDGE, not '
+                       'in another re-translation.' % (prefix, key, n))
+    return out
+
+
+def judge_and_record(temp_dir, lang, prefix=''):
+    r"""Collect this run, judge it against history, record it. Returns lines.
+
+    The build did all of it inline and this module did it across two
+    commands, so the history filter existed in three places, the record
+    sequence in two and the flag wording in two. Callers that want only one
+    half still use the pieces; anything wanting both uses this.
+    """
+    run = collect(temp_dir, lang)
+    if not run['chunks']:
+        return []
+    data = load()
+    lines, flags = judge(run, history_for(data, run))
+    save(remember(data, run))
+    return list(lines) + flag_lines(flags, prefix)
+
+
 def cmd_tally(args):
     run = collect(args.temp_dir, args.lang)
     data = load()
-    # This edition's own earlier row is not history: comparing a run against
-    # itself reports every defect as a repeat, which is the one thing a
-    # repeat-detector must never do. Another edition of the same paper is
-    # history, and the most informative kind.
-    history = [r for r in data['runs'] if edition_of(r) != edition_of(run)]
-    lines, flags = judge(run, history)
+    lines, flags = judge(run, history_for(data, run))
     for line in lines:
         print(line)
     if flags:
         print()
-        for kind, key, n, total in flags:
-            if kind == 'brief':
-                print('BRIEF: `%s` fired on %d of %d chunks. Every instance '
-                      'of a role reads the same prompt; fix the prompt before '
-                      'you fault the agents.' % (key, n, total))
-            else:
-                print('CHRONIC: `%s` has now fired in %d runs. Whatever it is, '
-                      'nobody has fixed it — it belongs in KNOWLEDGE, not in '
-                      'another re-translation.' % (key, n))
+        for line in flag_lines(flags):
+            print(line)
     if args.json:
         print(json.dumps(run, ensure_ascii=False, indent=1, sort_keys=True))
     return 0
@@ -248,14 +301,7 @@ def cmd_tally(args):
 
 def cmd_record(args):
     run = collect(args.temp_dir, args.lang)
-    data = load()
-    # One row per paper AND language: a re-run replaces its own row rather
-    # than voting twice, or a book re-translated five times would look like an
-    # epidemic. A different language edition is not a re-run and keeps its own
-    # row -- see `edition_of`.
-    data['runs'] = [r for r in data['runs']
-                    if edition_of(r) != edition_of(run)]
-    data['runs'].append(run)
+    data = remember(load(), run)
     save(data)
     print('Referee: %s recorded (%d run(s) known, %d check(s) this run)'
           % (run['paper'], len(data['runs']), len(run['checks'])))

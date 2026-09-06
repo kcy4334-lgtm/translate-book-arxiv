@@ -191,6 +191,7 @@ here; the test is the real record. This file is for the *reasoning*, the
 | A Chinese book prints 第 第3.2节 节, or a probe reads it as Korean | [K171](#k171) |
 | The DOCX carries fewer tables than the EPUB | [K172](#k172) |
 | The referee remembers a run as clean that was not | [K173](#k173) |
+| A command dies with UnicodeEncodeError, or passes only in one shell | [K174](#k174) |
 
 ---
 
@@ -2474,6 +2475,20 @@ so `verify_chunk` appends each verdict to `.verify_history.jsonl` and
 `referee.collect` unions it back. A chunk that failed and was then fixed
 still counts, because the share asks what FIRED, not what is still broken.
 *Status: fixed, along with the edition keying the build's inline copy missed.*
+
+### K174
+**The suite was green from one shell and red from another.** A Windows console
+under a Korean locale encodes stdout as cp949. Ten scripts reconfigure stdout
+to UTF-8; nine with a `__main__` block did not, and six of those are commands
+SKILL.md has the agent run for every chunk. `glossary.py
+print-terms-for-chunk` and `chunk_context.py` died with UnicodeEncodeError,
+so the translation step fails on a default console. It hid because the guard
+came from OUTSIDE: every call that worked had PYTHONIOENCODING set, and no
+code differed between the two runs. The first rule tried was "which sources
+hold non-ASCII" and it was wrong -- `chunk_context.py` holds none and crashes
+anyway, because what it prints is the file it read. If it has a CLI, it
+prints, and what it prints is the book.
+*Status: fixed on all nine, with a test over every CLI script.*
 
 ---
 

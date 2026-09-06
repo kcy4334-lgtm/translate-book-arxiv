@@ -83,5 +83,66 @@ class TallySeesTheOtherEdition(unittest.TestCase):
         self.assertEqual([r['lang'] for r in history], ['ko'])
 
 
+class OneCopyOfEachStep(unittest.TestCase):
+    r"""The filter, the record sequence and the flag wording were each written
+    more than once: `cmd_tally`, `cmd_record` and an inline block in
+    `merge_and_build`. The wording had already drifted -- one copy said
+    "Whatever it is, nobody has fixed it" and the other "Nobody has fixed it".
+    Two hand-kept copies of one sentence is how a fix reaches one caller and
+    not the other, which is exactly what this module was repaired for twice in
+    one session."""
+
+    def test_history_excludes_only_this_edition(self):
+        data = {'runs': [KO, ZH]}
+        self.assertEqual([r['lang'] for r in referee.history_for(data, ZH)],
+                         ['ko'])
+
+    def test_remember_replaces_this_edition_and_keeps_the_other(self):
+        data = referee.remember({'runs': [KO, ZH]}, dict(ZH, failed=2))
+        self.assertEqual(len(data['runs']), 2)
+        by_lang = {r['lang']: r for r in data['runs']}
+        self.assertEqual(by_lang['zh']['failed'], 2)
+        self.assertEqual(by_lang['ko']['failed'], 5)
+
+    def test_remember_on_an_empty_store(self):
+        data = referee.remember({'runs': []}, KO)
+        self.assertEqual([r['lang'] for r in data['runs']], ['ko'])
+
+    def test_the_flag_sentences_exist_once_and_take_the_prefix(self):
+        flags = [('brief', 'meta_evidence', 5, 8), ('chronic', 'structure', 3, 9)]
+        plain = referee.flag_lines(flags)
+        prefixed = referee.flag_lines(flags, 'REFEREE/')
+        self.assertTrue(plain[0].startswith('BRIEF: '))
+        self.assertTrue(prefixed[0].startswith('REFEREE/BRIEF: '))
+        # Same sentence either way; only the prefix differs.
+        self.assertEqual(prefixed[0][len('REFEREE/'):], plain[0])
+        self.assertEqual(prefixed[1][len('REFEREE/'):], plain[1])
+
+    def test_no_flags_prints_nothing(self):
+        self.assertEqual(referee.flag_lines([]), [])
+
+
+class TheBuildDoesNotKeepItsOwnCopy(unittest.TestCase):
+    """A source rule, because the drift was invisible from behaviour: both
+    copies worked, they just said different things and were fixed apart."""
+
+    def setUp(self):
+        path = os.path.join(os.path.dirname(os.path.dirname(
+            os.path.abspath(__file__))), 'scripts', 'merge_and_build.py')
+        with open(path, encoding='utf-8') as fh:
+            self.body = fh.read()
+
+    def test_it_calls_the_shared_entry_point(self):
+        self.assertIn('referee.judge_and_record(', self.body)
+
+    def test_it_does_not_reimplement_the_flag_wording(self):
+        for phrase in ('fired on %d of %d chunks', 'has now fired in %d runs'):
+            self.assertNotIn(phrase, self.body,
+                             'the flag wording belongs in referee.flag_lines')
+
+    def test_it_does_not_reimplement_the_record_sequence(self):
+        self.assertNotIn("data['runs'].append(run)", self.body)
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -24,6 +24,16 @@ import os
 import shutil
 import sys
 
+# A CLI prints, and what it prints may carry the book's text. A Windows
+# console under a non-UTF-8 locale then raises UnicodeEncodeError and the
+# command dies -- which stayed hidden while every caller happened to set
+# PYTHONIOENCODING for it.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding='utf-8', errors='replace')
+    except (AttributeError, ValueError, OSError):
+        pass
+
 SKILL_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SHIPPED = os.path.join(SKILL_DIR, '.claude', 'agents')
 
