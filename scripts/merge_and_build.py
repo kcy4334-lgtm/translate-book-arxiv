@@ -3849,9 +3849,28 @@ def fix_particles(md_text, lang_cfg=None):
 # `(N)` markers printed in their own PDFs (SINQ 7, CafeQ 5, AlphaQ 27).
 
 _DISPLAY_MATH_BLOCK_RE = re.compile(r'\$\$(.*?)\$\$', re.DOTALL)
+# Longest name first: `align` would otherwise match the opening of `alignat`
+# and, failing on the brace, leave the engine to find it by backtracking.
 _MATH_ENV_OPEN_RE = re.compile(
-    r'\\begin\{(equation|align|gather|multline|eqnarray|flalign)(\*?)\}')
+    r'\\begin\{(IEEEeqnarray|alignat|equation|align|gather|multline'
+    r'|eqnarray|flalign)(\*?)\}')
 _ROW_BREAK = '\\\\'
+# Environments LaTeX numbers ROW BY ROW. The rest take one number for the
+# whole block: `equation`, and `multline`, which is a single equation broken
+# across lines for width and carries one number however many `\\` it holds.
+#
+# `gather` and `alignat` were not on this list. `gather` fell to the one-per-
+# block branch and `alignat` was not in the pattern at all, so a three-line
+# gather counted 1 where the paper prints 3 and an alignat counted 0. That
+# does not stay local: `source_probe` compares this count against the `(N)`
+# markers in the paper's own PDF, so every equation after the miscount is off
+# by the difference and every `\ref` to them points at the wrong one.
+#
+# Found by feeding each environment to this function directly, after
+# `corpus_census digest` reported alignat and flalign as NEVER SEEN. Never
+# seen is never tested, and one paper in the corpus already uses gather.
+_ROW_NUMBERED = ('align', 'alignat', 'eqnarray', 'flalign', 'gather',
+                 'IEEEeqnarray')
 
 
 def _numbers_for_block(body):
@@ -3861,7 +3880,7 @@ def _numbers_for_block(body):
         env, star = m.group(1), m.group(2)
         if star:
             continue
-        if env in ('align', 'eqnarray', 'flalign'):
+        if env in _ROW_NUMBERED:
             rows = body.count(_ROW_BREAK) + 1
             total += max(0, rows - len(re.findall(r'\\(?:nonumber|notag)', body)))
         else:

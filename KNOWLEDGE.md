@@ -192,6 +192,7 @@ here; the test is the real record. This file is for the *reasoning*, the
 | The DOCX carries fewer tables than the EPUB | [K172](#k172) |
 | The referee remembers a run as clean that was not | [K173](#k173) |
 | A command dies with UnicodeEncodeError, or passes only in one shell | [K174](#k174) |
+| Equation numbers drift after a gather or alignat block | [K175](#k175) |
 
 ---
 
@@ -2489,6 +2490,20 @@ hold non-ASCII" and it was wrong -- `chunk_context.py` holds none and crashes
 anyway, because what it prints is the file it read. If it has a CLI, it
 prints, and what it prints is the book.
 *Status: fixed on all nine, with a test over every CLI script.*
+
+### K175
+**`gather` numbers every line, and the counter gave it one.**
+`_numbers_for_block` treated `align`, `eqnarray` and `flalign` as
+row-numbered and let everything else take one, so a three-line `gather`
+counted 1 where the paper prints 3, and `alignat` was not in the pattern at
+all and counted 0. `source_probe` compares that count against the `(N)`
+markers in the paper's own PDF, so every equation after the miscount is off
+by the difference and every `\ref` into them lands on the wrong one. Found by
+feeding each environment to the function directly, after `corpus_census
+digest` listed `alignat` and `flalign` under NEVER SEEN: never seen is never
+tested, and one corpus paper already uses `gather`.
+*Status: fixed. Nine agree with LaTeX; `multline` was already right and now
+has a test, being the obvious wrong fix.*
 
 ---
 
