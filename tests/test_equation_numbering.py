@@ -89,6 +89,29 @@ class StarredFormsTakeNoNumber(unittest.TestCase):
                              env)
 
 
+class SubequationsPrintsTheRowsItHolds(unittest.TestCase):
+    r"""`subequations` prints (1a) and (1b) for a two-row align: two markers
+    on the page, though the OUTER counter advances only once. Two different
+    questions with two different answers, and this counter is asked the first
+    one -- `source_probe` compares against the `(N)` markers the paper's PDF
+    actually shows.
+
+    The wrapper is not in the pattern and does not need to be: the inner
+    environment is matched and counted by its rows, which is the marker count.
+    Adding `subequations` as a one-per-block environment would break this.
+    """
+
+    def test_a_wrapped_align_counts_its_rows(self):
+        body = ('\\begin{subequations}\n\\begin{align}\na &= b %s\nc &= d\n'
+                '\\end{align}\n\\end{subequations}' % ROW)
+        self.assertEqual(mb._numbers_for_block(body), 2)
+
+    def test_a_wrapped_equation_still_counts_one(self):
+        body = ('\\begin{subequations}\n\\begin{equation}\na = b\n'
+                '\\end{equation}\n\\end{subequations}')
+        self.assertEqual(mb._numbers_for_block(body), 1)
+
+
 class SuppressedRows(unittest.TestCase):
 
     def test_nonumber_removes_one(self):
