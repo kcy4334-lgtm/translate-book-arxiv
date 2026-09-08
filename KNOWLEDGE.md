@@ -204,6 +204,7 @@ here; the test is the real record. This file is for the *reasoning*, the
 | source_probe passes but leaves many references not located | [K184](#k184) |
 | The book numbers equations 1, 2, 3 where the paper prints 2.1 | [K185](#k185) |
 | Appendix equations are numbered 8.1 where the paper prints A.1 | [K186](#k186) |
+| A section issues one more equation number than the paper prints | [K187](#k187) |
 
 ---
 
@@ -2688,6 +2689,21 @@ asking whether every number we ASSIGN appears on the page, which
 separates an over-count from a marker nobody could isolate; comparing
 totals cannot.
 *Status: fixed, `TheEquationWalkerKnowsTheAppendixToo`. Three remain.*
+
+---
+
+### K187
+**Three of fifty equation numbers, and no rule behind them yet.**
+2609.04930 issues 50 where its pages print 47: one surplus each in
+sections 4, 6 and A, always the last number that section issues. Ruled
+out by measurement: `\tag` (none), `subequations` (none), starred forms,
+and a redistribution across section boundaries -- that last reading came
+from counting `(4.26)` and `(B.31)` as markers when they are parenthesised
+values in the prose. Two surplus displays sit inside a `corollary` and one
+inside a `lemma`, but sections whose last display sits inside a `remark`
+or a `proof` agree exactly, so that is not it either. Left unfixed on
+purpose: 47 match here, six papers pass outright, and a guess risks both.
+*Status: open, measured. `flat_equation_numbers`.*
 
 ---
 
