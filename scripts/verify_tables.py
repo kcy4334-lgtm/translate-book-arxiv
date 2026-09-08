@@ -30,6 +30,10 @@ import re
 import shutil
 import sys
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+import latex_rows
+
 # A CLI prints, and what it prints may carry the book's text. A Windows
 # console under a non-UTF-8 locale then raises UnicodeEncodeError and the
 # command dies -- which stayed hidden while every caller happened to set
@@ -47,7 +51,6 @@ _TABULAR_RE = re.compile(
     re.DOTALL)
 _NUMBER_RE = re.compile(r'-?\d+(?:\.\d+)?')
 _SPAN_RE = re.compile(r'\\(multicolumn|multirow)\s*\{\s*(\d+)\s*\}')
-_ROW_SEP_RE = re.compile(r'\\\\')
 _COMMENT_RE = re.compile(r'(?<!\\)%.*')
 
 
@@ -90,7 +93,12 @@ def table_fingerprints(latex):
     out = []
     for match in _TABULAR_RE.finditer(latex):
         body = _COMMENT_RE.sub('', match.group(2))
-        rows = [r for r in _ROW_SEP_RE.split(body) if r.strip()]
+        # Splitting on every `\\` read `\thead{Total \\ Time}` -- one cell
+        # holding a line break -- as two rows, and that made this gate
+        # refuse a CORRECT translation: an agent shortening that cell to a
+        # Korean phrase that fits on one line takes the count 2 -> 1, and a
+        # changed row count is exactly what `check` refuses.
+        rows = latex_rows.nonempty_rows(body)
         out.append({
             'numbers': sorted(_NUMBER_RE.findall(body)),
             'rows': len(rows),

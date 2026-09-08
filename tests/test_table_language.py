@@ -173,6 +173,37 @@ class ATranslatedTableIsSilent(unittest.TestCase):
             '\\begin{table}\\caption{No tabular here}\\end{table}'), [])
 
 
+class AMultiLineHeaderCellIsStillOneCell(unittest.TestCase):
+    r"""`\thead{Total \\ Time}` (makecell) spells its line break with the
+    token that separates rows. `table_cells` split on it and handed the
+    gate `Total` and `Time` as two separate untranslated headers, which is
+    a false positive on a cell nobody was asked to split.
+
+    `thead` was listed under NEVER SEEN, and this is what the corpus never
+    having met one was hiding.
+    """
+
+    HEAD = '\\thead{Total \\\\ Time}'
+
+    def test_the_cell_is_not_cut_in_half(self):
+        row = tabular(self.HEAD, '\\thead{Method}')
+        self.assertEqual(tl.untranslated_header_cells(row), ['Method'])
+
+    def test_thead_around_a_single_word_still_matches(self):
+        self.assertEqual(tl.header_word('\\thead{Method}'), 'method')
+
+    def test_a_translated_multi_line_head_is_silent(self):
+        row = tabular('\\thead{\uCD1D \\\\ \uC2DC\uAC04}', 'PIQA')
+        self.assertEqual(tl.untranslated_header_cells(row), [])
+
+    def test_a_bilingual_head_is_not_reported(self):
+        r"""The false positive that would have hurt: a correct translation
+        keeping the English underneath, cut in half, reads as untranslated
+        from the second piece alone."""
+        row = tabular('\\multirow{2}{*}{\uBC29\uBC95 \\\\ Method}', 'MMLU')
+        self.assertEqual(tl.untranslated_header_cells(row), [])
+
+
 class TheGateAbstainsWhenItCannotKnow(unittest.TestCase):
     r"""Both abstentions are about not answering a question the artefact
     was never asked."""

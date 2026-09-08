@@ -125,5 +125,85 @@ class SuppressedRows(unittest.TestCase):
         self.assertEqual(mb._numbers_for_block(body), 2)
 
 
+class BreqnBreaksTheLineItself(unittest.TestCase):
+    r"""`dmath` was listed under NEVER SEEN and was not in the pattern, so
+    it counted 0 where the paper prints one number. It is `equation` with
+    automatic line breaking: however many lines it takes, it takes one
+    number."""
+
+    def test_dmath(self):
+        self.assertEqual(mb._numbers_for_block(
+            '\\begin{dmath}\na = b + c\n\\end{dmath}'), 1)
+
+    def test_dmath_starred(self):
+        self.assertEqual(mb._numbers_for_block(
+            '\\begin{dmath*}\na = b\n\\end{dmath*}'), 0)
+
+
+class EmpheqNamesItsEnvironmentAsAnArgument(unittest.TestCase):
+    r"""`\begin{empheq}[box=\fbox]{align}` is an align, and a pattern
+    hunting `\begin{align}` cannot see it: the name is in an ARGUMENT. It
+    counted 0 for every boxed display."""
+
+    def body(self, arg, rows):
+        joined = (' %s\n' % ROW).join('a_%d &= b' % n for n in range(rows))
+        return ('\\begin{empheq}%s\n%s\n\\end{empheq}' % (arg, joined))
+
+    def test_a_boxed_align_numbers_its_rows(self):
+        self.assertEqual(mb._numbers_for_block(
+            self.body('[box=\\fbox]{align}', 2)), 2)
+
+    def test_the_optional_argument_may_be_absent(self):
+        self.assertEqual(mb._numbers_for_block(self.body('{align}', 3)), 3)
+
+    def test_a_boxed_equation_takes_one(self):
+        self.assertEqual(mb._numbers_for_block(
+            self.body('[left=\\empheqlbrace]{equation}', 1)), 1)
+
+    def test_a_starred_inner_environment_prints_none(self):
+        self.assertEqual(mb._numbers_for_block(
+            self.body('[box=\\fbox]{align*}', 2)), 0)
+
+    def test_an_unreadable_argument_is_read_as_one(self):
+        """A box round something is still a display. Guessing zero would
+        delete a number; guessing many would invent them."""
+        self.assertEqual(mb._numbers_for_block(
+            '\\begin{empheq}\na = b\n\\end{empheq}'), 1)
+
+
+class ABreakInsideANestedEnvironmentIsNotARow(unittest.TestCase):
+    r"""Measured, and both shapes are ordinary in a machine learning paper.
+    The counter read every `\\` in the block, so the `cases` on one line of
+    an `align` added a number LaTeX does not print, and everything after it
+    was off by one."""
+
+    def test_cases_inside_align(self):
+        body = ('\\begin{align}\n'
+                'f(x) &= \\begin{cases} a %s b \\end{cases} %s\n'
+                'g(x) &= c\n\\end{align}' % (ROW, ROW))
+        self.assertEqual(mb._numbers_for_block(body), 2)
+
+    def test_substack_inside_align(self):
+        body = ('\\begin{align}\n'
+                '\\sum_{\\substack{i=1 %s j=2}} x_i &= y %s\n'
+                'z &= w\n\\end{align}' % (ROW, ROW))
+        self.assertEqual(mb._numbers_for_block(body), 2)
+
+    def test_a_matrix_inside_an_equation_was_already_right(self):
+        """`equation` takes one number however many rows its matrix has,
+        so this never depended on the row count. Kept because a counter
+        rewritten to count rows everywhere would fail it."""
+        body = ('\\begin{equation}\n'
+                'M = \\begin{pmatrix} a & b %s c & d \\end{pmatrix}\n'
+                '\\end{equation}' % ROW)
+        self.assertEqual(mb._numbers_for_block(body), 1)
+
+    def test_a_multi_line_cell_does_not_add_a_number(self):
+        body = ('\\begin{align}\n'
+                'a &= \\text{one %s two} %s\n'
+                'b &= c\n\\end{align}' % (ROW, ROW))
+        self.assertEqual(mb._numbers_for_block(body), 2)
+
+
 if __name__ == '__main__':
     unittest.main()

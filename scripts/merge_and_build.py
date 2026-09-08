@@ -29,6 +29,7 @@ import math_guard
 import layout
 import chromium_pdf
 import equation_fit
+import latex_rows
 import table_language
 from manifest import read_output_text, validate_for_merge
 
@@ -3854,8 +3855,11 @@ _DISPLAY_MATH_BLOCK_RE = re.compile(r'\$\$(.*?)\$\$', re.DOTALL)
 # and, failing on the brace, leave the engine to find it by backtracking.
 _MATH_ENV_OPEN_RE = re.compile(
     r'\\begin\{(IEEEeqnarray|alignat|equation|align|gather|multline'
-    r'|eqnarray|flalign)(\*?)\}')
-_ROW_BREAK = '\\\\'
+    r'|eqnarray|flalign|empheq|dmath)(\*?)\}')
+# `empheq` names the environment it numbers as an ARGUMENT rather than
+# opening it, so a pattern hunting `\begin{align}` cannot see it and the
+# block counted zero. `\begin{empheq}[box=\fbox]{align}` is an align.
+_EMPHEQ_ARG_RE = re.compile(r'^\s*(?:\[[^\]]*\])?\s*\{([A-Za-z]+)(\*?)\}')
 # Environments LaTeX numbers ROW BY ROW. The rest take one number for the
 # whole block: `equation`, and `multline`, which is a single equation broken
 # across lines for width and carries one number however many `\\` it holds.
@@ -3875,15 +3879,34 @@ _ROW_NUMBERED = ('align', 'alignat', 'eqnarray', 'flalign', 'gather',
 
 
 def _numbers_for_block(body):
-    """How many numbers LaTeX would print for this display block."""
+    r"""How many numbers LaTeX would print for this display block.
+
+    Rows are counted inside the environment that owns them, and by
+    `latex_rows`, not by `body.count('\\\\')`. Counting the token across
+    the whole block read a nested `cases` or `substack` as extra rows of
+    the `align` holding it: three numbers where LaTeX prints two, and both
+    shapes are ordinary in a machine learning paper. Per K175 that error
+    does not stay local -- every equation after it is off by the
+    difference, and every `\ref` into them lands on the wrong one.
+    """
     total = 0
     for m in _MATH_ENV_OPEN_RE.finditer(body):
         env, star = m.group(1), m.group(2)
         if star:
             continue
+        inner = latex_rows.env_body(body, m.end(), env)
+        if env == 'empheq':
+            arg = _EMPHEQ_ARG_RE.match(inner)
+            if not arg:
+                total += 1        # a box round something; one is the safe read
+                continue
+            if arg.group(2):      # `{align*}`: empheq prints no number either
+                continue
+            env, inner = arg.group(1), inner[arg.end():]
         if env in _ROW_NUMBERED:
-            rows = body.count(_ROW_BREAK) + 1
-            total += max(0, rows - len(re.findall(r'\\(?:nonumber|notag)', body)))
+            rows = len(latex_rows.split_rows(inner))
+            total += max(0, rows
+                         - len(re.findall(r'\\(?:nonumber|notag)', inner)))
         else:
             total += 1
     return total

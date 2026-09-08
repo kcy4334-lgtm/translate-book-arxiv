@@ -44,6 +44,8 @@ from __future__ import unicode_literals
 
 import re
 
+import latex_rows
+
 # Read off the corpus, then extended with the siblings any results table
 # uses. Lowercased; `header_word` does the folding.
 HEADER_WORDS = frozenset([
@@ -113,9 +115,15 @@ def header_word(cell):
 
 
 def table_cells(latex):
-    """Every cell of every tabular in this float, in document order."""
+    r"""Every cell of every tabular in this float, in document order.
+
+    Rows are cut by `latex_rows`, not by `re.split(r'\\\\')`: `\thead{Total
+    \\ Time}` is ONE cell holding a line break, and splitting on every `\\`
+    read it as two, which put `Total` and `Time` in front of the gate as
+    separate untranslated headers.
+    """
     for _env, body in _TABULAR_RE.findall(latex or ''):
-        for row in re.split(r'\\\\', body):
+        for row in latex_rows.split_rows(body):
             for cell in row.split('&'):
                 yield cell
 

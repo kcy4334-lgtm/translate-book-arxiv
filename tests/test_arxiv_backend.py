@@ -1,4 +1,6 @@
+import shutil
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -507,3 +509,72 @@ class TableRuleTests(unittest.TestCase):
         out, _kept = arxiv_backend.normalize_table_rules(tex)
         self.assertNotIn("4-6", out)
         self.assertNotIn("7-9", out)
+
+
+class AnInputIsResolvedBeforePandocSeesIt(unittest.TestCase):
+    r"""`input` sat under NEVER SEEN, and never seen is never tested.
+
+    `flatten_tex` exists because an unresolved `\input` deletes a whole
+    section and the loss is invisible in the output: no error, no warning
+    in the book, just a paper missing its method. Nothing had ever put a
+    real one in front of it.
+
+    It turned out to be right, which is the answer worth having. These
+    tests are here so it stays right, and because two of the four shapes
+    checked in this batch were already correct -- writing tests against an
+    assumed bug would have locked in the wrong answer.
+    """
+
+    def setUp(self):
+        self.work = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, str(self.work), True)
+
+    def write(self, rel, text):
+        path = self.work / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+        return path
+
+    def flatten(self, text):
+        root = self.write("main.tex", text)
+        return arxiv_backend.flatten_tex(str(root), str(self.work))
+
+    def test_the_section_body_arrives(self):
+        self.write("sections/method.tex",
+                   BS + "section{Method}" + NL + "The body of the section.")
+        out = self.flatten(BS + "input{sections/method}" + NL)
+        self.assertIn("The body of the section.", out)
+
+    def test_an_input_inside_an_input(self):
+        self.write("a.tex", BS + "input{b}")
+        self.write("b.tex", "the innermost text")
+        self.assertIn("the innermost text", self.flatten(BS + "input{a}"))
+
+    def test_a_commented_out_input_is_not_followed(self):
+        self.write("secret.tex", "text nobody should see")
+        out = self.flatten("%% " + BS + "input{secret}" + NL)
+        self.assertNotIn("text nobody should see", out)
+
+    def test_a_cycle_terminates(self):
+        """Two files including each other. The guard is why this returns
+        at all rather than recursing until the interpreter gives up."""
+        self.write("a.tex", "alpha" + NL + BS + "input{b}")
+        self.write("b.tex", "beta" + NL + BS + "input{a}")
+        out = self.flatten(BS + "input{a}")
+        self.assertIn("alpha", out)
+        self.assertIn("beta", out)
+
+    def test_an_unresolved_input_leaves_the_line_alone(self):
+        r"""Deleting it would be the silent loss this function exists to
+        prevent. The line stays, and `flatten_tex` prints a warning."""
+        out = self.flatten("before" + NL + BS + "input{nowhere}" + NL + "after")
+        self.assertIn("before", out)
+        self.assertIn("after", out)
+        self.assertIn("nowhere", out)
+
+    def test_text_on_the_same_line_survives_on_both_sides(self):
+        self.write("mid.tex", "MIDDLE")
+        out = self.flatten("left " + BS + "input{mid}" + " right")
+        self.assertIn("left", out)
+        self.assertIn("MIDDLE", out)
+        self.assertIn("right", out)

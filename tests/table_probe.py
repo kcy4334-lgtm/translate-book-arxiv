@@ -41,6 +41,13 @@ import re
 import sys
 from collections import Counter
 
+SCRIPT_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                          'scripts')
+if SCRIPT_DIR not in sys.path:
+    sys.path.insert(0, SCRIPT_DIR)
+
+import latex_rows                                                # noqa: E402
+
 TABULAR_RE = re.compile(
     r'\\begin\{(tabular\*?|tabularx|longtable|array)\}(.*?)\\end\{\1\}',
     re.DOTALL)
@@ -117,7 +124,13 @@ def tabular_units(tex):
 
 
 def source_rows(body):
-    r"""Body split on `\\`, comments and rules removed."""
+    r"""Body cut at every `\\` that ends a row, comments and rules removed.
+
+    Not every `\\` does. `\thead{Total \\ Time}` is one cell holding a line
+    break, and a `cases` inside a cell spells its break the same way, so
+    the depth that matters is both brace and environment. `latex_rows`
+    counts them; splitting on the token alone read one row as two.
+    """
     body = COMMENT_RE.sub('', body)
     body = re.sub(r'\\(?:top|mid|bottom)rule(?:\[[^\]]*\])?', '', body)
     body = re.sub(r'\\cmidrule\s*(?:\([lr]{1,2}\))?\s*\{[^}]*\}', '', body)
@@ -127,8 +140,7 @@ def source_rows(body):
     # reported the seven real continuations as stranded rows.
     body = re.sub(r'\\(?:hline|addlinespace|toprule)\s*(?:\[[^\]]*\])?'
                   r'|\\noalign\{[^}]*\}', '', body)
-    rows = [r for r in re.split(r'\\\\', body) if r.strip()]
-    return rows
+    return latex_rows.nonempty_rows(body)
 
 
 # A row colour carries no text but plenty of characters. Stripped by the

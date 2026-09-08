@@ -194,6 +194,8 @@ here; the test is the real record. This file is for the *reasoning*, the
 | A command dies with UnicodeEncodeError, or passes only in one shell | [K174](#k174) |
 | Equation numbers drift after a gather or alignat block | [K175](#k175) |
 | A results table keeps English headers though its caption is translated | [K176](#k176) |
+| verify_tables refuses a table whose rows were never dropped | [K177](#k177) |
+| An empheq or dmath display takes no number, or thead splits a cell | [K178](#k178) |
 
 ---
 
@@ -2521,6 +2523,37 @@ frequency does not separate the two kinds: `Method` (3 papers), `Avg` (4)
 and `Params` (2) are generic, and `PIQA` and `MMLU` are names appearing in
 two apiece.
 *Status: fixed, `scripts/table_language.py`, `TheNamesSurvive`.*
+
+---
+
+### K177
+**A `\\` that ends nothing was counted as a row break, in four places.**
+`\thead{Total \\ Time}` is one header cell holding a line break, and
+`table_cells`, `verify_tables` and `table_probe` all split on the token
+alone. The refusal is worse than the miscount: an agent shortening that
+cell to a Korean phrase that fits on one line takes the row count from 2 to
+1, and `verify_tables` fails a CORRECT translation, reporting a dropped row
+that never happened. The same blindness in `_numbers_for_block` read a
+`cases` or `substack` inside an `align` as an extra numbered row, three
+where LaTeX prints two, and both are ordinary in an ML paper. Braces are
+half of it: a `cases` opens with `\begin`, so both depths must be counted.
+*Status: fixed, `scripts/latex_rows.py`, `TheFlatCaseIsUnchanged`.*
+
+---
+
+### K178
+**Four shapes the census had never met: two wrong, two already right.**
+`corpus_census digest` listed `thead`, `empheq`, `dmath-breqn` and `input`
+under NEVER SEEN. `empheq` names the environment it numbers as an ARGUMENT,
+`\begin{empheq}[box=\fbox]{align}`, so a pattern hunting `\begin{align}`
+cannot see it and counted 0; `dmath` was not in the pattern at all and
+counted 0 where breqn prints one. `\input` was already correct, and
+`\thead` was correct in itself while breaking the code around it (K177).
+All four were measured before anything was written, which is the point:
+tests authored against an assumed bug would have locked in a wrong answer
+for the two that were fine.
+*Status: fixed, `EmpheqNamesItsEnvironmentAsAnArgument`,
+`AnInputIsResolvedBeforePandocSeesIt`.*
 
 ---
 
