@@ -196,6 +196,7 @@ here; the test is the real record. This file is for the *reasoning*, the
 | A results table keeps English headers though its caption is translated | [K176](#k176) |
 | verify_tables refuses a table whose rows were never dropped | [K177](#k177) |
 | An empheq or dmath display takes no number, or thead splits a cell | [K178](#k178) |
+| source_probe and the build disagree on how many equations there are | [K179](#k179) |
 
 ---
 
@@ -2554,6 +2555,22 @@ tests authored against an assumed bug would have locked in a wrong answer
 for the two that were fine.
 *Status: fixed, `EmpheqNamesItsEnvironmentAsAnArgument`,
 `AnInputIsResolvedBeforePandocSeesIt`.*
+
+---
+
+### K179
+**Two equation counters, each carrying a lesson the other lacked.**
+`source_probe` counted equations with its own environment list and its own
+row rule; `merge_and_build` had another. The probe knew a `\\` inside a
+`cases` breaks no row and the build did not; the build learned that `gather`
+numbers row by row, that `alignat` and `IEEEeqnarray` exist and that
+`empheq` names its environment in an argument, and the probe did not.
+Neither list was wrong on purpose: each was the older one somewhere else.
+Merged onto `_numbers_for_block`, measured equal on 108 blocks first. The
+printed side undercounted too, rejecting the `(2.1a)` a `subequations`
+prints, and the two errors were cancelling: 2609.05354 read 49 against 43,
+and reads 57 against 57 once both are right.
+*Status: fixed, `OneCounterNotTwo`, `ASubequationsMarkerIsStillAMarker`.*
 
 ---
 

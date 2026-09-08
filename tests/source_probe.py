@@ -31,18 +31,27 @@ SCRIPT_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file
 if SCRIPT_DIR not in sys.path:
     sys.path.insert(0, SCRIPT_DIR)
 
+import latex_rows                                               # noqa: E402
 import merge_and_build as mb                                    # noqa: E402
 
 B = chr(92)
-_MATH_ENV_RE = re.compile(
-    re.escape(B) + r'begin\{(equation|align|gather|multline|eqnarray|flalign)(\*?)\}')
+# No private list of display environments lives here any more. It drifted
+# from the build's for as long as it existed; `check_equations` reads
+# `merge_and_build` instead.
 _REF_RE = re.compile(re.escape(B) + r'(?:c|C)?ref\s*\{([^}]+)\}')
 # A paper that resets its equation counter per section prints `(2.1)`, not
 # `(2)`. Matching only the undotted form made this probe report "48 numbered by
 # LaTeX, 0 printed in the PDF" about a paper that prints all 48 — a missing
 # number that was really the probe declining to look, and it was quoted back
 # as a reason to accept the defect.
-_EQ_MARKER_RE = re.compile(r'^\(\d{1,3}(?:\.\d{1,3})*\)$')
+# The same regex, taught a second time. A `subequations` block prints
+# `(2a)`, `(2b)` -- or `(2.1a)` when the counter resets per section -- and
+# rejecting the letter made this probe report 43 printed against a paper
+# that prints 57. That undercount cancelled part of an overcount on the
+# other side, so the two errors together looked like a small disagreement
+# and hid each other until the counters were merged. Measured on
+# 2609.05354: 43 undotted, 14 lettered, 57 total, and the counter says 57.
+_EQ_MARKER_RE = re.compile(r'^\(\d{1,3}(?:\.\d{1,3})*[a-z]?\)$')
 _PLAIN_RUN_RE = re.compile(r"[A-Za-z][A-Za-z0-9 ,.\-()/']{22,}")
 _REF_WORD_RE = re.compile(
     r'(?:Equations?|Sections?|Appendix|Appendices|Figures?|Tables?|Algorithms?|'
@@ -80,8 +89,6 @@ def check_sections(temp_dir, flat):
     return prefixes, stats
 
 
-_ENV_EDGE_RE = re.compile(re.escape(B) + r'(begin|end)\s*\{')
-
 
 def align_rows(body):
     r"""Rows in an align body: `\\` that can actually break one.
@@ -100,46 +107,35 @@ def align_rows(body):
     21). A residual of about fifteen remains in the opening sections and is
     NOT explained: not `\notag` in a plain `equation` (0 of them), not
     `subequations` (0), not material after `\end{document}` (0).
+
+    The rule now lives in `scripts/latex_rows.py`, which `merge_and_build`
+    reads too. It was written here first and copied nowhere, so when the
+    build needed the same lesson it learned it separately -- and the
+    environment LIST then drifted the other way, this probe never hearing
+    that `gather` numbers row by row or that `alignat` exists at all.
+    Measured equal on 108 blocks across six papers before the merge, so
+    this is the same answer from one place instead of two.
     """
-    depth = env = rows = 0
-    i = 0
-    while i < len(body):
-        ch = body[i]
-        if ch == '\\':
-            if body.startswith(B + B, i):
-                if depth == 0 and env == 0:
-                    rows += 1
-                i += 2
-                continue
-            edge = _ENV_EDGE_RE.match(body, i)
-            if edge:
-                env = max(0, env + (1 if edge.group(1) == 'begin' else -1))
-                i = edge.end()
-                continue
-            i += 2                      # any other control sequence
-            continue
-        if ch == '{':
-            depth += 1
-        elif ch == '}':
-            depth = max(0, depth - 1)
-        i += 1
-    return rows + 1
+    return len(latex_rows.split_rows(body))
 
 
 def check_equations(flat, pdf_lines):
-    """How many equations LaTeX numbers, against the (N) the PDF prints."""
-    counted = 0
-    for m in _MATH_ENV_RE.finditer(flat):
-        env, star = m.group(1), m.group(2)
-        if star:
-            continue
-        end = flat.find('%send{%s}' % (B, env), m.end())
-        body = flat[m.end():end if end > 0 else m.end()]
-        if env in ('align', 'eqnarray', 'flalign'):
-            counted += max(0, align_rows(body) - len(re.findall(
-                re.escape(B) + r'(?:nonumber|notag)', body)))
-        else:
-            counted += 1
+    r"""How many equations LaTeX numbers, against the (N) the PDF prints.
+
+    Counted by `merge_and_build._numbers_for_block`, which is what assigns
+    the numbers the book prints. The probe kept its own list of display
+    environments and its own row rule, and the two drifted apart in both
+    directions: this file knew a `\\` inside a `cases` breaks no row while
+    the build did not, and the build learned that `gather` numbers row by
+    row, that `alignat` and `IEEEeqnarray` exist, and that `empheq` names
+    its environment in an argument, while this file did not.
+
+    Sharing the counter costs nothing that mattered. The independent
+    reference here is the paper's own PDF, not a second implementation: a
+    counter that is wrong shows up as a disagreement with the printed
+    markers, which is exactly how the drift above was found.
+    """
+    counted = mb._numbers_for_block(flat)
     printed = [l.strip() for l in pdf_lines if _EQ_MARKER_RE.match(l.strip())]
     return counted, printed_equation_count(printed)
 

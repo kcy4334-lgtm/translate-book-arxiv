@@ -21,6 +21,17 @@ sys.path.insert(0, os.path.join(ROOT, 'tests'))
 
 import source_probe as sp  # noqa: E402
 
+# `source_probe` puts scripts/ on the path when it is imported.
+import latex_rows  # noqa: E402
+import merge_and_build as mb  # noqa: E402
+
+ROW = '\\\\'
+
+
+def block(env, rows, arg=''):
+    joined = (' %s\n' % ROW).join('a_%d &= b' % n for n in range(rows))
+    return '\\begin{%s}%s\n%s\n\\end{%s}' % (env, arg, joined, env)
+
 
 class RowsBreakOnlyAtTheTopLevel(unittest.TestCase):
     def test_a_single_row(self):
@@ -61,6 +72,82 @@ class RowsBreakOnlyAtTheTopLevel(unittest.TestCase):
         body = r'S &= \sum_{\substack{a\\b\\c}} f'
         self.assertEqual(body.count('\\\\') + 1, 3)
         self.assertEqual(sp.align_rows(body), 1)
+
+
+class OneCounterNotTwo(unittest.TestCase):
+    r"""The probe and the build used to count equations separately, and the
+    two drifted in opposite directions.
+
+    This file's rule -- a `\\` breaks a row only at brace and environment
+    depth zero -- was written for the probe and copied nowhere, so the
+    build had to learn it again. Meanwhile the build learned that `gather`
+    numbers row by row, that `alignat` and `IEEEeqnarray` exist, and that
+    `empheq` names its environment in an argument, and the probe never
+    heard any of it. Neither list was wrong on purpose; each was simply
+    the older one somewhere else.
+
+    Measured on 2609.05354, which carries two `alignat` blocks and four
+    `subequations`: with the counters merged and the printed markers
+    counted properly, 57 numbered against 57 printed, exactly.
+    """
+
+    BODIES = [
+        'a &= b',
+        'a &= b %s c &= d' % ROW,
+        '\\substack{i %s j} &= b %s c &= d' % (ROW, ROW),
+        '\\begin{cases} a %s b \\end{cases} %s c &= d' % (ROW, ROW),
+        '\\thead{Total %s Time}' % ROW,
+    ]
+
+    def test_align_rows_is_the_shared_splitter(self):
+        for body in self.BODIES:
+            self.assertEqual(sp.align_rows(body),
+                             len(latex_rows.split_rows(body)), body[:40])
+
+    def test_the_probe_counts_what_the_build_assigns(self):
+        """The gate. Any environment the build learns, the probe sees."""
+        for tex in (block('align', 3), block('gather', 3),
+                    block('alignat', 2, '{2}'), block('equation', 1),
+                    block('multline', 4), block('IEEEeqnarray', 2),
+                    '\\begin{dmath}a = b\\end{dmath}',
+                    '\\begin{empheq}[box=\\fbox]{align}\na &= b %s\nc &= d\n'
+                    '\\end{empheq}' % ROW):
+            counted, _printed = sp.check_equations(tex, [])
+            self.assertEqual(counted, mb._numbers_for_block(tex), tex[:40])
+
+    def test_the_environments_the_probe_used_to_miss(self):
+        """Named one by one, because a shared call that silently returned
+        zero would satisfy the test above."""
+        self.assertEqual(sp.check_equations(block('gather', 3), [])[0], 3)
+        self.assertEqual(sp.check_equations(block('alignat', 2, '{2}'),
+                                            [])[0], 2)
+        self.assertEqual(sp.check_equations(
+            '\\begin{dmath}a = b\\end{dmath}', [])[0], 1)
+
+
+class ASubequationsMarkerIsStillAMarker(unittest.TestCase):
+    r"""`(2a)` and `(2.1a)` are equation numbers the reader sees. The
+    printed-marker pattern took digits and dots only, so fourteen of
+    2609.05354's fifty-seven were invisible to it -- an undercount that
+    cancelled part of an overcount on the counting side, leaving a small
+    disagreement that hid both."""
+
+    def counted(self, *lines):
+        return sp.check_equations('', list(lines))[1]
+
+    def test_a_lettered_marker_counts(self):
+        self.assertEqual(self.counted('(2a)', '(2b)'), 2)
+
+    def test_a_lettered_marker_with_a_section_prefix_counts(self):
+        self.assertEqual(self.counted('(2.1a)', '(2.1b)'), 2)
+
+    def test_the_plain_forms_still_count(self):
+        self.assertEqual(self.counted('(3)', '(2.1)'), 2)
+
+    def test_a_bare_letter_is_not_an_equation_number(self):
+        """`(a)` labels a subfigure, and this probe must not read it as a
+        formula the paper numbered."""
+        self.assertEqual(self.counted('(a)', '(b)'), 0)
 
 
 if __name__ == '__main__':
