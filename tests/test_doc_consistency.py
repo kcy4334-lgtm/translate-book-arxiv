@@ -20,6 +20,7 @@ What the hand sweep found, and what would have caught it:
 
 These run on the standard library alone, like the rest of the suite.
 """
+import json
 import re
 import unittest
 from pathlib import Path
@@ -176,6 +177,127 @@ class EveryModuleIsDescribedSomewhere(unittest.TestCase):
                        if p.stem not in joined]
         self.assertFalse(unmentioned,
                          'scripts no document mentions: %s' % unmentioned)
+
+
+def entry_count(doc, letter):
+    return len(re.findall(r'^### %s\d+\s*$' % letter, read(doc), re.M))
+
+
+def corpus_papers():
+    raw = json.loads((REPO / 'corpus' / 'shapes.json')
+                     .read_text(encoding='utf-8'))
+    rows = raw.get('papers', raw) if isinstance(raw, dict) else raw
+    return len(rows)
+
+
+def suite_size():
+    r"""What `unittest discover` will report, without importing anything.
+
+    Counted by regex rather than by loading the suite, because this file is
+    part of what it counts. `test_the_regex_agrees_with_the_runner` below
+    holds the two together.
+
+    The indent class is `[ \t]` and not `\s`, which matches a newline: with
+    `re.M`, `^\s+def test_` starts at a blank line, eats the newline, and
+    counts a module-level `def test_...` helper as a method of a class. That
+    is how this function -- named `test_methods` at the time -- counted
+    itself, and the number was one too high until the runner disagreed.
+    """
+    total = 0
+    for path in sorted((REPO / 'tests').glob('test_*.py')):
+        total += len(re.findall(r'^[ \t]+def test_', path.read_text(
+            encoding='utf-8', errors='replace'), re.M))
+    return total
+
+
+# (label, what the repository actually holds, how the docs spell the claim,
+#  how many places spell it). Patterns stay on one line: a claim is always
+#  written next to the thing it counts.
+CLAIMS = [
+    ('KNOWLEDGE.md entries', lambda: entry_count('KNOWLEDGE.md', 'K'),
+     r'`KNOWLEDGE\.md`[^\n]{0,80}?(\d[\d,]*)', 2),
+    ('KNOWHOW.md entries', lambda: entry_count('KNOWHOW.md', 'H'),
+     r'`KNOWHOW\.md`[^\n]{0,80}?(\d[\d,]*)', 2),
+    ('REFEREE.md entries', lambda: entry_count('REFEREE.md', 'R'),
+     r'`REFEREE\.md`[^\n]{0,80}?(\d[\d,]*)', 2),
+    ('corpus papers, in the census sentence', corpus_papers,
+     r'corpus has met across (\d[\d,]*) papers', 1),
+    ('corpus papers, in the structure table', corpus_papers,
+     r'`corpus/shapes\.json`[^\n]{0,140}?(\d[\d,]*) papers', 1),
+    ('tests', suite_size, r'\*\*Tests\*\*[^\n]{0,20}?(\d[\d,]*)', 1),
+]
+
+
+class CountsInTheDocsMatchWhatIsThere(unittest.TestCase):
+    r"""A number in the README is a claim, and it is the one a reader checks.
+
+    This file's own docstring already records "a Status line cited a test
+    count that had grown" -- found by hand, written down, and then not
+    turned into a check. It grew again: the README said 1,608 tests against
+    2,001, 150 KNOWLEDGE entries against 175, and KNOWHOW 38 in one row and
+    39 in the row above it.
+
+    That is the worst place to be wrong. The pitch is carefulness, and the
+    first thing a sceptical reader does is clone the repository and run the
+    suite. Every count here is derived from the artefact rather than
+    restated, so the claim cannot drift from the thing it describes.
+    """
+
+    def located(self, pattern):
+        """(document, number) for every place the docs spell this claim."""
+        for name, body in sorted(docs().items()):
+            for hit in re.findall(pattern, body):
+                yield name, int(hit.replace(',', '').rstrip(','))
+
+    def test_every_count_the_docs_state_is_the_count_on_disk(self):
+        wrong = []
+        for label, actual, pattern, _sites in CLAIMS:
+            want = actual()
+            for name, said in self.located(pattern):
+                if said != want:
+                    wrong.append('%s: %s says %d, repository holds %d'
+                                 % (name, label, said, want))
+        self.assertEqual(wrong, [], 'stale counts: %s' % wrong)
+
+    def test_each_claim_is_still_found_where_it_was(self):
+        """The failure this guards is a pattern that stops matching.
+
+        A rephrased sentence would leave the test above passing over an
+        empty set, which is the shape of every check this session had to
+        repair: not missing the answer, but confidently answering a
+        question nobody asked.
+        """
+        for label, _actual, pattern, sites in CLAIMS:
+            found = list(self.located(pattern))
+            self.assertEqual(
+                len(found), sites,
+                '%s: matched %d places, expected %d (%s). A reworded claim '
+                'is not checked by anything; update the pattern or the '
+                'count.' % (label, len(found), sites, found))
+
+
+class TheCountingItselfIsChecked(unittest.TestCase):
+    """An oracle nobody checks is a second thing that can be wrong."""
+
+    def test_the_regex_agrees_with_the_runner(self):
+        r"""`def test_` counted by regex equals what `unittest discover`
+        reports, so the README's test number needs no test run to verify.
+        Inheritance or a generated case would break the equality, and this
+        is where that would show."""
+        import unittest as ut
+        loader = ut.TestLoader()
+        suite = loader.discover(str(REPO / 'tests'), pattern='test_*.py')
+        self.assertEqual(suite.countTestCases(), suite_size())
+        self.assertEqual(loader.errors, [])
+
+    def test_the_entry_counters_find_entries(self):
+        """A regex that matches nothing makes every count zero and every
+        claim equally wrong."""
+        for doc, letter in (('KNOWLEDGE.md', 'K'), ('KNOWHOW.md', 'H'),
+                            ('REFEREE.md', 'R')):
+            self.assertGreater(entry_count(doc, letter), 0, doc)
+        self.assertGreater(corpus_papers(), 0)
+        self.assertGreater(suite_size(), 0)
 
 
 if __name__ == '__main__':
