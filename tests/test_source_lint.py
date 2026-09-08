@@ -743,5 +743,68 @@ class NoLongDashInShippedMarkdown(unittest.TestCase):
             'this check no longer protects anything. Delete it.')
 
 
+# ---------------------------------------------------------------------------
+# 7. A walk over `\section` has to be able to see `\appendix`
+# ---------------------------------------------------------------------------
+# The same fact, learned five times in five places, four of them in one day:
+#
+#   build_label_index          section labels        A, B          (K180)
+#   read_class_conventions     the class's styles                  (K181)
+#   flat_equation_numbers      the book's equation numbers  (K185, K186)
+#   read_pdf_section_prefixes  run-in headings                     (K181)
+#   float_units                Table A.1 vs Table 8.1
+#
+# Each walked sections on its own and counted straight through `\appendix`,
+# and each was found by a different paper rather than by reading the code.
+# The failure is silent every time: a number is produced, it is just not the
+# one the paper prints.
+#
+# So the rule is about the SHAPE of the code, not about any one number: a
+# function that walks section headings is deciding what goes in front of
+# something, and it cannot decide correctly without knowing whether the
+# appendix has started. Requiring the word is crude and that is deliberate --
+# it costs one line in a function that genuinely does not need it, and it
+# fails loudly in one that does.
+_SECTION_WALK_RE = re.compile(r'\\\\\(\?:sub\)\*section')
+_DEF_RE = re.compile(r'^def\s+(\w+)\s*\(', re.M)
+
+
+def _functions(text):
+    """(name, body) for every top-level function in one module."""
+    marks = list(_DEF_RE.finditer(text))
+    for index, m in enumerate(marks):
+        stop = marks[index + 1].start() if index + 1 < len(marks) else len(text)
+        yield m.group(1), text[m.start():stop]
+
+
+class ASectionWalkKnowsAboutTheAppendix(unittest.TestCase):
+
+    def walkers(self):
+        for name, text in _sources():
+            for func, body in _functions(text):
+                if _SECTION_WALK_RE.search(body):
+                    yield name, func, body
+
+    def test_every_section_walk_can_see_the_appendix(self):
+        blind = ['%s:%s' % (module, func)
+                 for module, func, body in self.walkers()
+                 if 'appendix' not in body]
+        self.assertFalse(
+            blind,
+            'these walk section headings without being able to see '
+            '\\appendix, so their numbers keep counting into an appendix '
+            'the paper letters: %s' % blind)
+
+    def test_the_pattern_finds_the_walks_that_exist(self):
+        """Guards the check, not the code. A pattern that matches nothing
+        passes the test above for the wrong reason, which is exactly how
+        the count claims in `test_doc_consistency` went stale."""
+        found = {'%s:%s' % (module, func)
+                 for module, func, _body in self.walkers()}
+        for expected in ('merge_and_build.py:float_units',
+                         'merge_and_build.py:flat_equation_numbers'):
+            self.assertIn(expected, found)
+
+
 if __name__ == '__main__':
     unittest.main()

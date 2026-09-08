@@ -2517,12 +2517,27 @@ def float_units(tex):
     sections = []
     if scoped:
         depth0 = 0
-        for m in re.finditer(r'\\(?:sub)*section(\*?)\s*\{', tex):
+        in_appendix = False
+        # The appendix letters this walk too. A paper that scopes its table
+        # counter to the section AND has an appendix prints Table A.1; this
+        # said Table 8.1. The FIFTH place to need the same fact, after
+        # `build_label_index`, the class table, `flat_equation_numbers` and
+        # `read_pdf_section_prefixes` -- which is why a lint now refuses a
+        # section walk that cannot see it.
+        walker = re.compile(r'\\(?:sub)*section(\*?)\s*\{'
+                            r'|\\(appendix(?![a-zA-Z])'
+                            r'|begin\s*\{append(?:ix|ices)\})')
+        for m in walker.finditer(tex):
+            if m.group(2):
+                in_appendix, depth0 = True, 0
+                continue
             if m.group(1):                 # starred: numbers nothing
                 continue
             if m.group(0).count('sub') == 0:
                 depth0 += 1
-                sections.append((m.start(), str(depth0)))
+                sections.append((m.start(),
+                                 chr(ord('A') + depth0 - 1) if in_appendix
+                                 else str(depth0)))
     section_head, next_section = '', 0
     # The other way a paper letters its floats: by declaring it, rather than
     # by scoping the counter to a section. Walked alongside the floats for the
