@@ -901,6 +901,15 @@ placeholder, so no translator ever sees them. The book comes out translated
 with its tables still in the source language, and every existing check passes,
 because they count tables, images and values and those are all correct.
 
+**Two gates in `merge_and_build` stop the build if this step is skipped, and
+they are separate on purpose.** The first refuses a book whose table
+*captions* are still in the source language. The second refuses one whose
+*header cells or table notes* are, and it fires on books that pass the
+first: this step has four parts, and stopping after the captions is the
+usual way to half-do it. Two finished books shipped with `Avg`, `Params`,
+`Total` and `Acc` across the top of a results table before that gate
+existed, with every other check green (K176).
+
 Find out whether this paper is affected:
 
 ```bash

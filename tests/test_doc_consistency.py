@@ -168,15 +168,34 @@ class NoDocumentRecommendsARemovedRule(unittest.TestCase):
 
 
 class EveryModuleIsDescribedSomewhere(unittest.TestCase):
-    """A module no document mentions is one the next agent will not find,
-    and will rebuild badly. `equation_fit` shipped before anything named it."""
+    r"""A module no document mentions is one the next agent will not find,
+    and will rebuild badly. `equation_fit` shipped before anything named it.
+
+    The mention has to be of the module ITSELF. A bare substring test
+    passed `scripts/table_language.py` on the day it was written, because
+    `check_table_language` -- a different symbol, in a different file,
+    named in a Status line -- contains its name. The module was documented
+    nowhere and the check said it was fine, which is the failure this whole
+    file exists to end.
+    """
+
+    def named_as_itself(self, stem, joined):
+        return re.search(r'(?<![A-Za-z0-9_])%s(?![A-Za-z0-9_])'
+                         % re.escape(stem), joined) is not None
 
     def test_each_script_is_named_by_a_document(self):
         joined = '\n'.join(docs().values())
         unmentioned = [p.stem for p in sorted((REPO / 'scripts').glob('*.py'))
-                       if p.stem not in joined]
+                       if not self.named_as_itself(p.stem, joined)]
         self.assertFalse(unmentioned,
                          'scripts no document mentions: %s' % unmentioned)
+
+    def test_a_longer_symbol_does_not_count_as_a_mention(self):
+        """Guards the boundary, not the docs."""
+        self.assertFalse(self.named_as_itself(
+            'table_language', 'see `check_table_language` in format_probe'))
+        self.assertTrue(self.named_as_itself(
+            'table_language', 'see `scripts/table_language.py` for the list'))
 
 
 def entry_count(doc, letter):

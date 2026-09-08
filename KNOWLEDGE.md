@@ -193,6 +193,7 @@ here; the test is the real record. This file is for the *reasoning*, the
 | The referee remembers a run as clean that was not | [K173](#k173) |
 | A command dies with UnicodeEncodeError, or passes only in one shell | [K174](#k174) |
 | Equation numbers drift after a gather or alignat block | [K175](#k175) |
+| A results table keeps English headers though its caption is translated | [K176](#k176) |
 
 ---
 
@@ -2504,6 +2505,22 @@ digest` listed `alignat` and `flalign` under NEVER SEEN: never seen is never
 tested, and one corpus paper already uses `gather`.
 *Status: fixed. Nine agree with LaTeX; `multline` was already right and now
 has a test, being the obvious wrong fix.*
+
+---
+
+### K176
+**The caption gate stopped the build and the header shipped.**
+`untranslated_captions` refuses a book whose table captions are still in the
+source language, so step 4.6 gets started. It has four parts and nothing
+checked the other three. A header cell is one to three words, so
+`longest_source_run` cannot see it: no cell holds a run of four. Two of the
+five books on this machine print `Avg`, `Params`, `Total` and `Acc` across
+the top of a results table with every check green. Headers now match a
+closed vocabulary read off the corpus rather than invented, because
+frequency does not separate the two kinds: `Method` (3 papers), `Avg` (4)
+and `Params` (2) are generic, and `PIQA` and `MMLU` are names appearing in
+two apiece.
+*Status: fixed, `scripts/table_language.py`, `TheNamesSurvive`.*
 
 ---
 

@@ -29,6 +29,7 @@ import math_guard
 import layout
 import chromium_pdf
 import equation_fit
+import table_language
 from manifest import read_output_text, validate_for_merge
 
 # Windows consoles default to a legacy codepage (e.g. cp949), which raises
@@ -6755,6 +6756,59 @@ def untranslated_captions(md_text, lang, temp_dir=None):
     return out
 
 
+def untranslated_table_words(md_text, lang, temp_dir=None):
+    r"""What step 4.6 left in English BELOW the caption. [] when unmeasurable.
+
+    The caption gate above stopped the build and the header shipped. Step
+    4.6 asks for three more things -- column headers, rotated row-group
+    labels, and the prose under `\begin{tablenotes}` -- and nothing checked
+    any of them, so a book could pass every check with `Method` and
+    `Params` across the top of its results table. Two of the five papers on
+    this machine shipped exactly that.
+
+    A header cell is one to three words, so `longest_source_run` cannot see
+    it: no cell holds a run of four. Headers are matched against a closed
+    vocabulary instead (`table_language.HEADER_WORDS`), and notes are prose
+    and go through the script test.
+
+    Two abstentions, both about asking a question the artefact can answer:
+
+      * an English target. The vocabulary is English, so a header still in
+        English is only evidence of a skipped step when the book was not
+        meant to be English. Nothing else here can tell those apart.
+      * a run that copied its chunks through, which is the honest rendering
+        of an English paper into English and is recognised from the chunks
+        rather than the language name (K68), exactly as captions are.
+
+    Known incompleteness, stated rather than hidden: the vocabulary is
+    English, so a German paper whose headers stay German is not caught. The
+    corpus is 24 papers and all of them are written in English.
+    """
+    base = (lang or '').split('-')[0]
+    if base == 'en' or translation_is_passthrough(temp_dir):
+        return []
+    try:
+        import verify_chunk
+        ranges = verify_chunk._SCRIPT_RANGES.get(base)
+    except Exception:                                     # noqa: BLE001
+        ranges = None
+
+    out = []
+    for table in find_raw_latex_tables(md_text):
+        for cell in table_language.untranslated_header_cells(
+                table.get('bare') or ''):
+            out.append('header cell "%s"' % cell)
+        note = ' '.join((table.get('notes') or '').split())
+        # Only the script test applies to a note: `source_captions` holds
+        # captions, so a run measured against it would be measuring the
+        # wrong corpus, and saying nothing is better than a number that
+        # answers a different question.
+        if len(note) >= 12 and ranges and not any(
+                verify_chunk._in_target_script(ch, ranges) for ch in note):
+            out.append('table note "%s"' % note[:60])
+    return out
+
+
 def convert_md_to_html(temp_dir, title, lang_cfg, author=None,
                        allow_degraded=False, math_mode='mathml', force=False,
                        print_cfg=None):
@@ -6782,6 +6836,25 @@ def convert_md_to_html(temp_dir, title, lang_cfg, author=None,
         print("  SKILL.md step 4.6 translates them. Start with:")
         print("      python tests/format_probe.py \"%s\" --lang %s"
               % (temp_dir, (lang_cfg.get('lang_attr') or '').split('-')[0]))
+        raise SystemExit(1)
+
+    # The caption is the first row of a table, not the whole of it. This gate
+    # is separate from the one above because it fires on books whose captions
+    # ARE translated: step 4.6 has four parts and stopping after the first is
+    # the common way to half-do it.
+    stale_words = untranslated_table_words(_merged,
+                                           lang_cfg.get('lang_attr', ''),
+                                           temp_dir)
+    if stale_words:
+        print("ERROR: %d table header cell(s) or note(s) are still in the "
+              "source language." % len(stale_words))
+        for line in stale_words[:6]:
+            print("  - %s" % line)
+        print("  The captions passed, so step 4.6 was started and stopped "
+              "after them. Column headers, rotated row labels and the prose "
+              "under a table are the rest of it.")
+        print("  Edit through scripts/sidecar_edit.py, never a script of "
+              "your own; SKILL.md step 4.6 says why.")
         raise SystemExit(1)
 
     book_doc_file = os.path.join(temp_dir, 'book_doc.html')
