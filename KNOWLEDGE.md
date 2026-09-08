@@ -201,6 +201,7 @@ here; the test is the real record. This file is for the *reasoning*, the
 | Sections print I, II, III, or equations print 2.1, and we say 3 and 2 | [K181](#k181) |
 | A cross-reference names an earlier formula, or a section instead of one | [K182](#k182) |
 | Every reference to a table says 1 where the paper prints TABLE I | [K183](#k183) |
+| source_probe passes but leaves many references not located | [K184](#k184) |
 
 ---
 
@@ -2637,6 +2638,22 @@ section-scoped counter has produced `3.1` for a long time, and the caption
 badge already formats with `%s` for exactly that reason. All seven local
 papers now pass `source_probe`, TinyVLA among them.
 *Status: fixed, `AFloatCounterThePaperNeverDeclares`.*
+
+---
+
+### K184
+**The reference locator's real limit is word ORDER, not word choice.**
+`source_probe` verifies a reference by finding the LaTeX words before it
+in the PDF, and could not locate 89 sites across five papers. Sixty hold
+words that are ALL in the PDF in some other order: a two-column page read
+down the middle, a float moved between paragraphs. No sequence matcher
+wins those. Widening the window to 20 words rescued none, cutting the
+context at the last `\cite` rescued none, de-hyphenating and normalising
+quotes rescued five. Dropping the floor from four words to three took the
+verified references from 232 to 245 with no disagreement anywhere. Two
+was rejected: its anchor landed on another formula in the same section
+and failed a paper whose numbering was right.
+*Status: measured. Floor is three, in `check_references`.*
 
 ---
 

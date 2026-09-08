@@ -109,7 +109,7 @@ and into making the skill cheaper to work on next month than this month.
 | **`scripts/paper_macros.py`** | The paper's own `\newcommand`s resolved from the `.sty` files it ships. 4,099 calls across 21 papers |
 | **Refusal over guessing** | It declines on TeX machinery, on a discarded argument, and on anything pandoc reads better, and names every refusal at conversion time instead of leaving it silent |
 | **Print path** | Headless Chromium against a real `@page` box (A4, 18/18/22/18 mm, 11.5 pt), page numbers stamped afterwards because Chrome implements no margin boxes. `scripts/layout.py` is the single source of page geometry and fonts |
-| **Growth stores that ship** | `KNOWLEDGE.md` 183 entries, `KNOWHOW.md` 39, `REFEREE.md` 6, and a census of every LaTeX shape the corpus has met across 26 papers |
+| **Growth stores that ship** | `KNOWLEDGE.md` 184 entries, `KNOWHOW.md` 39, `REFEREE.md` 6, and a census of every LaTeX shape the corpus has met across 26 papers |
 | **Four advisor sub-agents** | old-man, question-monster, fast-finder, referee; see below |
 | **The census as an oracle** | `tests/test_source_lint.py` fails when the corpus has met a construct nobody has classified |
 | **Tests** | 2,110, stdlib only, run in CI |
@@ -122,7 +122,7 @@ ship with this skill so that the second time is cheaper than the first.
 
 | | what it holds |
 |---|---|
-| `KNOWLEDGE.md` | What a tool actually did, with the measurement that proved it. 183 entries |
+| `KNOWLEDGE.md` | What a tool actually did, with the measurement that proved it. 184 entries |
 | `KNOWHOW.md` | What a way of working cost, so it is not paid twice. 39 entries |
 | `REFEREE.md` | Whether a repeated failure belongs to a tool, a briefing, or a role. 6 entries |
 | `corpus/shapes.json` | Every LaTeX construct each paper carried, written by the build itself. 26 papers |

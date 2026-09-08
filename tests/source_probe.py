@@ -271,7 +271,23 @@ def check_references(temp_dir, flat, pdf_flat):
         # first hit reported a mismatch the paper does not have. Only a
         # context that lands in exactly one place identifies a reference site.
         at = -1
-        for take in (8, 6, 4):
+        # Longest first, and the first window that appears EXACTLY once in
+        # the PDF wins. Three is the floor, and it was set by measurement
+        # rather than taste: across seven papers it takes the verified
+        # references from 232 to 245 with no disagreement anywhere. Two was
+        # tried in the same sitting and rejected -- it added a site whose
+        # anchor landed on a different formula in the same section, and the
+        # probe then failed a paper whose numbering was right. A check that
+        # fails correct work is the one thing this cannot be.
+        #
+        # Widening the other way is pointless, and that was measured too: of
+        # 89 sites this cannot locate, a window of up to 20 words rescued
+        # none. Sixty of them hold words that are ALL in the PDF in some
+        # other order -- a two-column page read down the middle, a float
+        # moved between paragraphs -- so no sequence matcher wins them.
+        # Cutting the context at the last `\cite` rescued nothing;
+        # de-hyphenating and normalising quotes rescued five.
+        for take in (8, 6, 4, 3):
             if len(words) < take:
                 continue
             probe = ' '.join(words[-take:])
