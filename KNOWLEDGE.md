@@ -202,6 +202,7 @@ here; the test is the real record. This file is for the *reasoning*, the
 | A cross-reference names an earlier formula, or a section instead of one | [K182](#k182) |
 | Every reference to a table says 1 where the paper prints TABLE I | [K183](#k183) |
 | source_probe passes but leaves many references not located | [K184](#k184) |
+| The book numbers equations 1, 2, 3 where the paper prints 2.1 | [K185](#k185) |
 
 ---
 
@@ -2654,6 +2655,22 @@ verified references from 232 to 245 with no disagreement anywhere. Two
 was rejected: its anchor landed on another formula in the same section
 and failed a paper whose numbering was right.
 *Status: measured. Floor is three, in `check_references`.*
+
+---
+
+### K185
+**An amsart paper's equations were numbered flat in the finished book.**
+`flat_equation_numbers` decides the number strings the BOOK issues, and it
+asked `read_counter_parents` alone. amsart scopes the equation counter to
+the section without declaring it, so both amsart papers printed 1, 2, 3
+where their own pages print (2.1). `build_label_index` and `float_units`
+had been taught the class table one commit earlier and this third reader
+had not, which is K179's shape again, one file over.
+Its equation-count check still fails 2609.04930 at 50 against 37, and that
+is the READING side: 54 marker values appear in the page text and only 37
+stand alone on an extracted line. Widening the rule over-counts, because a
+cross-reference to (2.1) wears the same shape.
+*Status: fixed, `EveryReaderOfTheConventionsUsesThem`. Count check open.*
 
 ---
 

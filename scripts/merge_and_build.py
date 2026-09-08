@@ -4049,7 +4049,16 @@ def flat_equation_numbers(temp_dir):
             tex = strip_tex_comments(fh.read())
     except OSError:
         return None
-    if read_counter_parents(tex).get('equation') != 'section':
+    # The class counts too. `build_label_index` and `float_units` were taught
+    # this and THIS reader was not, so an amsart paper -- which scopes the
+    # equation counter to the section without saying so anywhere -- came back
+    # None here and had its equations numbered flat, 1, 2, 3, where its own
+    # pages print (2.1). The same shape of drift as K179, one file over.
+    parents = read_counter_parents(tex)
+    for counter, parent in (read_class_conventions(tex).get('parents')
+                            or {}).items():
+        parents.setdefault(counter, parent)
+    if parents.get('equation') != 'section':
         return None
 
     numbers, head, count = [], '', 0

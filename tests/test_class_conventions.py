@@ -141,6 +141,53 @@ class TheIndexUsesThem(unittest.TestCase):
         self.assertEqual(got.get('eq:two'), '2.1')
 
 
+class EveryReaderOfTheConventionsUsesThem(unittest.TestCase):
+    r"""`flat_equation_numbers` decides the number strings the BUILT BOOK
+    issues, and it consulted `read_counter_parents` alone. amsart declares
+    nothing, so both amsart papers had their equations numbered flat --
+    1, 2, 3 -- where their own pages print (2.1). Not a probe detail: it is
+    what a reader sees.
+
+    Three readers now need the class table, and the first two were taught
+    a commit before this one. That is the drift this repository keeps
+    paying for, so the test names all three."""
+
+    def setUp(self):
+        self.work = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.work, True)
+
+    def flat(self, cls):
+        path = os.path.join(self.work, 'flat.tex')
+        with open(path, 'w', encoding='utf-8') as fh:
+            fh.write('\\documentclass{%s}\n\\begin{document}\n'
+                     '\\section{One}\n'
+                     '\\begin{equation}a=b\\end{equation}\n'
+                     '\\begin{equation}c=d\\end{equation}\n'
+                     '\\section{Two}\n'
+                     '\\begin{equation}e=f\\end{equation}\n'
+                     '\\end{document}\n' % cls)
+        return self.work
+
+    def test_amsart_equations_are_numbered_within_the_section(self):
+        got = mb.flat_equation_numbers(self.flat('amsart'))
+        self.assertEqual(got, ['1.1', '1.2', '2.1'])
+
+    def test_an_ordinary_class_still_numbers_flat(self):
+        """None means "nothing to override", and that must stay true or
+        every plain paper's equations acquire a section prefix."""
+        self.assertIsNone(mb.flat_equation_numbers(self.flat('article')))
+
+    def test_an_explicit_declaration_still_reaches_it(self):
+        path = os.path.join(self.work, 'flat.tex')
+        with open(path, 'w', encoding='utf-8') as fh:
+            fh.write('\\documentclass{article}\n'
+                     '\\numberwithin{equation}{section}\n'
+                     '\\begin{document}\n\\section{One}\n'
+                     '\\begin{equation}a=b\\end{equation}\n'
+                     '\\end{document}\n')
+        self.assertEqual(mb.flat_equation_numbers(self.work), ['1.1'])
+
+
 FLOATS = ('\\documentclass{%s}\n\\begin{document}\n'
           '\\begin{table}\\caption{One}\\label{t:one}\\end{table}\n'
           '\\begin{figure}\\caption{One}\\label{f:one}\\end{figure}\n'

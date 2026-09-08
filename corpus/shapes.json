@@ -1190,6 +1190,56 @@
    },
    "title": "Active Inference for Joint Port Selection and Pilot Allocation in Fluid Antenna Systems Under Partial CSI"
   },
+  "2609.04930": {
+   "shapes": {
+    "bibliography": {
+     "bibliography-file": 1,
+     "cite": 62
+    },
+    "caption": {
+     "caption": 6,
+     "subcaption": 18
+    },
+    "float": {
+     "figure": 6,
+     "minipage": 18
+    },
+    "front matter": {
+     "address": 5,
+     "author": 3,
+     "bibliographystyle": 1,
+     "maketitle": 1
+    },
+    "macro": {
+     "abbreviation-macro": 1,
+     "newcommand-bare": 1,
+     "newcommand-braced": 324,
+     "newif": 1,
+     "renewcommand": 3
+    },
+    "macro in style files": {
+     "DeclareRobustCommand": 1,
+     "abbreviation-macro": 4,
+     "bfseries-group": 1,
+     "let-binding": 9,
+     "renewcommand": 2
+    },
+    "math": {
+     "equation": 44,
+     "multline": 6,
+     "old-font-switch": 45,
+     "substack": 6
+    },
+    "other": {
+     "newcommand": 325,
+     "tikzpicture": 19
+    },
+    "preamble": {
+     "documentclass": 2
+    }
+   },
+   "title": "Frequency-explicit convergence analysis of a multiscale finite element method for highly heterogeneous scattering problems"
+  },
   "2609.05337": {
    "shapes": {
     "bibliography": {

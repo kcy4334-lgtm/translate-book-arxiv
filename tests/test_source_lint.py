@@ -339,6 +339,11 @@ CONSTRUCT_DISPOSITION = {
     # into this corpus, and with the printed-marker fix beside it that paper
     # now reads 57 numbered against the 57 its PDF prints. See K175, K179.
     'alignat': 'handled',
+    # One equation broken across lines for width, taking ONE number however
+    # many `\\` it holds. Making it row-numbered is the obvious wrong fix and
+    # there is a test against it. 2609.04930 brought it into the corpus with
+    # six numbered and six starred.
+    'multline': 'handled',
     # ---- the shapes that hid a formula from a span regex -----------------
     # All three were found by an advisor, not by this census, because the
     # census could not see any of them. Each is now handled, and counted so
