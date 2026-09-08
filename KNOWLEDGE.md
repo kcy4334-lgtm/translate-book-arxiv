@@ -197,6 +197,7 @@ here; the test is the real record. This file is for the *reasoning*, the
 | verify_tables refuses a table whose rows were never dropped | [K177](#k177) |
 | An empheq or dmath display takes no number, or thead splits a cell | [K178](#k178) |
 | source_probe and the build disagree on how many equations there are | [K179](#k179) |
+| Appendix sections number 11 and 11.5 where the paper prints A and A.5 | [K180](#k180) |
 
 ---
 
@@ -2571,6 +2572,22 @@ printed side undercounted too, rejecting the `(2.1a)` a `subequations`
 prints, and the two errors were cancelling: 2609.05354 read 49 against 43,
 and reads 57 against 57 once both are right.
 *Status: fixed, `OneCounterNotTwo`, `ASubequationsMarkerIsStillAMarker`.*
+
+---
+
+### K180
+**An appendix opened as an environment kept arabic section numbers.**
+`\appendix` is a command, and the label index has read it for a long time.
+The appendix package offers the same switch as `\begin{appendix}` or
+`\begin{appendices}`, and a paper using one does not also write the other.
+2609.05354 carries no `\appendix` anywhere, so its appendix sections
+numbered 11 and 11.5 where the paper prints A and A.5, and every `\ref`
+into them followed. Found by running a real paper, not by reading code:
+the lettering branch was already there and only the flag was never set,
+so `source_probe` went from four disagreeing cross-references to one.
+Both spellings share ONE capture group, because the branches after it
+are read by position and a new group would renumber all of them.
+*Status: fixed, `AppendixNumbering`, `TheScannerKeptItsShape`.*
 
 ---
 

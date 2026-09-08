@@ -3331,7 +3331,15 @@ def _label_token_re(theorem_envs):
     alt = '|'.join(re.escape(name) for name in
                    sorted(names, key=lambda n: (-len(n), n)))
     return re.compile(
-        r'\\(appendix)(?![a-zA-Z])'
+        # Both spellings, in ONE group: the branches below are read by
+        # position, so a new group here would renumber every one of them.
+        # `\appendix` is the command; `\begin{appendix}` and
+        # `\begin{appendices}` are the environments the appendix package
+        # offers, and a paper that uses one does not also write the other.
+        # 2609.05354 opens with `\begin{appendix}` and no command anywhere,
+        # so its appendix sections numbered 11 and 11.5 where the paper
+        # prints A and A.5, and every `\ref` into them followed.
+        r'\\(appendix(?![a-zA-Z])|begin\s*\{append(?:ix|ices)\})'
         r'|\\((?:sub)*)section(\*?)\s*\{'
         r'|\\begin\{(' + alt + r')(\*?)\}'
         r'|\\begin\{(?:SC|wrap|sideways|long|floating)?(figure|table)\*?\}'
