@@ -71,6 +71,7 @@ A finding about a tool goes there. A finding about the method goes here.
 | treat a check firing as proof the check is working | [H37](#h37) |
 | accept a package default when two definitions compete | [H38](#h38) |
 | skip a step's probe because every other check is green | [H39](#h39) |
+| keep hunting for a shape after the hunt has answered | [H40](#h40) |
 
 ---
 
@@ -568,6 +569,22 @@ not a formality, and a green board is what that gap looks like from every
 other angle.
 *Cost when skipped: fifteen captions, found only because the probe was run
 afterwards anyway, and seven sub-agents to repair.*
+---
+
+### H40
+**Hunt for a NEVER SEEN shape, and stop when the hunt has answered.**
+Fetching real papers and grepping their sources found `thead`, `multline`
+and `alignat` quickly, and every one that entered the corpus paid for
+itself: a real paper found defects a written-out block never would. Then a
+sweep aimed straight at what was left -- 56 papers across the engineering
+and wide-table categories, on top of 72 earlier -- turned up no
+`IEEEeqnarray`, no `flalign`, no `sidewaysfigure`, no `empheq`, no `dmath`.
+That is not a failed hunt. 128 papers carrying none of them is a
+measurement, and it moves those shapes from "nobody looked" to "rare",
+which is what decides whether to spend another hour.
+*Cost when skipped: hours of downloads chasing shapes this corpus is
+unlikely to meet, while a paper already in hand has three numbers it
+assigns that its own pages do not print.*
 ---
 
 ## Maintenance protocol

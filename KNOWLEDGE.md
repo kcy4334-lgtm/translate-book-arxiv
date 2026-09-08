@@ -203,6 +203,7 @@ here; the test is the real record. This file is for the *reasoning*, the
 | Every reference to a table says 1 where the paper prints TABLE I | [K183](#k183) |
 | source_probe passes but leaves many references not located | [K184](#k184) |
 | The book numbers equations 1, 2, 3 where the paper prints 2.1 | [K185](#k185) |
+| Appendix equations are numbered 8.1 where the paper prints A.1 | [K186](#k186) |
 
 ---
 
@@ -2671,6 +2672,22 @@ is the READING side: 54 marker values appear in the page text and only 37
 stand alone on an extracted line. Widening the rule over-counts, because a
 cross-reference to (2.1) wears the same shape.
 *Status: fixed, `EveryReaderOfTheConventionsUsesThem`. Count check open.*
+
+---
+
+### K186
+**The book numbered appendix equations 8.1 where the paper prints A.1.**
+`flat_equation_numbers` walks sections to build the string in front of a
+scoped equation counter, and walked straight through `\appendix`. On
+2609.04930 that issued 8.1 to 8.9 for equations its pages print as A.1
+and B.1, nine of the eleven numbers absent from that paper's pages. The
+fourth reader of the same fact, after `build_label_index`, `float_units`
+and the class table. The appendix alternative sits LAST in the pattern
+because the star and the environment are read by group NUMBER. Found by
+asking whether every number we ASSIGN appears on the page, which
+separates an over-count from a marker nobody could isolate; comparing
+totals cannot.
+*Status: fixed, `TheEquationWalkerKnowsTheAppendixToo`. Three remain.*
 
 ---
 

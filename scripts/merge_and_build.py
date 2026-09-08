@@ -4062,17 +4062,30 @@ def flat_equation_numbers(temp_dir):
         return None
 
     numbers, head, count = [], '', 0
+    # The appendix branch is LAST so groups 1 and 2 keep their positions --
+    # the star and the environment are read by number a few lines down.
+    # Without it this walk counted sections straight through `\appendix` and
+    # issued 8.1 to 8.9 for equations 2609.04930 prints as A.1 and B.1. The
+    # fourth reader of the same fact, after `build_label_index`,
+    # `float_units` and the class table (K180, K185).
     token = re.compile(r'\\(?:sub)*section(\*?)\s*\{'
                        r'|\\begin\{(' + '|'.join(_NUMBERED_MATH_ENVS) +
-                       r')\}')
+                       r')\}'
+                       r'|\\(appendix(?![a-zA-Z])'
+                       r'|begin\s*\{append(?:ix|ices)\})')
     depth0 = 0
+    in_appendix = False
     for m in token.finditer(tex):
-        if m.group(2):
+        if m.group(3):
+            in_appendix, depth0, head, count = True, 0, '', 0
+        elif m.group(2):
             count += 1
             numbers.append('%s.%d' % (head, count) if head else str(count))
         elif not m.group(1) and m.group(0).count('sub') == 0:
             depth0 += 1
-            head, count = str(depth0), 0
+            head = (chr(ord('A') + depth0 - 1) if in_appendix
+                    else str(depth0))
+            count = 0
     return numbers or None
 
 

@@ -98,6 +98,61 @@ class AppendixNumbering(unittest.TestCase):
         self.assertEqual(got.get('sec:after'), 'B')
 
 
+class TheEquationWalkerKnowsTheAppendixToo(unittest.TestCase):
+    r"""`flat_equation_numbers` decides the number strings the BOOK issues
+    for a paper whose equation counter is scoped to the section. It walked
+    sections straight through `\appendix` and kept counting, so 2609.04930
+    was assigned 8.1 through 8.9 for equations its own pages print as A.1
+    and B.1. Nine of the eleven numbers absent from that paper's pages were
+    these; fixing it left three.
+
+    The fourth reader of the same fact, after `build_label_index`,
+    `float_units` and the class table. The appendix alternative sits LAST
+    in the pattern so the star and the environment keep their group
+    numbers, which is the same trap `_label_token_re` documents.
+    """
+
+    def setUp(self):
+        self.work = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.work, True)
+
+    def numbers(self, body):
+        path = os.path.join(self.work, 'flat.tex')
+        with open(path, 'w', encoding='utf-8') as fh:
+            fh.write('\\documentclass{amsart}\n\\begin{document}\n%s'
+                     '\\end{document}\n' % body)
+        return mb.flat_equation_numbers(self.work)
+
+    BODY = ('\\section{One}\n\\begin{equation}a=b\\end{equation}\n'
+            '\\section{Two}\n\\begin{equation}c=d\\end{equation}\n'
+            '%s\n'
+            '\\section{Proofs}\n\\begin{equation}e=f\\end{equation}\n'
+            '\\begin{equation}g=h\\end{equation}\n'
+            '\\section{More}\n\\begin{equation}i=j\\end{equation}\n')
+
+    def test_the_command(self):
+        self.assertEqual(self.numbers(self.BODY % '\\appendix'),
+                         ['1.1', '2.1', 'A.1', 'A.2', 'B.1'])
+
+    def test_the_environment(self):
+        self.assertEqual(self.numbers(self.BODY % '\\begin{appendix}'),
+                         ['1.1', '2.1', 'A.1', 'A.2', 'B.1'])
+
+    def test_without_one_the_sections_keep_counting(self):
+        self.assertEqual(self.numbers(self.BODY % ''),
+                         ['1.1', '2.1', '3.1', '3.2', '4.1'])
+
+    def test_the_groups_after_it_still_read_by_position(self):
+        r"""A starred section takes no number and an environment name is
+        group 2. Adding the appendix alternative anywhere but last would
+        have moved both, and the failure would have been silent."""
+        self.assertEqual(
+            self.numbers('\\section{One}\n\\begin{equation}a=b\\end{equation}\n'
+                         '\\section*{Unnumbered}\n'
+                         '\\begin{equation}c=d\\end{equation}\n'),
+            ['1.1', '1.2'])
+
+
 class TheScannerKeptItsShape(unittest.TestCase):
     r"""`_label_token_re` reads its branches by position: group 2 is the
     `sub` run of a `\section`, group 3 its star, and so on down. Adding a
