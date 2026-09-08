@@ -199,6 +199,8 @@ here; the test is the real record. This file is for the *reasoning*, the
 | source_probe and the build disagree on how many equations there are | [K179](#k179) |
 | Appendix sections number 11 and 11.5 where the paper prints A and A.5 | [K180](#k180) |
 | Sections print I, II, III, or equations print 2.1, and we say 3 and 2 | [K181](#k181) |
+| A cross-reference names an earlier formula, or a section instead of one | [K182](#k182) |
+| Every reference to a table says 1 where the paper prints TABLE I | [K183](#k183) |
 
 ---
 
@@ -2605,6 +2607,36 @@ declaration still wins. Only classes verifiable here are in the table:
 2609.05337 now passes `source_probe` outright, and the check re-measures
 both against the printed pages on every run.
 *Status: fixed, `WhatTheClassSays`, `TheIndexUsesThem`.*
+
+---
+
+### K182
+**A label inside a display the index could not see named an earlier formula.**
+`alignat`, `flalign` and `IEEEeqnarray` were absent from the counted
+environments, so a `\label` in one kept whatever `current` the previous
+display had set. 2609.05354 has eight such labels, each quietly naming
+another formula. `subequations` was absent too, and a label on the WRAPPER
+kept the SECTION's number, sending a reader to prose instead of a group of
+formulas. The wrapper is now named WITHOUT consuming a number: LaTeX
+advances the parent counter once for the whole group and letters the rows
+under it, so the wrapper and its first inner display spell the same string
+and no arithmetic changes. Incrementing there would have skipped one.
+*Status: fixed, `ALabelTakesItsOwnDisplaysNumber`.*
+
+---
+
+### K183
+**IEEEtran prints TABLE I, and every reference to it said 1.**
+The float counter, one level above K181's section counter and the same
+cause: the class chooses the style and the source states nothing. All six
+of TinyVLA's disagreeing cross-references named a table, and it had been
+shipping that way. Figures stay arabic in IEEEtran, so only the table is
+listed; lettering the figure would break every IEEE paper's pictures. The
+number becomes a string where it was an int, which is not new ground -- a
+section-scoped counter has produced `3.1` for a long time, and the caption
+badge already formats with `%s` for exactly that reason. All seven local
+papers now pass `source_probe`, TinyVLA among them.
+*Status: fixed, `AFloatCounterThePaperNeverDeclares`.*
 
 ---
 

@@ -320,8 +320,15 @@ def probe(temp_dir, strict=False):
     if prefixes is None:
         print('sections   : not checked (%s)' % stats.get('reason'))
     else:
-        print('sections   : %d numbered, %d unnumbered in the original, %d not found'
-              % (stats['matched'], stats['unnumbered'], stats['missing']))
+        # `run_in` is printed rather than folded away. A level the class
+        # sets run-in prints no heading line, so not finding one says
+        # nothing about the numbering -- but a reader of this output still
+        # needs to know how many headings were excused and why.
+        print('sections   : %d numbered, %d unnumbered in the original, '
+              '%d not found%s'
+              % (stats['matched'], stats['unnumbered'], stats['missing'],
+                 (', %d run-in (the class prints no heading line)'
+                  % stats['run_in']) if stats.get('run_in') else ''))
         if stats['missing'] > max(2, 0.2 * len(prefixes)):
             fails.append('%d heading(s) could not be found in the original'
                          % stats['missing'])

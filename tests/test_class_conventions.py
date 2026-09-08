@@ -62,6 +62,17 @@ class WhatTheClassSays(unittest.TestCase):
         self.assertEqual(self.conventions('amsart').get('parents'),
                          {'equation': 'section'})
 
+    def test_ieeetran_numbers_tables_in_roman_and_figures_in_arabic(self):
+        """TABLE I, TABLE II, Fig. 1, Fig. 2. Only the table is listed, and
+        listing the figure too would break every IEEE paper's pictures."""
+        got = self.conventions('IEEEtran').get('float')
+        self.assertEqual(got, {'table': 'Roman'})
+
+    def test_amsart_sets_its_subsection_run_in(self):
+        """There is no heading line in the PDF for a subsection, so one not
+        being located says nothing about the numbering."""
+        self.assertEqual(self.conventions('amsart').get('run_in_level'), 2)
+
     def test_a_class_nobody_measured_says_nothing(self):
         """Silence is the right answer for a class no paper here uses.
         Guessing one would put an unverified rule in front of every book."""
@@ -128,6 +139,52 @@ class TheIndexUsesThem(unittest.TestCase):
         class fills in what the paper did not say, and nothing more."""
         got = self.numbers('article', '\\numberwithin{equation}{section}\n')
         self.assertEqual(got.get('eq:two'), '2.1')
+
+
+FLOATS = ('\\documentclass{%s}\n\\begin{document}\n'
+          '\\begin{table}\\caption{One}\\label{t:one}\\end{table}\n'
+          '\\begin{figure}\\caption{One}\\label{f:one}\\end{figure}\n'
+          '\\begin{table}\\caption{Two}\\label{t:two}\\end{table}\n'
+          '\\begin{figure}\\caption{Two}\\label{f:two}\\end{figure}\n'
+          '\\begin{table}\\caption{Three}\\label{t:three}\\end{table}\n'
+          '\\end{document}\n')
+
+
+class AFloatCounterThePaperNeverDeclares(unittest.TestCase):
+    r"""TinyVLA's six disagreeing cross-references all named a table: the
+    index said 1, 2, 3 where the paper prints I, II, III. IEEEtran does
+    that and the source says so nowhere.
+
+    The value becomes a string where it used to be an int, and that is not
+    new ground: a section-scoped counter has produced `3.1` for a long
+    time, and the caption badge already formats with `%s` because of it.
+    """
+
+    def numbers(self, cls):
+        out = {}
+        for unit in mb.float_units(FLOATS % cls):
+            for label in unit['labels']:
+                out[label] = unit['number']
+        return out
+
+    def test_ieeetran_letters_the_tables_and_leaves_the_figures(self):
+        got = self.numbers('IEEEtran')
+        self.assertEqual(got.get('t:one'), 'I')
+        self.assertEqual(got.get('t:two'), 'II')
+        self.assertEqual(got.get('t:three'), 'III')
+        self.assertEqual(got.get('f:one'), 1)
+        self.assertEqual(got.get('f:two'), 2)
+
+    def test_an_ordinary_class_is_untouched(self):
+        got = self.numbers('article')
+        self.assertEqual(got.get('t:one'), 1)
+        self.assertEqual(got.get('t:three'), 3)
+        self.assertEqual(got.get('f:two'), 2)
+
+    def test_the_caption_badge_survives_a_lettered_number(self):
+        r"""`%d` here would die with "a real number is required, not str",
+        which is exactly how a section-scoped counter broke this once."""
+        self.assertEqual('%s %s' % ('Table', 'III'), 'Table III')
 
 
 if __name__ == '__main__':

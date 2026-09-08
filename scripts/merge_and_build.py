@@ -1902,7 +1902,18 @@ def read_pdf_section_prefixes(temp_dir, tex_heads):
     returned for the whole list when the PDF cannot be consulted at all.
     """
     stats = {'matched': 0, 'unnumbered': 0, 'missing': 0,
-             'wrapped': 0, 'reason': None}
+             'wrapped': 0, 'run_in': 0, 'reason': None}
+    # A level the class sets run-in prints no heading line at all, so failing
+    # to find one says nothing about the numbering. Kept out of `missing` and
+    # counted on its own.
+    run_in_level = 0
+    try:
+        with open(os.path.join(temp_dir, 'flat.tex'), 'r',
+                  encoding='utf-8', errors='replace') as fh:
+            run_in_level = read_class_conventions(
+                fh.read(40000)).get('run_in_level', 0)
+    except OSError:
+        pass
     pdf_path = _source_pdf(temp_dir)
     if not pdf_path:
         stats['reason'] = 'no source PDF recorded in config.txt'
@@ -1942,7 +1953,7 @@ def read_pdf_section_prefixes(temp_dir, tex_heads):
             plain.add(key)
 
     prefixes = []
-    for _level, title, _is_numbered in tex_heads:
+    for level, title, _is_numbered in tex_heads:
         key = _normalize_heading(title)
         if key in numbered:
             prefixes.append(numbered[key])
@@ -1969,7 +1980,10 @@ def read_pdf_section_prefixes(temp_dir, tex_heads):
             stats['wrapped'] += 1
             continue
         prefixes.append(None)
-        stats['missing'] += 1
+        if run_in_level and level >= run_in_level:
+            stats['run_in'] += 1
+        else:
+            stats['missing'] += 1
     return prefixes, stats
 
 
@@ -2494,6 +2508,12 @@ def float_units(tex):
     # the paper does not print.
     parents = read_counter_parents(tex)
     scoped = {k for k in ('figure', 'table') if parents.get(k) == 'section'}
+    # A class can print a float counter in Roman without saying so anywhere
+    # in the source. The value stays whatever the counter produces -- a
+    # string here, an int below -- and both already flow through: a
+    # section-scoped counter has produced `3.1` for a long time, and the
+    # caption badge formats with `%s` for exactly that reason.
+    float_styles = read_class_conventions(tex).get('float') or {}
     sections = []
     if scoped:
         depth0 = 0
@@ -2547,6 +2567,8 @@ def float_units(tex):
             elif prefixes[kind]:
                 # The paper declared the prefix itself: `A\arabic{figure}`.
                 number = '%s%d' % (prefixes[kind], counters[kind])
+            elif float_styles.get(kind) == 'Roman':
+                number = roman_numeral(counters[kind])
             else:
                 number = counters[kind]
             units.append({
@@ -3165,8 +3187,18 @@ def build_subfigure_letters(temp_dir):
 
 _DEFAULT_THEOREM_ENVS = ('theorem', 'lemma', 'definition', 'proposition',
                          'corollary', 'remark', 'assumption')
+# `alignat`, `flalign` and `IEEEeqnarray` were missing, and the cost is not
+# that their labels went uncounted: a `\label` inside one kept whatever
+# `current` the PREVIOUS display had set, so it silently named an earlier
+# formula. 2609.05354 has eight labels inside `alignat` blocks.
+#
+# `subequations` is here for its own branch below. It numbers nothing itself
+# -- what it holds does -- but a label on the WRAPPER names the group, and
+# without being seen at all that label kept the section's number and sent
+# the reader to a section instead of a formula.
 _COUNTED_STRUCTURAL_ENVS = ('equation', 'align', 'gather', 'multline',
-                            'eqnarray', 'algorithm')
+                            'eqnarray', 'alignat', 'flalign',
+                            'IEEEeqnarray', 'subequations', 'algorithm')
 
 # `\newtheorem` carries an optional argument on EITHER side of the title, and
 # they mean opposite things: `\newtheorem{lmm}[thrm]{Lemma}` shares the `thrm`
@@ -3352,7 +3384,8 @@ def _label_token_re(theorem_envs):
 
 _LABEL_TOKEN_RE = _label_token_re(_DEFAULT_THEOREM_ENVS)
 
-_NUMBERED_MATH_ENVS = ('equation', 'align', 'gather', 'multline', 'eqnarray')
+_NUMBERED_MATH_ENVS = ('equation', 'align', 'gather', 'multline', 'eqnarray',
+                       'alignat', 'flalign', 'IEEEeqnarray')
 
 _DOCUMENTCLASS_RE = re.compile(
     r'\\documentclass\s*(?:\[[^\]]*\])?\s*\{([^}]*)\}')
@@ -3372,7 +3405,18 @@ _CLASS_CONVENTIONS = {
     'revtex4-2': {'section': 'Roman'},
     'revtex4-1': {'section': 'Roman'},
     'revtex4': {'section': 'Roman'},
-    'amsart': {'parents': {'equation': 'section'}},
+    # amsart also sets a subsection RUN-IN, on the same line as the paragraph
+    # it opens. There is no heading line in the PDF for a line-matcher to
+    # find, so 17 of 2609.05354's subsections counted as "could not be found
+    # in the original" and failed a paper whose numbering was right. Counted
+    # separately rather than ignored: a check that fails correct work teaches
+    # people to stop reading it, and one that hides a real loss is worse.
+    'amsart': {'parents': {'equation': 'section'}, 'run_in_level': 2},
+    # IEEEtran prints TABLE I, TABLE II and Fig. 1, Fig. 2: Roman for tables
+    # and arabic for figures, which is why only the table is listed. TinyVLA
+    # is the paper that showed it, with all six of its disagreeing
+    # cross-references naming a table the reader cannot find.
+    'IEEEtran': {'float': {'table': 'Roman'}},
 }
 
 _ROMAN_PLACES = ((1000, 'M'), (900, 'CM'), (500, 'D'), (400, 'CD'),
@@ -3492,6 +3536,17 @@ def build_label_index(temp_dir):
             elif env == 'algorithm':
                 counters['algorithm'] += 1
                 current, kind = str(counters['algorithm']), 'algorithm'
+            elif env == 'subequations':
+                # The wrapper carries the group's number, and that is the
+                # SAME number its first inner display takes: LaTeX advances
+                # the parent counter once for the whole group and letters
+                # the rows under it. So name it WITHOUT consuming it. The
+                # inner environment does the incrementing a moment later
+                # and lands on the same string, which is why this needs no
+                # suppression flag and changes no arithmetic.
+                current = _counter_label('equation', counters['equation'] + 1,
+                                         parents, section_head, fixed)
+                kind = 'equation'
             else:
                 # Environments sharing one counter must share one tally, and
                 # an environment declared with its own counter must not touch
