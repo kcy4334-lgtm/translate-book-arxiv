@@ -3354,6 +3354,51 @@ _LABEL_TOKEN_RE = _label_token_re(_DEFAULT_THEOREM_ENVS)
 
 _NUMBERED_MATH_ENVS = ('equation', 'align', 'gather', 'multline', 'eqnarray')
 
+_DOCUMENTCLASS_RE = re.compile(
+    r'\\documentclass\s*(?:\[[^\]]*\])?\s*\{([^}]*)\}')
+
+# Numbering a class chooses for a paper that never states it. Two papers
+# disagreed with their own PDFs for this one reason, and neither carried a
+# `\renewcommand{\thesection}` or a `\numberwithin` to read: revtex4-2
+# prints sections I, II, III, and amsart numbers a display within its
+# section, so a formula in section 2 prints (2.1).
+#
+# Only classes something here can CHECK belong in this table. Both of these
+# were measured against the paper's own PDF -- 2609.05337 for the Roman
+# headings, 2609.05354 for 57 dotted equation markers and no undotted one --
+# and `source_probe` re-checks them on every run. A class added from memory
+# would be the NEVER SEEN trap wearing a different coat.
+_CLASS_CONVENTIONS = {
+    'revtex4-2': {'section': 'Roman'},
+    'revtex4-1': {'section': 'Roman'},
+    'revtex4': {'section': 'Roman'},
+    'amsart': {'parents': {'equation': 'section'}},
+}
+
+_ROMAN_PLACES = ((1000, 'M'), (900, 'CM'), (500, 'D'), (400, 'CD'),
+                 (100, 'C'), (90, 'XC'), (50, 'L'), (40, 'XL'),
+                 (10, 'X'), (9, 'IX'), (5, 'V'), (4, 'IV'), (1, 'I'))
+
+
+def roman_numeral(n):
+    """`3` -> `III`. Section counts are small; this stays exact anyway."""
+    if n <= 0:
+        return str(n)
+    out = []
+    for value, sign in _ROMAN_PLACES:
+        while n >= value:
+            out.append(sign)
+            n -= value
+    return ''.join(out)
+
+
+def read_class_conventions(tex):
+    """What the document class numbers differently, and never says so."""
+    m = _DOCUMENTCLASS_RE.search(tex)
+    if not m:
+        return {}
+    return _CLASS_CONVENTIONS.get(m.group(1).strip(), {})
+
 
 def build_label_index(temp_dir):
     """{'eq:pqe': ('5', 'equation'), 'sec:single': ('4.1', 'section')}.
@@ -3387,6 +3432,12 @@ def build_label_index(temp_dir):
     theorem_envs = read_theorem_environments(tex)
     token_re = _label_token_re(theorem_envs or _DEFAULT_THEOREM_ENVS)
     parents = read_counter_parents(tex)
+    # The class fills in only what the paper did not say. An explicit
+    # `\numberwithin` is an author overriding their own class, so it wins.
+    conventions = read_class_conventions(tex)
+    for counter, parent in (conventions.get('parents') or {}).items():
+        parents.setdefault(counter, parent)
+    section_style = conventions.get('section')
     fixed = read_fixed_counter_prefix(tex)
     section_head = ''                   # the number a section-scoped counter
                                         # carries in front of its own
@@ -3407,8 +3458,12 @@ def build_label_index(temp_dir):
             section[depth] += 1
             for deeper in range(depth + 1, 3):
                 section[deeper] = 0
-            head = (chr(ord('A') + section[0] - 1) if in_appendix
-                    else str(section[0]))
+            if in_appendix:
+                head = chr(ord('A') + section[0] - 1)
+            elif section_style == 'Roman':
+                head = roman_numeral(section[0])
+            else:
+                head = str(section[0])
             # A `book` shipped as one chapter numbers its sections under it:
             # randmat writes `\setcounter{chapter}{5}` and its own text says
             # "Section 5.4.3", never "Section 4.3". The prefix comes from the

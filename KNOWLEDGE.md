@@ -198,6 +198,7 @@ here; the test is the real record. This file is for the *reasoning*, the
 | An empheq or dmath display takes no number, or thead splits a cell | [K178](#k178) |
 | source_probe and the build disagree on how many equations there are | [K179](#k179) |
 | Appendix sections number 11 and 11.5 where the paper prints A and A.5 | [K180](#k180) |
+| Sections print I, II, III, or equations print 2.1, and we say 3 and 2 | [K181](#k181) |
 
 ---
 
@@ -2588,6 +2589,22 @@ so `source_probe` went from four disagreeing cross-references to one.
 Both spellings share ONE capture group, because the branches after it
 are read by position and a new group would renumber all of them.
 *Status: fixed, `AppendixNumbering`, `TheScannerKeptItsShape`.*
+
+---
+
+### K181
+**The class numbers it, and the paper never says so.**
+Two papers disagreed with their own PDFs and neither carried anything to
+read: no `\renewcommand{\thesection}`, no `\numberwithin`. revtex4-2 prints
+sections I, II, III, so 2609.05337's references named 3 and 4 for what the
+paper prints III and IV; amsart numbers a display within its section, so
+2609.05354 prints (2.1) where the index said 2. `_PDF_PREFIX_RE` could
+already READ a Roman prefix, so only the computing half was missing.
+`read_class_conventions` fills in what the paper omitted, and an explicit
+declaration still wins. Only classes verifiable here are in the table:
+2609.05337 now passes `source_probe` outright, and the check re-measures
+both against the printed pages on every run.
+*Status: fixed, `WhatTheClassSays`, `TheIndexUsesThem`.*
 
 ---
 

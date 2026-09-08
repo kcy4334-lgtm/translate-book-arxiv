@@ -316,6 +316,13 @@ CONSTRUCT_DISPOSITION = {
     'bfseries-group': 'handled',
     # Their argument is a colour, not text, so they are dropped whole.
     'cellcolor': 'handled', 'rowcolor': 'handled',
+    # makecell's multi-line header cell. Its line break is spelled with the
+    # token that separates ROWS, so everything counting rows had to learn to
+    # mind brace depth first: `\thead{Total \\ Time}` was read as two rows by
+    # `verify_tables`, which then refused a correct translation that fitted
+    # the cell onto one line. `latex_rows` counts it; `table_language`
+    # unwraps it so the header gate sees the word. 2609.05337 carries it.
+    'thead': 'handled',
     # Destructive if mistaken for an abbreviation: a macro bound to a tab stop
     # looks exactly like one, and resolving it to nothing deletes the
     # indentation of a listing. Refused by shape.
