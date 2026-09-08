@@ -326,6 +326,12 @@ CONSTRUCT_DISPOSITION = {
     # those are spans in their own right. Counted so a paper that puts prose
     # directly inside one is noticed.
     'subequations': 'counted',
+    # Numbered row by row like `align`, plus a column-count argument the
+    # pattern has to step over. It was absent from the counter entirely, so
+    # every row of one counted zero. 2609.05354 is the paper that brought it
+    # into this corpus, and with the printed-marker fix beside it that paper
+    # now reads 57 numbered against the 57 its PDF prints. See K175, K179.
+    'alignat': 'handled',
     # ---- the shapes that hid a formula from a span regex -----------------
     # All three were found by an advisor, not by this census, because the
     # census could not see any of them. Each is now handled, and counted so
