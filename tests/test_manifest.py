@@ -105,5 +105,39 @@ class ReadOutputTextTests(unittest.TestCase):
             self.assertIsNone(manifest.read_output_text(str(path)))
 
 
+class AReferenceChunkIsRecordedAsOne(unittest.TestCase):
+    """`convert.py` splits the bibliography into its own chunk and writes its
+    output at conversion time, because a reference has to stay as published.
+    It worked that out and then threw the answer away, so `verify_chunk`
+    failed the reference chunk of every PDF book for being byte-identical to
+    its source, which is exactly what it was written to be."""
+
+    def _build(self, tmp, reference_chunks=None):
+        temp_dir = Path(tmp)
+        (temp_dir / "input.md").write_text("a\n\nb\n", encoding="utf-8")
+        (temp_dir / "chunk0001.md").write_text("Prose.\n", encoding="utf-8")
+        (temp_dir / "chunk0002.md").write_text("1. Author, A.\n",
+                                               encoding="utf-8")
+        with contextlib.redirect_stdout(io.StringIO()):
+            return manifest.create_manifest(
+                str(temp_dir), ["chunk0001.md", "chunk0002.md"],
+                str(temp_dir / "input.md"), reference_chunks)
+
+    def test_the_named_chunk_is_marked_and_the_others_are_not(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            built = self._build(tmp, {"chunk0002.md"})
+        by_id = {c["id"]: c for c in built["chunks"]}
+        self.assertIs(by_id["chunk0002"]["translate"], False)
+        self.assertNotIn("translate", by_id["chunk0001"])
+
+    def test_a_manifest_with_no_reference_chunks_is_unchanged(self):
+        """The key is written only for a reference chunk, so a manifest from
+        before it existed still means what it always meant."""
+        with tempfile.TemporaryDirectory() as tmp:
+            built = self._build(tmp)
+        for chunk in built["chunks"]:
+            self.assertNotIn("translate", chunk)
+
+
 if __name__ == "__main__":
     unittest.main()

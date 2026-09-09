@@ -472,5 +472,92 @@ class AWrappedReferenceEntryIsStillAReference(unittest.TestCase):
         self.assertTrue(vc._is_reference_line(self.REF_A))
 
 
+class AReferenceChunkIsCheckedForBeingUNCHANGED(unittest.TestCase):
+    r"""The bibliography is copied, not translated, so every translation
+    check fails it by construction: it IS the source language, it IS
+    byte-identical, its glossary terms ARE in English. Six failures on one
+    chunk, every run, for doing what the converter deliberately did -- and a
+    gate that fails the intended outcome is a gate people learn to skip.
+
+    So ask the opposite question. A reference list that is no longer
+    identical to its source has been edited by something, and THAT is worth
+    stopping for.
+    """
+
+    REFS = ("## References\n\n1.\nRudovic, O., Lee, J. & Picard, R. W. "
+            "Personalized machine learning. Sci.\nRobot. 3, eaao6760 (2018).\n")
+
+    def setUp(self):
+        self.dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.dir, True)
+
+    def write(self, name, text):
+        with io.open(os.path.join(self.dir, name), "w",
+                     encoding="utf-8", newline="") as fh:
+            fh.write(text)
+
+    def write_manifest(self, translate=None):
+        entry = {"id": "chunk0001", "order": 1,
+                 "source_file": "chunk0001.md",
+                 "source_hash": "", "output_file": "output_chunk0001.md"}
+        if translate is not None:
+            entry["translate"] = translate
+        self.write("manifest.json",
+                   json.dumps({"chunk_count": 1, "source_hash": "",
+                               "chunks": [entry]}))
+
+    def test_an_untouched_reference_chunk_passes(self):
+        self.write("chunk0001.md", self.REFS)
+        self.write("output_chunk0001.md", self.REFS)
+        self.write_manifest(translate=False)
+        result = vc.verify_chunk(self.dir, "chunk0001.md", "ko")
+        self.assertTrue(result["ok"], result["findings"])
+        self.assertEqual(result["findings"], [])
+
+    def test_an_edited_reference_chunk_fails(self):
+        self.write("chunk0001.md", self.REFS)
+        self.write("output_chunk0001.md",
+                   self.REFS.replace("Personalized machine learning",
+                                     "개인화 머신러닝"))
+        self.write_manifest(translate=False)
+        result = vc.verify_chunk(self.dir, "chunk0001.md", "ko")
+        self.assertFalse(result["ok"])
+        self.assertEqual([f["check"] for f in result["findings"]],
+                         ["reference_verbatim"])
+
+    def test_a_manifest_without_the_key_still_means_translate(self):
+        """A temp dir built before the key existed must behave as it did."""
+        self.write("chunk0001.md", self.REFS)
+        self.write("output_chunk0001.md", self.REFS)
+        self.write_manifest(translate=None)
+        self.assertFalse(vc.is_reference_chunk(self.dir, "chunk0001.md"))
+
+    def test_no_manifest_at_all_is_not_a_crash(self):
+        self.assertFalse(vc.is_reference_chunk(self.dir, "chunk0001.md"))
+
+    def test_the_section_heading_may_be_translated(self):
+        """`## References` is a heading, not a reference, and every other
+        heading in the book is translated. Left in English it prints as the
+        one English heading among twenty-three Korean ones."""
+        self.write("chunk0001.md", self.REFS)
+        self.write("output_chunk0001.md",
+                   self.REFS.replace("## References", "## 참고문헌"))
+        self.write_manifest(translate=False)
+        result = vc.verify_chunk(self.dir, "chunk0001.md", "ko")
+        self.assertTrue(result["ok"], result["findings"])
+
+    def test_an_entry_edited_under_a_translated_heading_still_fails(self):
+        """The exemption is the heading line and nothing below it."""
+        self.write("chunk0001.md", self.REFS)
+        self.write("output_chunk0001.md",
+                   self.REFS.replace("## References", "## 참고문헌")
+                            .replace("eaao6760", "eaao9999"))
+        self.write_manifest(translate=False)
+        result = vc.verify_chunk(self.dir, "chunk0001.md", "ko")
+        self.assertFalse(result["ok"])
+        self.assertEqual([f["check"] for f in result["findings"]],
+                         ["reference_verbatim"])
+
+
 if __name__ == "__main__":
     unittest.main()

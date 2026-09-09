@@ -65,6 +65,42 @@ class TheFoldCoversWhatPandocIntroduces(unittest.TestCase):
                          'plain ascii text')
 
 
+class TheFoldCoversWhatATypesetterIntroduces(unittest.TestCase):
+    r"""The second source of invisible characters, and it is not pandoc.
+
+    A PDF's text layer carries the glyph that was set, so a paper read
+    directly out of its PDF spells "fingertip" with U+FB01 -- one character
+    where the reader sees two. No translator quoting that sentence types the
+    ligature back, and on the paper that found this, seven of eleven chunks
+    failed `meta_evidence` on quotes that were right to the letter.
+
+    Ligatures are safe to fold for the same structural reason the quotes
+    are: every row substitutes, and none deletes. A quote that is absent
+    stays absent however its f's are spelled.
+    """
+
+    def test_the_fi_ligature_folds(self):
+        self.assertEqual(vc._fold_typography('ﬁngertip'), 'fingertip')
+
+    def test_the_fl_ligature_folds(self):
+        self.assertEqual(vc._fold_typography('ﬂexible'), 'flexible')
+
+    def test_a_typeset_word_and_a_typed_one_meet(self):
+        self.assertEqual(vc._fold_typography('the ﬁlms were etched'),
+                         vc._fold_typography('the films were etched'))
+
+    def test_the_three_letter_ligatures_fold(self):
+        self.assertEqual(vc._fold_typography('eﬃcient'), 'efficient')
+        self.assertEqual(vc._fold_typography('scaﬀold'), 'scaffold')
+        self.assertEqual(vc._fold_typography('sniﬄe'), 'sniffle')
+
+    def test_folding_cannot_make_an_absent_quote_present(self):
+        """The property the whole fold rests on: it substitutes, never
+        deletes, so a missing phrase is still missing afterwards."""
+        source = vc._fold_typography('the ﬁlms were etched thoroughly')
+        self.assertNotIn(vc._fold_typography('the films were painted'), source)
+
+
 class _MetaCase(unittest.TestCase):
     def setUp(self):
         self.dir = tempfile.mkdtemp()

@@ -16,7 +16,7 @@ import glob
 import json
 import re
 
-from manifest import create_manifest, file_hash
+from manifest import create_manifest, file_hash, load_manifest
 import arxiv_backend
 import backends
 import math_guard
@@ -1157,6 +1157,15 @@ _BIB_OPEN_RE = re.compile(
     r'|^#{1,6}\s*(?:\d+\.?\s*)?(?:References?|Bibliography)\s*$',
     re.MULTILINE | re.IGNORECASE)
 _BIB_CLOSE_RE = re.compile(r'\\end\{thebibliography\}')
+# The openers that declare an EXTENT, as opposed to an entry. An environment
+# names its own end and a heading is ended by the next heading of its rank;
+# a bare `\bibitem` says only "an entry starts here" and leaves the end to be
+# worked out from what follows. The difference decides whether the density
+# escape below is allowed to close the run.
+_BIB_SECTION_RE = re.compile(
+    r'\\begin\{thebibliography\}'
+    r'|^#{1,6}\s*(?:\d+\.?\s*)?(?:References?|Bibliography)\s*$',
+    re.MULTILINE | re.IGNORECASE)
 _HEADING_BLOCK_RE = re.compile(r'^(#{1,6})\s+\S', re.MULTILINE)
 
 
@@ -1165,6 +1174,17 @@ def _block_text(block):
     if isinstance(block, tuple) and block:
         return block[0] if isinstance(block[0], str) else ''
     return block if isinstance(block, str) else ''
+
+
+def _is_heading_only(text):
+    """Is this block a heading and nothing else?
+
+    A `## References` on its own is a section heading that happens to open a
+    bibliography. A block that carries the heading AND the first entries is
+    something else, and must not be moved out of the run on its account.
+    """
+    lines = [x for x in (text or '').split('\n') if x.strip()]
+    return len(lines) == 1 and bool(_HEADING_BLOCK_RE.match(lines[0]))
 
 
 def _is_reference_block(block):
@@ -1186,8 +1206,21 @@ def segment_blocks_by_bibliography(blocks):
     \end{thebibliography} or at the next heading of the same level or higher
     -- some papers put an appendix after their references, and that appendix
     is ordinary content.
+
+    How the run OPENED decides how it may close. A paper writing
+    `## References` has declared where its bibliography begins, and the next
+    heading of the same rank declares where it ends; entry density in
+    between can then only overrule the paper about its own structure. That
+    is not hypothetical: read out of a PDF, this journal's entries arrive as
+    `1.` on one line, the authors on the next and the journal on a third, so
+    barely a third of the lines look like references and the run closed on
+    the first entry. 48 references, 398 characters exempted.
+
+    Density stays the opener and the closer for a citeproc bibliography that
+    carries no marker at all, where it is the only signal there is.
     """
     segments, current, in_bib, level = [], [], False, 1
+    marked = False
 
     def flush():
         if current:
@@ -1207,10 +1240,24 @@ def segment_blocks_by_bibliography(blocks):
         opens = bool(_BIB_OPEN_RE.search(text)) or (
             dense[index] and nxt is not None and dense[nxt])
         if not in_bib and opens:
-            flush()
-            in_bib = True
+            marked = bool(_BIB_SECTION_RE.search(text))
             heading = _HEADING_BLOCK_RE.search(text)
             level = len(heading.group(1)) if heading else 1
+            # `## References` is a section heading, not a reference. Left
+            # inside the run it is copied verbatim with the entries and
+            # nothing ever translates it, so a Korean book prints one
+            # English heading among twenty-three Korean ones. Keep a
+            # heading-ONLY block in the prose that precedes it, where it is
+            # dispatched and translated like every other heading; a block
+            # that also carries entries stays, because moving it would send
+            # those entries to a translator.
+            if _is_heading_only(text):
+                current.append(block)
+                flush()
+                in_bib = True
+                continue
+            flush()
+            in_bib = True
             current.append(block)
             if _BIB_CLOSE_RE.search(text):
                 flush()
@@ -1229,7 +1276,7 @@ def segment_blocks_by_bibliography(blocks):
             # the bibliography lost its exemption — 20 of Attention's 41
             # entries and 25 of ResNet's 51 were dispatched to a sub-agent to
             # be TRANSLATED, which is the one thing a reference must not be.
-            if (text.strip() and not dense[index]
+            if (not marked and text.strip() and not dense[index]
                     and not _BIB_CLOSE_RE.search(text)
                     and not _BIB_OPEN_RE.search(text)):
                 flush()                      # prose again: the run is over
@@ -1296,7 +1343,7 @@ def split_markdown_structured(md_file, temp_dir, target_size=6000, math_guard_on
                 if is_bib:
                     reference_chunks.add(len(chunk_texts))
 
-        chunk_files = []
+        chunk_files, reference_names = [], set()
         for i, chunk_text in enumerate(chunk_texts, 1):
             filename = f"chunk{i:04d}.md"
             chunk_file = os.path.join(temp_dir, filename)
@@ -1311,6 +1358,7 @@ def split_markdown_structured(md_file, temp_dir, target_size=6000, math_guard_on
             if i in reference_chunks:
                 # Its translation IS the original. Writing it now means the
                 # planner finds a valid output and never dispatches an agent.
+                reference_names.add(filename)
                 out = os.path.join(temp_dir, 'output_' + filename)
                 with open(out, 'w', encoding='utf-8', newline='\n') as f:
                     f.write(chunk_text)
@@ -1326,10 +1374,10 @@ def split_markdown_structured(md_file, temp_dir, target_size=6000, math_guard_on
             size = os.path.getsize(filepath)
             print(f"  {filename}: {size} characters")
 
-        return chunk_files
+        return chunk_files, reference_names
     except Exception as e:
         print(f"Error splitting markdown: {e}")
-        return []
+        return [], set()
 
 
 def _find_existing_chunk_files(temp_dir):
@@ -1404,15 +1452,22 @@ def _do_split_and_manifest(temp_dir, input_md, chunk_size, math_guard_on=True):
                 print("  The math guard will NOT apply to this run. Delete "
                       "chunk*.md to re-split with protection")
                 print("  (that discards any translations already made against them).")
-        # Create/update manifest for existing files
-        create_manifest(temp_dir, existing, input_md)
+        # Create/update manifest for existing files. Which chunks were the
+        # bibliography is not recoverable from the files alone, so carry the
+        # answer over from the manifest that recorded it; rewriting without
+        # it would hand the reference chunk back to the gate as ordinary
+        # prose that came back untranslated.
+        previous = load_manifest(temp_dir) or {}
+        kept = {c.get('source_file') for c in previous.get('chunks', [])
+                if c.get('translate') is False}
+        create_manifest(temp_dir, existing, input_md, kept)
         return len(existing)
 
-    chunk_files = split_markdown_structured(input_md, temp_dir, chunk_size,
-                                            math_guard_on=math_guard_on)
+    chunk_files, reference_names = split_markdown_structured(
+        input_md, temp_dir, chunk_size, math_guard_on=math_guard_on)
     if not chunk_files:
         return 0
-    create_manifest(temp_dir, chunk_files, input_md)
+    create_manifest(temp_dir, chunk_files, input_md, reference_names)
     return len(chunk_files)
 
 

@@ -107,9 +107,14 @@ class ThreeShapesOfBibliographyTests(unittest.TestCase):
 
     def test_a_references_heading(self):
         segs = segments(PROSE + "## References\n\n" + ENTRIES)
-        self.assertIn("References", bib_text(segs))
         self.assertIn("Author0", bib_text(segs))
         self.assertNotIn("Limitation", bib_text(segs))
+        # The heading OPENS the run without belonging to it. Inside the run
+        # it is copied verbatim with the entries and nothing ever translates
+        # it, so a Korean book printed one English heading among twenty-three
+        # Korean ones. In the prose it is dispatched like any other heading.
+        self.assertNotIn("References", bib_text(segs))
+        self.assertIn("References", prose_text(segs))
 
     def test_bare_entries_with_no_marker_at_all(self):
         # AlphaQ: citeproc emits paragraphs, and the heading is added later

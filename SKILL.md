@@ -892,6 +892,26 @@ must not change is the order within a chunk: record before merge.
 
 On a fresh run after a previous interrupted batch, `prepare-merge` will pick up any meta files left behind. Don't manually delete them.
 
+**Read `auto_apply` before applying it, and grep the outputs before acting on
+the plan it produces.** Two things go wrong here and neither is visible in
+the JSON, see KNOWHOW [H43](KNOWHOW.md#h43).
+
+An auto-apply carries no collision only in the sense that no *surface form*
+collided. `flexible printed circuits` arrived as a new term with a different
+Korean spelling from the canonical singular already in the file, and a second
+rendering of `silicon nitride` came in beside the first. Both would have
+written the one-term-one-spelling defect into the glossary itself, and
+nothing downstream compares two terms for meaning.
+
+Then, because the merge changes the glossary, the next `run_state plan`
+returns every chunk with `glossary_term_selection_changed`, whatever the
+merge actually altered: 27 new terms flagged all twelve chunks of a book.
+Those terms came out of those same translations and were already used
+consistently in them, so re-running buys nothing. What the plan cannot tell
+you is which chunks DISAGREE with the settled glossary. Grep the outputs for
+the rival spellings and correct only those; here it was three chunks, and a
+targeted term replacement was cheaper and safer than re-translating each.
+
 ### 4.6. Translate Table Captions and Headers
 
 **The chunk translation does not cover tables.** A LaTeX table float is

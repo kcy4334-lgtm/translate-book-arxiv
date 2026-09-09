@@ -457,8 +457,14 @@ def _term_appears_in_text(term, text):
 # The optional space matters: translators write both `이상치(outlier)` and
 # `이상치 (outlier)`, and a detector that only saw the first counted 18 of the
 # 40 glosses in a book — then deduplicated 18 of them too.
+# 78, not 48. The FIVE-WORD cap in `_is_first_use_gloss` is what keeps a
+# sentence out of here; the character cap only decides how long a
+# spelled-out term may be. This paper glosses its central term as five
+# words and 66 characters, so at 48 it was not read as a gloss at all,
+# and the English inside it was then reported as a term left
+# untranslated -- failing a chunk for doing exactly what the prompt asks.
 _GLOSS_RE = re.compile(
-    r'(?<=[가-힣])[  ]?\(([A-Za-z][A-Za-z0-9 ./+\-]{0,48})\)')
+    r'(?<=[가-힣])[  ]?\(([A-Za-z][A-Za-z0-9 ./+\-]{0,78})\)')
 _CITATION_RE = re.compile(r'\bet\s+al\b|\b(?:19|20)\d{2}\b')
 
 

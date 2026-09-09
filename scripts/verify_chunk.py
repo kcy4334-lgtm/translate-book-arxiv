@@ -942,6 +942,16 @@ def _quote_around(text, needle, width=40):
 _SMART_FOLD = {
     '‘': "'", '’': "'", '“': '"', '”': '"',
     '–': '-', '—': '-', '\u00a0': ' ',
+    # Typographic ligatures. A PDF's text layer carries the glyph the
+    # typesetter set, so this paper's source spells "fingertip",
+    # "flexible" and "films" with ONE character where a reader sees two,
+    # and nobody quoting that text types the ligature back. Seven of the
+    # eleven chunks failed `meta_evidence` on quotes that were otherwise
+    # right to the letter. R5 again: a character nobody can see. Like
+    # every row here this substitutes and never deletes, so it cannot
+    # admit a bad quote.
+    '\ufb00': 'ff', '\ufb01': 'fi', '\ufb02': 'fl',
+    '\ufb03': 'ffi', '\ufb04': 'ffl', '\ufb05': 'st', '\ufb06': 'st',
 }
 # Wider than the smart pass strictly needs, and deliberately: a source-side
 # `--` and a chunk-side `–` have to meet somewhere, so both collapse to one
@@ -1026,6 +1036,62 @@ def check_meta_evidence(temp_dir, chunk_name, source):
 # --------------------------------------------------------------------------
 
 
+def is_reference_chunk(temp_dir, chunk_name):
+    """Did the conversion mark this chunk as one that nothing translates?
+
+    `convert.py` splits the bibliography into its own chunk and writes its
+    output at conversion time, because a reference has to stay as published.
+    The manifest records that with `"translate": false`. A manifest written
+    before the key existed says nothing, and the default is the old meaning.
+    """
+    try:
+        from manifest import load_manifest
+        entries = (load_manifest(temp_dir) or {}).get('chunks', [])
+    except Exception:                                      # noqa: BLE001
+        return False
+    for entry in entries:
+        if entry.get('source_file') == chunk_name:
+            return entry.get('translate') is False
+    return False
+
+
+_LEADING_HEADING_RE = re.compile(r'\A\s*#{1,6}[^\n]*\n')
+
+
+def _entries_of(text):
+    """The chunk without its opening section heading.
+
+    `## References` is a heading, not a reference, and headings are
+    translated everywhere else in the book. What has to survive unchanged
+    is the entries underneath it.
+    """
+    return _LEADING_HEADING_RE.sub('', text or '', count=1).strip()
+
+
+def verify_reference_chunk(source, output):
+    """A reference chunk passes when its ENTRIES are unchanged.
+
+    Every translation check fails such a chunk by construction -- it IS the
+    source language, it IS byte-identical, its glossary terms ARE in English
+    -- and a gate that fails what the pipeline deliberately did is a gate
+    people learn to skip past. The question worth asking is the opposite
+    one: a reference list no longer identical to its source has been edited
+    by something, and that is worth stopping for.
+
+    The opening heading is exempt. `convert.py` now keeps a heading-only
+    block out of the run so it is translated with the rest of the book, but
+    a temp dir built before that still carries `## References` on top of its
+    entries, and translating it there is a fix, not a corruption.
+    """
+    if _entries_of(source) == _entries_of(output):
+        return []
+    return [{'check': 'reference_verbatim', 'severity': 'fail',
+             'detail': 'a reference chunk must stay exactly as published',
+             'evidence': 'entries differ from source by %d character(s)'
+                         % abs(len(_entries_of(output))
+                               - len(_entries_of(source)))}]
+
+
 def verify_chunk(temp_dir, chunk_name, lang):
     """Every check, against the files. Returns a result dict."""
     source_path = os.path.join(temp_dir, chunk_name)
@@ -1048,6 +1114,11 @@ def verify_chunk(temp_dir, chunk_name, lang):
         result['findings'] = [{'check': 'output', 'severity': 'fail',
                                'detail': 'the translation is blank',
                                'evidence': os.path.basename(output_path)}]
+        return result
+
+    if is_reference_chunk(temp_dir, chunk_name):
+        result['findings'] = verify_reference_chunk(source, output)
+        result['ok'] = not result['findings']
         return result
 
     all_spans = math_guard.load_sidecar(temp_dir, chunk_name)

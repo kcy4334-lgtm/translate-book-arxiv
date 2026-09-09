@@ -211,6 +211,18 @@ here; the test is the real record. This file is for the *reasoning*, the
 | A section heading prints as ### text and the book has no outline | [K191](#k191) |
 | A cited paper's title fails the glossary or untranslated check | [K192](#k192) |
 | The referee raises CHRONIC on checks a dry run always fails | [K193](#k193) |
+| An icon, logo or label disappears from a PDF-sourced book | [K194](#k194) |
+| A page of the built book is a column of blank rectangles | [K194](#k194) |
+| The book has dozens of headings the paper does not have | [K195](#k195), [K197](#k197) |
+| Axis labels and tick numbers print as prose between sentences | [K195](#k195), [K196](#k196) |
+| A figure's caption prints but nothing was extracted for the figure | [K196](#k196) |
+| The same section heading appears three or more times | [K197](#k197) |
+| Reference entries are dispatched to a translator | [K198](#k198), [K117](#k117) |
+| An appendix after the references is treated as a reference | [K198](#k198) |
+| Reading-order fidelity drops after an extraction change | [K199](#k199) |
+| A table column header prints as a heading (`# Trials`) | [K200](#k200) |
+| A translated sentence states the opposite of the paper | [K201](#k201) |
+| A glossary alias means something different from its term | [K201](#k201) |
 
 ---
 
@@ -2803,6 +2815,119 @@ means nothing. The signal that exists to separate a repeat from an
 accident is the one being fed noise, and it is the referee's most serious
 verdict. The tally itself is right; what it is counting is not.
 *Status: open, measured. `referee.py history` shows the three runs.*
+
+---
+
+### K194
+**A one-colour image can be real content: look for its soft mask.**
+Dropping every image with a single distinct colour removed the seven solid
+fills a journal PDF's typesetter had left behind. It also removed 13 real
+ones: DeeR-VLA's padlock icons, TinyVLA's `latency` label, OpenVLA's teaser
+logos. An icon is often one flat colour whose entire SHAPE lives in an
+`/SMask`, so its base pixmap is uniform and looks exactly like a fill.
+Across the nine PDFs on hand the separation is total: `colours == 1 and
+smask == 0` is junk, `colours == 1 and smask != 0` is content. Count on the
+COMPOSITED pixmap and do NOT flatten the alpha afterwards, or the icon
+collapses back to one colour and is deleted anyway. Size decides nothing:
+the dead ran 18x24 to 301x341 px, a real figure was 282x238.
+*Fixed: `pdf_text._image_is_dead` reads the smask xref from `info[1]`.*
+
+---
+
+### K195
+**Heading detection by font produced 222 headings on a 28-page paper.**
+The rule looked sound and was measured on the paper that prompted it: find
+the fonts setting under 5% of the document whose runs start a line, and
+call those headings. On the source paper it returned exactly its ten real
+sections. On AlphaQ it returned 222 and on OpenVLA 141 -- `## ViT`,
+`## Weights`, `## November 26, 2025`. The cause is not the font rule, it is
+[K196](#k196): those papers draw figures in vector, so no image rectangle
+exists, the axis labels are never dropped, and the font rule then promotes
+them. Heading detection by typography cannot be safe until figure regions
+are known on a page with no raster image.
+*Reverted. `pdf_text._SECTION_NAMES` matches section names as whole lines
+instead, and abstains on everything else.*
+
+---
+
+### K196
+**`is_figure_text` is a no-op on a paper whose figures are vector.**
+Dropping text that lies inside a raster image rectangle removes axis
+labels and panel letters completely -- 218 blocks on the source paper. It
+also does nothing at all on 7 of the 9 PDFs on hand, each of which has at
+least one page carrying a `Figure N` caption, hundreds of vector drawing
+operations and ZERO rasters. CafeQ has no raster image in 21 pages, so
+every tick label and legend entry of every figure goes straight into the
+prose there. The test for such a page: `page.get_images()` empty,
+`len(page.get_drawings()) > 20`, and text matching `fig(ure)?\.?\s*\d`.
+*Status: open. A known limit, and the blocker for [K195](#k195).*
+
+---
+
+### K197
+**A section name repeated across pages is a table column header.**
+`Method` is a section name and also the first column of every results
+table in a machine-learning paper. Matching section names by text gave
+eight `## Method` headings on AlphaQ and seven on MoLe-VLA, each one a
+table header reprinted on a new page. No real section name in any of the
+nine papers occurred more than twice, so the count is the discriminator.
+*Fixed: `pdf_text.section_names_used` refuses a name occurring 3+ times.*
+
+---
+
+### K198
+**A paper that declares `References` must decide its own extent.**
+`segment_blocks_by_bibliography` closes a run when a block stops looking
+reference-dense. Read out of a PDF this journal's entries arrive as `1.` on
+one line, the authors on the next and the journal on a third, so barely a
+third of the lines match: the run closed on the first entry, 398 of 7663
+characters were exempted, and the other 47 references were dispatched to be
+TRANSLATED. A heading declares where the section starts and the next
+heading of its rank where it ends; density may not overrule the paper about
+its own structure, and now closes only a citeproc list carrying no marker.
+The opener must be the SECTION kind: a bare `\bibitem` says an entry
+starts, not where the run ends, and swallowed a trailing appendix.
+*Fixed: `convert._BIB_SECTION_RE` and the `marked` flag.*
+
+---
+
+### K199
+**`sentence_fidelity` marks down a correct heading.**
+The score counts how many of the paper's own sentences survive contiguously
+in the extraction. Inserting `## References` between `Received: 20 April
+2021;` and `1.` splits a run the score had counted as one hit, so the score
+fell from 92/95 to 90/95 while every word stayed. Both lost sentences
+straddled a newly inserted heading, and a direct before/after comparison
+gave `lost=2 gained=0` with every word verified present. Budget roughly one
+sentence per heading, and do not read a small drop as content loss without
+checking which sentences moved.
+*Status: open, harmless here. The gate is 0.6 and the score is 0.95.*
+
+---
+
+### K200
+**A PDF line beginning with `#` becomes a markdown heading.**
+`# Trials`, `# Successes`, `# Modules` and `# LLM layers` are table column
+headers reading "number of". Emitted into markdown verbatim they are
+headings, and on OpenVLA they outnumbered the real ones. The paper's own
+punctuation is not markup.
+*Fixed: `pdf_text.escape_markdown` escapes a leading `#`.*
+
+---
+
+### K201
+**An alias can invert the term it is filed under.**
+Three of eleven translators stopped on the same defect in one glossary.
+"visual-based" was filed as an alias of "non-visual" (비시각), turning "most
+of them are visual-based" into its opposite; "testing dataset" was filed
+under "training dataset", which reports the accuracy on the wrong split;
+"tactile array" and "olfactory array" under "sensing array" erase the
+distinction the paper is about. Nothing checks an alias against the sense
+of its term, and `consistency_probe` enforces one term one spelling, which
+this satisfies perfectly. An alias sharing a word stem is not an alias
+sharing a meaning, and a negation's aliases must be negations. It was
+caught only because translators questioned a table they were told to obey.
+*Fixed in this book's glossary. No check exists for it yet.*
 
 ---
 

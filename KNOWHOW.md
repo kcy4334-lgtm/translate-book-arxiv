@@ -74,6 +74,7 @@ A finding about a tool goes there. A finding about the method goes here.
 | keep hunting for a shape after the hunt has answered | [H40](#h40) |
 | verify with the one probe you trust and call the run checked | [H41](#h41) |
 | write a pattern that decides presence without asking old-man first | [H42](#h42) |
+| merge the sub-agent meta and find every chunk flagged for re-translation | [H43](#h43) |
 
 ---
 
@@ -617,6 +618,22 @@ six days before any of it -- and the log exists precisely because an
 advisor whose store never moves looks exactly like one nobody calls.
 *Cost when skipped: three spelling faults found one paper at a time, and
 seven places that each had to learn the same fact separately.*
+---
+
+### H43
+**After merging the meta, grep the outputs. Do not act on the plan.**
+Merging enriches the glossary, so the next `run_state plan` returns every
+chunk with `glossary_term_selection_changed` whatever the merge altered:
+27 new terms flagged all twelve chunks. Those terms came OUT of those
+translations and were already used consistently in them. The plan cannot
+see which chunks actually DISAGREE with the glossary; grep can. Here: 5 of
+`유연 인쇄 회로` against 1 canonical, 3 of `운동 프로파일` against a
+canonical used nowhere, and two more variants in chunks nobody had looked
+at. Check what the merge will ADD, too: `flexible printed circuits` came
+in against its own canonical singular, and a second spelling of silicon
+nitride beside the first. Neither collided on surface form.
+*Cost when skipped: a twelve-chunk re-translation to fix five occurrences,
+or a book that spells one term two ways in four separate chunks.*
 ---
 
 ## Maintenance protocol

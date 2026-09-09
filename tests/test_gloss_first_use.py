@@ -178,5 +178,38 @@ class CoverageTests(unittest.TestCase):
         self.assertIs(cp._GLOSS_PAREN_RE, glossary._GLOSS_RE)
 
 
+class HowLongAGlossMayBe(unittest.TestCase):
+    r"""The word cap is the guard; the character cap only sets how long a
+    spelled-out term may be.
+
+    This paper glosses its central term as `BOT 연합 학습(bioinspired
+    olfactory-tactile associated machine-learning strategy)`: five words and
+    66 characters. At a 48-character cap the parenthesis was not recognised
+    as a gloss at all, so `check_glossary` read the English inside it as
+    terms the translator had left untranslated, and failed the chunk for
+    doing exactly what the prompt asks it to do.
+    """
+
+    LONG = ('촉각·후각 정보는 BOT 연합 학습(bioinspired olfactory-tactile '
+            'associated machine-learning strategy)으로 처리된다.')
+
+    def test_a_five_word_spelled_out_term_is_a_gloss(self):
+        match = glossary._GLOSS_RE.search(self.LONG)
+        self.assertIsNotNone(match, 'the parenthesis was not seen at all')
+        self.assertTrue(glossary._is_first_use_gloss(
+            ' '.join(match.group(1).split())))
+
+    def test_it_is_deduplicated_like_any_other_gloss(self):
+        out, removed = glossary.dedupe_glosses(self.LONG + ' ' + self.LONG)
+        self.assertEqual(removed, 1)
+        self.assertEqual(out.count('(bioinspired'), 1)
+
+    def test_a_sentence_in_parentheses_is_still_not_a_gloss(self):
+        """Widening the characters must not widen what counts as a gloss:
+        six words is prose, however short it is."""
+        self.assertFalse(glossary._is_first_use_gloss(
+            'see the supplementary note for the derivation'))
+
+
 if __name__ == '__main__':
     unittest.main()

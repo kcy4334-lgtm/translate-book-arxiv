@@ -30,15 +30,27 @@ def read_output_text(filepath):
         return None
 
 
-def create_manifest(temp_dir, chunk_files, source_md_path):
+def create_manifest(temp_dir, chunk_files, source_md_path,
+                    reference_chunks=None):
     """Create manifest.json after splitting.
 
     Args:
         temp_dir: temp directory path
         chunk_files: list of chunk filenames (e.g. ['chunk0001.md', ...])
         source_md_path: path to the source input.md
+        reference_chunks: the filenames whose translation IS the original.
+            `convert.py` works this out when it splits the bibliography off
+            so that nothing is dispatched for them. Before this argument
+            existed it then threw the answer away, and `verify_chunk` failed
+            the reference chunk of every PDF book for being byte-identical
+            to its source, which is precisely what it was written to be.
+
+    The key is written only for a reference chunk, and every consumer reads
+    it as `entry.get('translate', True)`, so a manifest written before this
+    existed still means what it always meant.
     """
     source_hash = file_hash(source_md_path) if os.path.exists(source_md_path) else ""
+    reference_chunks = set(reference_chunks or ())
 
     chunks = []
     for order, filename in enumerate(chunk_files, 1):
@@ -47,13 +59,16 @@ def create_manifest(temp_dir, chunk_files, source_md_path):
         output_filename = f"output_{filename}"
         chunk_id = os.path.splitext(filename)[0]  # e.g. "chunk0001"
 
-        chunks.append({
+        entry = {
             "id": chunk_id,
             "order": order,
             "source_file": filename,
             "source_hash": file_hash(filepath) if os.path.exists(filepath) else "",
             "output_file": output_filename,
-        })
+        }
+        if filename in reference_chunks:
+            entry["translate"] = False
+        chunks.append(entry)
 
     manifest = {
         "chunk_count": len(chunks),
