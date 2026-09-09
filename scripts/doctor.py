@@ -17,6 +17,7 @@ measures the page, the margins, the type size and the embedded font names.
 from __future__ import unicode_literals
 
 import argparse
+import filecmp
 import os
 import shutil
 import subprocess
@@ -168,7 +169,8 @@ def check_advisors():
     """
     why = ('the growth loop — old-man, question-monster, fast-finder and '
            'referee — cannot be called until `python '
-           'scripts/install_advisors.py` copies them where the runtime looks')
+           'scripts/install_advisors.py` copies them where the runtime looks; '
+           'a brief that changed since it was installed needs `--force`')
     shipped = os.path.join(os.path.dirname(os.path.dirname(
         os.path.abspath(__file__))), '.claude', 'agents')
     try:
@@ -178,10 +180,34 @@ def check_advisors():
     if not names:
         return False, 'none shipped', why
     dest = os.path.join(os.path.expanduser('~'), '.claude', 'agents')
-    found = [n for n in names if os.path.isfile(os.path.join(dest, n))]
-    if len(found) == len(names):
-        return True, '%d of %d installed' % (len(found), len(names)), why
-    return False, '%d of %d installed' % (len(found), len(names)), why
+
+    # Presence was all this asked, and presence is not the question. The four
+    # briefs were installed once and then edited here four times; the runtime
+    # kept the week-old copies and this reported "4 of 4 installed" the whole
+    # while, so a referee brief corrected on the 6th never reached a session.
+    # `install_advisors.py` refuses to overwrite what it did not put there, so
+    # nothing else was ever going to notice either.
+    found, stale = [], []
+    for name in names:
+        target = os.path.join(dest, name)
+        if not os.path.isfile(target):
+            continue
+        found.append(name)
+        try:
+            if not filecmp.cmp(os.path.join(shipped, name), target,
+                               shallow=False):
+                stale.append(name)
+        except OSError:
+            stale.append(name)
+
+    if len(found) < len(names):
+        return False, '%d of %d installed' % (len(found), len(names)), why
+    if stale:
+        return False, ('%d of %d installed, %d out of date (%s)'
+                       % (len(found), len(names), len(stale),
+                          ', '.join(n[:-3] for n in sorted(stale)))), why
+    return True, '%d of %d installed and current' % (len(found),
+                                                     len(names)), why
 
 
 def probe(strict=False):

@@ -207,6 +207,7 @@ here; the test is the real record. This file is for the *reasoning*, the
 | A section issues one more equation number than the paper prints | [K187](#k187) |
 | A whole appendix is absent from the book and one block is reported | [K188](#k188) |
 | The build refuses to number sections and prints none at all | [K189](#k189) |
+| doctor says the advisors are installed and the briefs are a week old | [K190](#k190) |
 
 ---
 
@@ -2738,6 +2739,22 @@ absent landed on one whose headings are merely inline. Their own labels
 stay empty and their titles print exactly as before; what changes is that
 the located headings get their numbers.
 *Status: fixed, `ARunInHeadingIsNotAMissingOne`.*
+
+---
+
+### K190
+**The preflight asked whether the advisors exist, not whether they are the
+ones that ship.**
+`check_advisors` called `os.path.isfile` and nothing else, so four copies
+installed once and never refreshed reported as "4 of 4 installed" while
+the briefs beside them were edited four times. A referee brief corrected
+on 09-06 had still not reached a session on 09-09. `install_advisors.py`
+refuses to overwrite a file it did not put there, so between the two of
+them nothing could tell a current install from a stale one. Now compared
+byte for byte, and the remedy names `--force`, which is what a differing
+file actually needs. The middle state is the one under test: a check that
+only ever passes is worth nothing.
+*Status: fixed, `TheAdvisorCheckNoticesASkippedInstall`.*
 
 ---
 

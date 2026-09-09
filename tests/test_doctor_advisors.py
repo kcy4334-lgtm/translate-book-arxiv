@@ -82,6 +82,38 @@ class TheAdvisorCheckNoticesASkippedInstall(unittest.TestCase):
         self.assertFalse(ok)
         self.assertIn("2 of 4", detail)
 
+    def test_a_brief_edited_after_it_was_installed_is_reported(self):
+        # The state the check could not see. Presence was all it asked, so
+        # four copies a week old passed as "4 of 4 installed" while the
+        # briefs beside them were edited four times — a referee brief
+        # corrected on the 6th never reached a session, and the installer
+        # refuses to overwrite what it did not put there, so it was never
+        # going to say so either.
+        home = self.fake_home()
+        names = self.shipped_names()
+        self.install_into(home, names)
+        stale = os.path.join(home, ".claude", "agents", names[0])
+        with open(stale, "a", encoding="utf-8") as fh:
+            fh.write("\nan edit the shipped brief does not have\n")
+        ok, detail, _why = doctor.check_advisors()
+        self.assertFalse(ok, detail)
+        self.assertIn("out of date", detail)
+        self.assertIn(names[0][:-3], detail)
+
+    def test_a_current_install_says_so_rather_than_only_counting(self):
+        home = self.fake_home()
+        self.install_into(home, self.shipped_names())
+        ok, detail, _why = doctor.check_advisors()
+        self.assertTrue(ok, detail)
+        self.assertIn("current", detail)
+
+    def test_the_remedy_names_the_flag_a_stale_copy_needs(self):
+        # Told only to run install_advisors.py, a reader runs it, sees it
+        # decline every file, and is no better off.
+        self.fake_home()
+        _ok, _detail, why = doctor.check_advisors()
+        self.assertIn("--force", why)
+
     def test_it_is_recommended_rather_than_required(self):
         source = (SCRIPT_DIR / "doctor.py").read_text(encoding="utf-8")
         self.assertIn("(RECOMMENDED, 'advisor sub-agents'", source)
