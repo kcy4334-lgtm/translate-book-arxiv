@@ -112,7 +112,7 @@ and into making the skill cheaper to work on next month than this month.
 | **Growth stores that ship** | `KNOWLEDGE.md` 190 entries, `KNOWHOW.md` 42, `REFEREE.md` 6, and a census of every LaTeX shape the corpus has met across 27 papers |
 | **Four advisor sub-agents** | old-man, question-monster, fast-finder, referee; see below |
 | **The census as an oracle** | `tests/test_source_lint.py` fails when the corpus has met a construct nobody has classified |
-| **Tests** | 2,127, stdlib only, run in CI |
+| **Tests** | 2,130, stdlib only, run in CI |
 
 ## Growing the skill
 

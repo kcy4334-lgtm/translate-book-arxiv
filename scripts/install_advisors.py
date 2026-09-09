@@ -14,6 +14,25 @@ a skill folder breaks the moment the skill is moved or upgraded, and it breaks
 silently.
 
 Safe to re-run. It never overwrites a file it did not put there.
+
+The skill also ships `.claude/commands/release.md`, and this script does
+NOT copy it. That is a decision rather than an oversight, and it is
+recorded here because this is the file somebody opens when they wonder
+why -- the two cases look identical from outside:
+
+  * the advisors are called BY the pipeline. `SKILL.md` names them sixteen
+    times and tells the orchestrator when to reach for each, so one left
+    uninstalled breaks the skill in silence.
+  * a slash command is typed BY a person. Nothing in the pipeline invokes
+    `/release`; that flow is followed by reading the file, which is how
+    every tag on this repository has been cut.
+
+And `release` is a name every project wants. Installed into
+`~/.claude/commands/` it would hand this fork's rules -- the tag is the
+only version anchor, a tag already on the remote is not re-pointed -- to
+every unrelated repository on the machine, and a second tool shipping the
+same name would quietly win. `old-man` and `question-monster` collide with
+nothing; `release` collides with everything.
 """
 from __future__ import unicode_literals
 

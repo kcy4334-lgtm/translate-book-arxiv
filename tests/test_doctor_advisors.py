@@ -120,5 +120,47 @@ class TheAdvisorCheckNoticesASkippedInstall(unittest.TestCase):
         self.assertNotIn("(REQUIRED, 'advisor sub-agents'", source)
 
 
+class TheCommandIsDeliberatelyNotInstalled(unittest.TestCase):
+    r"""A decision that looks exactly like an oversight from outside.
+
+    The skill ships `.claude/commands/release.md` and the installer does
+    not copy it, while it does copy four advisors from the directory next
+    door. Nothing said which of those was intended, so the question had to
+    be asked out loud once; this makes sure it is answered in the file
+    where it comes up rather than asked again.
+
+    The asymmetry is who calls the thing. `SKILL.md` reaches for the
+    advisors sixteen times during a run, so one missing breaks the skill
+    silently. Nothing invokes `/release`; that flow is followed by reading
+    it. And `release` is a name every project wants -- installed globally
+    it would hand this fork's tagging rules to unrelated repositories, and
+    lose quietly to the next tool shipping the same name.
+    """
+
+    def installer_source(self):
+        return (SCRIPT_DIR / "install_advisors.py").read_text(
+            encoding="utf-8")
+
+    def test_the_command_ships_with_the_skill(self):
+        self.assertTrue((ROOT / ".claude" / "commands" / "release.md")
+                        .is_file())
+
+    def test_the_installer_copies_agents_and_not_commands(self):
+        source = self.installer_source()
+        self.assertIn("agents", source)
+        # Only as the explanation below, never as a directory it walks.
+        self.assertNotIn("'commands'", source)
+        self.assertNotIn('"commands"', source)
+
+    def test_the_reason_is_written_where_the_question_arises(self):
+        """Someone wondering why their command was not installed opens the
+        installer. A decision recorded anywhere else is one they will not
+        find, and they will 'fix' it."""
+        head = self.installer_source().split('"""')[1]
+        self.assertIn("release.md", head)
+        for word in ("decision", "collide"):
+            self.assertIn(word, head)
+
+
 if __name__ == "__main__":
     unittest.main()
