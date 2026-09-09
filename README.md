@@ -112,7 +112,7 @@ and into making the skill cheaper to work on next month than this month.
 | **Growth stores that ship** | `KNOWLEDGE.md` 190 entries, `KNOWHOW.md` 42, `REFEREE.md` 6, and a census of every LaTeX shape the corpus has met across 27 papers |
 | **Four advisor sub-agents** | old-man, question-monster, fast-finder, referee; see below |
 | **The census as an oracle** | `tests/test_source_lint.py` fails when the corpus has met a construct nobody has classified |
-| **Tests** | 2,130, stdlib only, run in CI |
+| **Tests** | 2,143, stdlib only, run in CI |
 
 ## Growing the skill
 
@@ -427,6 +427,7 @@ Then: merge → Pandoc HTML → inject TOC → Calibre generates DOCX, EPUB, PDF
 | `corpus/shapes.json` | The census itself, one row per paper, append-only |
 | `scripts/convert.py` | PDF/DOCX/EPUB → Markdown chunks via Calibre HTMLZ |
 | `scripts/backends.py` | Ingest backend selection (calibre / arXiv) and temp-dir provenance |
+| `scripts/pdf_text.py` | Reading a PDF in the order a person reads it, and measuring whether it worked. Calibre's PDF path interleaves a two-column paper inside a line; the score of how many of the paper's own sentences survived is what decides, not a guess about layout |
 | `scripts/arxiv_backend.py` | arXiv LaTeX-source ingest: real equations, figures rasterised from the originals |
 | `scripts/paper_macros.py` | The paper's own `\newcommand`s, resolved from the `.sty` files it ships, before pandoc reads the source, which never sees them. Refuses rather than guesses, and names every refusal |
 | `scripts/grid_table.py` | Grid-table construction for tables pandoc's markdown writer cannot express. Not wired in: `table` floats bypass pandoc's table writer entirely, so the pipeline produces no grid table whose spans could drift. Kept, unimported, against the paper that does produce one |

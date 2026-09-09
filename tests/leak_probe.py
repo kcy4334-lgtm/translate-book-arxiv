@@ -28,6 +28,17 @@ import re
 import sys
 from collections import Counter
 
+
+# A CLI prints, and what it prints may carry the book's text. A Windows
+# console under a non-UTF-8 locale then raises UnicodeEncodeError and the
+# command dies -- which stayed hidden while every caller happened to set
+# PYTHONIOENCODING for it.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding='utf-8', errors='replace')
+    except (AttributeError, ValueError, OSError):
+        pass
+
 # Regions whose contents are meant to look like markup.
 CODE_RE = re.compile(r'(?s)<(code|pre|style|script|annotation)\b.*?</\1>')
 TAG_RE = re.compile(r'<[^>]+>')

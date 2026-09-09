@@ -26,6 +26,17 @@ import sys
 import tempfile
 from collections import Counter
 
+
+# A CLI prints, and what it prints may carry the book's text. A Windows
+# console under a non-UTF-8 locale then raises UnicodeEncodeError and the
+# command dies -- which stayed hidden while every caller happened to set
+# PYTHONIOENCODING for it.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding='utf-8', errors='replace')
+    except (AttributeError, ValueError, OSError):
+        pass
+
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SCRIPT_DIR = os.path.join(REPO_ROOT, 'scripts')
 FIXTURES_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'fixtures')

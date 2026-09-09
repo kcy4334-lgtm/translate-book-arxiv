@@ -246,6 +246,65 @@
    "failed": 8,
    "lang": "ko",
    "paper": "2609.05337"
+  },
+  {
+   "checks": {
+    "meta": {
+     "chunks": [
+      "chunk0001",
+      "chunk0002",
+      "chunk0003",
+      "chunk0004",
+      "chunk0005",
+      "chunk0006",
+      "chunk0007",
+      "chunk0008",
+      "chunk0009",
+      "chunk0010",
+      "chunk0012",
+      "chunk0013"
+     ],
+     "severity": "warn"
+    },
+    "untranslated": {
+     "chunks": [
+      "chunk0001",
+      "chunk0002",
+      "chunk0003",
+      "chunk0004",
+      "chunk0005",
+      "chunk0006",
+      "chunk0007",
+      "chunk0008",
+      "chunk0009",
+      "chunk0010",
+      "chunk0012",
+      "chunk0013"
+     ],
+     "severity": "fail"
+    },
+    "untranslated_block": {
+     "chunks": [
+      "chunk0001",
+      "chunk0002",
+      "chunk0003",
+      "chunk0004",
+      "chunk0005",
+      "chunk0006",
+      "chunk0007",
+      "chunk0008",
+      "chunk0009",
+      "chunk0010",
+      "chunk0012",
+      "chunk0013"
+     ],
+     "severity": "fail"
+    }
+   },
+   "chunks": 13,
+   "failed": 12,
+   "lang": "ko",
+   "paper": "s41467-021-27672-z"
   }
  ],
  "version": 1

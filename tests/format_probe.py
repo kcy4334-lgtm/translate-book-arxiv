@@ -31,6 +31,17 @@ import sys
 import zipfile
 
 
+
+# A CLI prints, and what it prints may carry the book's text. A Windows
+# console under a non-UTF-8 locale then raises UnicodeEncodeError and the
+# command dies -- which stayed hidden while every caller happened to set
+# PYTHONIOENCODING for it.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding='utf-8', errors='replace')
+    except (AttributeError, ValueError, OSError):
+        pass
+
 # --- untranslated table furniture -------------------------------------------
 #
 # A table float behind a ⟦T####⟧ placeholder never reaches a translator: the

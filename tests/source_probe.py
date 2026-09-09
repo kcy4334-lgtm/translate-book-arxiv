@@ -34,6 +34,17 @@ if SCRIPT_DIR not in sys.path:
 import latex_rows                                               # noqa: E402
 import merge_and_build as mb                                    # noqa: E402
 
+
+# A CLI prints, and what it prints may carry the book's text. A Windows
+# console under a non-UTF-8 locale then raises UnicodeEncodeError and the
+# command dies -- which stayed hidden while every caller happened to set
+# PYTHONIOENCODING for it.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding='utf-8', errors='replace')
+    except (AttributeError, ValueError, OSError):
+        pass
+
 B = chr(92)
 # No private list of display environments lives here any more. It drifted
 # from the build's for as long as it existed; `check_equations` reads

@@ -443,6 +443,73 @@ def convert_html_to_markdown(html_file, md_file, strip_page_numbers=False):
         return False
 
 
+# Calibre's PDF path lays text out by position and does not reliably recover
+# columns. On a two-column journal paper it interleaves them INSIDE a line, so
+# the result is fluent English fragments in the wrong order and nothing
+# downstream can see the seam: every check in this pipeline compares our own
+# artefacts to each other, and they all agree about scrambled text.
+#
+# The threshold is not a guess about layout. Measured on the paper that found
+# this, calibre kept 25% of the paper's own sentences intact and the PyMuPDF
+# reading gave 97%. Anything in between is a paper worth looking at by hand;
+# the gap either side of it is wide enough that the exact number does not
+# matter, which is why it is a plain 0.6 rather than a tuned value.
+_READING_ORDER_MIN = 0.6
+
+
+def repair_reading_order(input_file, input_md, images_dir,
+                         threshold=_READING_ORDER_MIN):
+    """Replace a scrambled calibre extraction with one that reads in order.
+
+    Only for a PDF, and only when the PDF itself says the extraction failed.
+    An EPUB or DOCX already carries its reading order in the markup, so there
+    is nothing here to check and nothing to repair; the baseline books go
+    through this function untouched.
+
+    Asking the artefact rather than the file type is the point. "Is this two
+    columns?" needs a heuristic that has to be right about a paper nobody has
+    met. "Are the paper's own sentences still in one piece?" is answerable
+    from the file in front of us.
+    """
+    if not (input_file or '').lower().endswith('.pdf'):
+        return False
+    if not os.path.isfile(input_md):
+        return False
+    try:
+        import pdf_text
+    except ImportError:
+        return False
+
+    try:
+        doc = pdf_text.open_pdf(input_file)
+    except Exception as exc:                               # noqa: BLE001
+        print(f"Reading-order check skipped: {exc}")
+        return False
+    try:
+        with open(input_md, encoding='utf-8', errors='replace') as fh:
+            hits, total = pdf_text.sentence_fidelity(doc, fh.read())
+    finally:
+        doc.close()
+
+    if not total:
+        return False
+    share = float(hits) / total
+    if share >= threshold:
+        print(f"Reading order: {hits}/{total} of the paper's sentences "
+              f"survived the conversion ({share:.0%})")
+        return False
+
+    print(f"Reading order: only {hits}/{total} of the paper's sentences "
+          f"survived calibre ({share:.0%}) — its columns were interleaved.")
+    print("  Re-reading the PDF directly, which keeps the reading order.")
+    report = pdf_text.convert(input_file, input_md, images_dir)
+    after = report['fidelity_hits'], report['fidelity_total']
+    print(f"  Re-read: {report['pages']} page(s), {report['images']} image(s), "
+          f"{after[0]}/{after[1]} sentences intact "
+          f"({(float(after[0]) / after[1] if after[1] else 0):.0%})")
+    return True
+
+
 _PAGE_SEQUENCE_MIN_LENGTH = 4
 _PAGE_SEQUENCE_MIN_RATIO = 0.5
 
@@ -1590,6 +1657,9 @@ def main():
                 sanitize_calibre_html(input_html_path)
                 if not convert_html_to_markdown(input_html_path, input_md, strip_page_numbers=args.strip_page_numbers):
                     sys.exit(1)
+                repair_reading_order(
+                    input_file, input_md,
+                    os.path.join(temp_dir, 'images'))
 
             chunk_count = _do_split_and_manifest(temp_dir, input_md, args.chunk_size,
                                               math_guard_on=not args.no_math_guard)
@@ -1631,6 +1701,9 @@ def main():
                 sanitize_calibre_html(input_html)
                 if not convert_html_to_markdown(input_html, input_md, strip_page_numbers=args.strip_page_numbers):
                     sys.exit(1)
+                repair_reading_order(
+                    input_file, input_md,
+                    os.path.join(temp_dir, 'images'))
 
             chunk_count = _do_split_and_manifest(temp_dir, input_md, args.chunk_size,
                                               math_guard_on=not args.no_math_guard)
