@@ -141,6 +141,111 @@
    "failed": 0,
    "lang": "ko",
    "paper": "2411.02359"
+  },
+  {
+   "checks": {
+    "meta": {
+     "chunks": [
+      "chunk0001",
+      "chunk0002",
+      "chunk0003",
+      "chunk0004",
+      "chunk0005",
+      "chunk0006",
+      "chunk0007",
+      "chunk0008",
+      "chunk0009",
+      "chunk0010",
+      "chunk0011",
+      "chunk0012"
+     ],
+     "severity": "warn"
+    },
+    "untranslated": {
+     "chunks": [
+      "chunk0001",
+      "chunk0002",
+      "chunk0003",
+      "chunk0004",
+      "chunk0005",
+      "chunk0006",
+      "chunk0007",
+      "chunk0008",
+      "chunk0009",
+      "chunk0010",
+      "chunk0011",
+      "chunk0012"
+     ],
+     "severity": "fail"
+    },
+    "untranslated_block": {
+     "chunks": [
+      "chunk0001",
+      "chunk0002",
+      "chunk0003",
+      "chunk0004",
+      "chunk0005",
+      "chunk0006",
+      "chunk0007",
+      "chunk0008",
+      "chunk0009",
+      "chunk0011",
+      "chunk0012"
+     ],
+     "severity": "fail"
+    }
+   },
+   "chunks": 13,
+   "failed": 12,
+   "lang": "ko",
+   "paper": "2609.04930"
+  },
+  {
+   "checks": {
+    "meta": {
+     "chunks": [
+      "chunk0001",
+      "chunk0002",
+      "chunk0003",
+      "chunk0004",
+      "chunk0005",
+      "chunk0006",
+      "chunk0007",
+      "chunk0008"
+     ],
+     "severity": "warn"
+    },
+    "untranslated": {
+     "chunks": [
+      "chunk0001",
+      "chunk0002",
+      "chunk0003",
+      "chunk0004",
+      "chunk0005",
+      "chunk0006",
+      "chunk0007",
+      "chunk0008"
+     ],
+     "severity": "fail"
+    },
+    "untranslated_block": {
+     "chunks": [
+      "chunk0001",
+      "chunk0002",
+      "chunk0003",
+      "chunk0004",
+      "chunk0005",
+      "chunk0006",
+      "chunk0007",
+      "chunk0008"
+     ],
+     "severity": "fail"
+    }
+   },
+   "chunks": 9,
+   "failed": 8,
+   "lang": "ko",
+   "paper": "2609.05337"
   }
  ],
  "version": 1

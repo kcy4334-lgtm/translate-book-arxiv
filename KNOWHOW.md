@@ -72,6 +72,7 @@ A finding about a tool goes there. A finding about the method goes here.
 | accept a package default when two definitions compete | [H38](#h38) |
 | skip a step's probe because every other check is green | [H39](#h39) |
 | keep hunting for a shape after the hunt has answered | [H40](#h40) |
+| verify with the one probe you trust and call the run checked | [H41](#h41) |
 
 ---
 
@@ -585,6 +586,20 @@ which is what decides whether to spend another hour.
 *Cost when skipped: hours of downloads chasing shapes this corpus is
 unlikely to meet, while a paper already in hand has three numbers it
 assigns that its own pages do not print.*
+---
+
+### H41
+**Run the whole verification table, not the one probe you trust.**
+Four real papers were put through `source_probe` and nothing else, and
+seven of eight were reported as passing. They passed ON NUMBERING. The
+first `dry_run` afterwards found a paper whose build does not finish, a
+whole appendix absent from the book, nineteen TikZ figures with no image
+file, and headings the build refuses to number -- none of which a
+numbering probe looks at. README lists ten checks and one had been run.
+The probe you reach for is the one whose failures you already understand,
+which is exactly why it is not the one that finds anything new.
+*Cost when skipped: an hour of work reported as "seven of eight pass"
+while one of them was losing an appendix.*
 ---
 
 ## Maintenance protocol

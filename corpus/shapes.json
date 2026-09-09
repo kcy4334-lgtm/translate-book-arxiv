@@ -1217,13 +1217,6 @@
      "newif": 1,
      "renewcommand": 3
     },
-    "macro in style files": {
-     "DeclareRobustCommand": 1,
-     "abbreviation-macro": 4,
-     "bfseries-group": 1,
-     "let-binding": 9,
-     "renewcommand": 2
-    },
     "math": {
      "equation": 44,
      "multline": 6,

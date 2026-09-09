@@ -205,6 +205,7 @@ here; the test is the real record. This file is for the *reasoning*, the
 | The book numbers equations 1, 2, 3 where the paper prints 2.1 | [K185](#k185) |
 | Appendix equations are numbered 8.1 where the paper prints A.1 | [K186](#k186) |
 | A section issues one more equation number than the paper prints | [K187](#k187) |
+| A whole appendix is absent from the book and one block is reported | [K188](#k188) |
 
 ---
 
@@ -2704,6 +2705,22 @@ inside a `lemma`, but sections whose last display sits inside a `remark`
 or a `proof` agree exactly, so that is not it either. Left unfixed on
 purpose: 47 match here, six papers pass outright, and a guess risks both.
 *Status: open, measured. `flat_equation_numbers`.*
+
+---
+
+### K188
+**A singular `\begin{appendix}` cost a paper its whole appendix.**
+`_TEX_NOISE` strips that wrapper because pandoc has no reader for it and
+drops the block it wraps, but the rule listed `appendices` and
+`subappendices` only. 2609.05354 uses the singular and carries no
+`\appendix` command, so its appendix reached the markdown as ONE raw block
+and the HTML writer dropped it, reported as a single finding exactly as
+the comment above the rule predicted after Neural ODE lost one the same
+way. The sixth place to need this fact, and the only one that loses
+CONTENT rather than mis-numbering it. Safe because `flat.tex` is written
+before `sanitize_tex` runs and every reader that letters an appendix reads
+`flat.tex` -- checked, not assumed, since the alternative reverts K180.
+*Status: fixed. Untraceable blocks 4 to 3, numbering unchanged.*
 
 ---
 

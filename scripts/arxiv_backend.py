@@ -911,10 +911,22 @@ _TEX_NOISE = (
     # images/, its lists and listings never convert, and the HTML writer drops
     # the lot. Neural ODE lost its entire appendix that way, and the loss was
     # invisible because a single raw block reports as a single finding. The
-    # wrapper carries nothing — `\appendix` before it already switched the
-    # numbering — so removing the two lines costs nothing and recovers
-    # everything inside.
-    (re.compile(r'(?m)^[ \t]*\\(?:begin|end)\{(?:appendices|subappendices)\}'
+    # wrapper carries nothing that pandoc needs, so removing the two lines
+    # costs nothing and recovers everything inside.
+    #
+    # The SINGULAR `appendix` was missing from this list and is the spelling
+    # 2609.05354 uses, with no `\appendix` command anywhere. Its whole
+    # appendix reached the markdown as one raw block and the HTML writer
+    # dropped it, reported as a single finding exactly as the paragraph
+    # above predicts.
+    #
+    # Stripping it does NOT cost the numbering, and that is worth stating
+    # because for this paper the wrapper IS the switch. `flat.tex` is
+    # written from the text BEFORE `sanitize_tex` runs, and every reader
+    # that letters an appendix -- `build_label_index`, `flat_equation_numbers`,
+    # `float_units` -- reads `flat.tex`. Only the markdown path sees this.
+    (re.compile(r'(?m)^[ \t]*\\(?:begin|end)'
+                r'\{(?:subappendices|appendices|appendix)\}'
                 r'[ \t]*$\n?'), ''),
     # `\rowcolor` is deliberately NOT in here. The damage described above is
     # `\cellcolor`'s: it sits inside a row, between two `&`, where it overruns
