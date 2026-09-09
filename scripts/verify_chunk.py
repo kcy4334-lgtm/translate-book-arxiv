@@ -191,13 +191,57 @@ def _prose_only(text):
     followed it -- a whole Limitation section, in one measured case.
     """
     text = _BIB_ENV_RE.sub(_blank_lines_like, text)
-    return '\n'.join('' if _is_reference_line(line) else line
-                     for line in text.split('\n'))
+    lines = text.split('\n')
+    flags = _fill_reference_gaps([_is_reference_line(l) for l in lines], lines)
+    return '\n'.join('' if flag else line
+                     for flag, line in zip(flags, lines))
+
+
+def _fill_reference_gaps(flags, lines, span=3):
+    r"""A short run of unmarked lines BETWEEN two reference lines belongs to
+    the entry that wraps across them.
+
+    A PDF-extracted bibliography has no `\bibitem` and no leading number on
+    a continuation line: an entry opens "45. Liu, M. et al." and runs on with
+    the article title, which reads exactly like prose because it IS prose.
+    Two chunks of one paper failed on that -- a cited title carrying "machine
+    learning" reported as a glossary violation, and 81 words of a wrapped
+    entry as an untranslated block. Both were correct English, left correctly
+    in English.
+
+    Both sides must ALREADY be references and the gap must be short. A
+    Methods section sitting ahead of the reference list is not flanked, so it
+    keeps its language checks -- which is the failure the docstring above was
+    written about, and the reason this fills gaps rather than cutting at a
+    position. Measured on the paper that found it: chunk0010 is 42% reference
+    lines with real prose above them, and its prose is untouched by this.
+    """
+    out = list(flags)
+    i = 0
+    while i < len(out):
+        if out[i]:
+            i += 1
+            continue
+        j = i
+        while j < len(out) and not out[j]:
+            j += 1
+        gap = [k for k in range(i, j) if lines[k].strip()]
+        if (0 < len(gap) <= span and i > 0 and j < len(out)
+                and out[i - 1] and out[j]):
+            for k in gap:
+                out[k] = True
+        i = j + 1
+    return out
 
 
 _BIB_LINE_RE = re.compile(
     # "[12]" / "1. Surname," / a bare year in parentheses
-    r'^\s*(?:[-*]\s*)?(?:\[\d+\]|\(\d{4}\)|\d+\.\s+[A-Z][a-z]+,)'
+    # The surname class matches the one used below, not plain [a-z]:
+    # "48. Kroeger, T." was found and "48. Kr\u00f6ger, T." was not, so a
+    # wrapped entry opening with an accented surname read as prose and
+    # took 19 words of a cited title with it.
+    r'^\s*(?:[-*]\s*)?(?:\[\d+\]|\(\d{4}\)'
+    r'|\d+\.\s+[A-Z][A-Za-z\u00C0-\u024F\'-]+,)'
     # "Surname, Firstname" and "Surname, F." -- how every style opens an
     # entry. The year requirement is what separates an author list from an
     # ordinary sentence: "Second, AlphaQ relies on..." has the same shape and

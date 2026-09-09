@@ -420,5 +420,57 @@ class GlossaryComplianceTests(ChunkCase):
         self.assertEqual(self.checks(source, output)[0], [])
 
 
+class AWrappedReferenceEntryIsStillAReference(unittest.TestCase):
+    r"""A PDF-extracted bibliography has no `\bibitem` and no leading number
+    on a continuation line.
+
+    An entry opens "48. Kroeger, T." and runs on with the article title,
+    which reads like prose because it IS prose -- somebody else's prose,
+    correctly left in English. Two chunks of one paper failed on that: a
+    cited title carrying "machine learning" reported as a glossary
+    violation, and 81 words of a wrapped entry as an untranslated block.
+
+    The gap is filled only BETWEEN two reference lines and only when it is
+    short. Methods text sitting above a reference list is flanked on one
+    side only, so it keeps its language checks -- which is the failure the
+    older "cut at a position" approach caused, and the reason this fills
+    gaps instead of cutting.
+    """
+
+    REF_A = "12. Smith, J. & Lee, K. Nature 500, 1 (2019)."
+    REF_B = "13. Brown, A. et al. Science 301, 44 (2020)."
+    TITLE = "Learning to recognise objects without vision at all"
+
+    def flags(self, lines):
+        return vc._fill_reference_gaps(
+            [vc._is_reference_line(l) for l in lines], lines)
+
+    def test_a_continuation_line_between_two_entries_is_covered(self):
+        self.assertEqual(self.flags([self.REF_A, self.TITLE, self.REF_B]),
+                         [True, True, True])
+
+    def test_prose_before_the_list_keeps_its_checks(self):
+        """The one that must not break."""
+        prose = "We evaluated the system on eleven everyday objects."
+        self.assertFalse(self.flags([prose, self.REF_A, self.REF_B])[0])
+
+    def test_a_long_run_of_prose_is_not_swallowed(self):
+        """Four lines is not a wrapped entry. Filling it would turn the
+        language checks off for a whole section."""
+        prose = ["Sentence one here.", "Sentence two here.",
+                 "Sentence three here.", "Sentence four here."]
+        got = self.flags([self.REF_A] + prose + [self.REF_B])
+        self.assertEqual(got[1:5], [False] * 4)
+
+    def test_an_accented_surname_opens_an_entry(self):
+        r"""`\d+\.\s+[A-Z][a-z]+,` did not match an umlaut, so the entry
+        read as prose and took its title with it."""
+        self.assertTrue(vc._is_reference_line(
+            "48. Kröger, T. On-Line Trajectory Generation (2011)."))
+
+    def test_a_plain_surname_still_opens_one(self):
+        self.assertTrue(vc._is_reference_line(self.REF_A))
+
+
 if __name__ == "__main__":
     unittest.main()

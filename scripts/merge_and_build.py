@@ -7011,6 +7011,36 @@ def untranslated_table_words(md_text, lang, temp_dir=None):
     return out
 
 
+_ATX_HEADING_LINE_RE = re.compile(r'^#{1,6}\s+\S')
+
+
+def separate_headings(md_text):
+    r"""A heading needs a blank line in front of it or it is not a heading.
+
+    pandoc reads `### Methods` glued to the line above as a lazy
+    continuation of that paragraph, so the `###` prints as literal text and
+    the section never exists. Silent, and invisible in the markdown: the
+    file looks perfectly structured.
+
+    It bites whenever the source had no blank lines to begin with, which is
+    every paper read out of a PDF. A translator told to mark the headings
+    marks them on the line where the title sits, and the line above is the
+    end of the previous paragraph. Measured on the paper that found this:
+    19 headings in `output.md`, 18 of them glued, 4 surviving into the HTML,
+    a 3-entry table of contents and ONE PDF bookmark for 22 pages.
+
+    Inserting the blank line changes no words and cannot merge two blocks,
+    so it is safe to run over any markdown.
+    """
+    lines = (md_text or '').split('\n')
+    out = []
+    for line in lines:
+        if _ATX_HEADING_LINE_RE.match(line) and out and out[-1].strip():
+            out.append('')
+        out.append(line)
+    return '\n'.join(out)
+
+
 def convert_md_to_html(temp_dir, title, lang_cfg, author=None,
                        allow_degraded=False, math_mode='mathml', force=False,
                        print_cfg=None):
@@ -7274,6 +7304,10 @@ def convert_md_to_html(temp_dir, title, lang_cfg, author=None,
     if glosses_dropped:
         print(f"First-use glosses: {glosses_dropped} repeat(s) removed")
 
+    # Before the two output paths diverge, so the DOCX and the HTML agree
+    # about which lines are headings. A heading glued to the paragraph above
+    # is not a heading to pandoc, and the loss is silent.
+    md_text = separate_headings(md_text)
     docx_md, docx_ok, docx_bad = expand_raw_latex_tables(
         md_text, math_mode=math_mode, output='markdown', temp_dir=temp_dir)
     # pandoc builds book.docx straight from this file and never sees the HTML

@@ -2289,3 +2289,56 @@ class GridTableConversionTests(unittest.TestCase):
     def test_text_with_no_table_is_returned_unchanged(self):
         text = "just a paragraph\n\nand another\n"
         self.assertEqual(merge_and_build.grid_tables_to_pipe(text), (text, 0))
+
+
+class AHeadingNeedsABlankLineOrItIsNotAHeading(unittest.TestCase):
+    r"""pandoc reads `### Methods` glued to the line above as a lazy
+    continuation of that paragraph. The `###` prints as literal text and
+    the section never exists, and the markdown looks perfectly structured
+    the whole time.
+
+    It bites whenever the source had no blank lines, which is every paper
+    read out of a PDF: a translator told to mark the headings marks them
+    where the title sits, and the line above is the end of the previous
+    paragraph. Measured on the paper that found it: 19 headings in
+    `output.md`, 18 of them glued, 4 surviving into the HTML, a three-entry
+    table of contents and ONE PDF bookmark across 22 pages. After the fix,
+    22 headings, 21 entries and 19 bookmarks.
+    """
+
+    def test_a_glued_heading_gets_its_blank_line(self):
+        got = merge_and_build.separate_headings(
+            "end of a paragraph.\n## Results\nmore text")
+        self.assertEqual(got, "end of a paragraph.\n\n## Results\nmore text")
+
+    def test_a_heading_that_already_has_one_is_untouched(self):
+        text = "end of a paragraph.\n\n## Results\n\nmore text"
+        self.assertEqual(merge_and_build.separate_headings(text), text)
+
+    def test_a_heading_at_the_very_start_is_untouched(self):
+        text = "# Title\n\nbody"
+        self.assertEqual(merge_and_build.separate_headings(text), text)
+
+    def test_every_level_is_covered(self):
+        for hashes in ('#', '##', '###', '####', '#####', '######'):
+            got = merge_and_build.separate_headings(
+                'text\n%s Heading' % hashes)
+            self.assertEqual(got, 'text\n\n%s Heading' % hashes, hashes)
+
+    def test_a_hash_with_no_space_is_not_a_heading(self):
+        """`#1` is a figure-panel label or a footnote marker, not a
+        heading, and pandoc agrees. Inserting a blank line before it would
+        split a paragraph the author wrote as one."""
+        text = "text\n#1 panel label"
+        self.assertEqual(merge_and_build.separate_headings(text), text)
+
+    def test_no_word_is_added_or_lost(self):
+        """It may only insert blank lines. Anything else would be a
+        translation change hidden in a formatting pass."""
+        src = "a paragraph.\n## Results\nbody text\n### Methods\nmore"
+        got = merge_and_build.separate_headings(src)
+        self.assertEqual(got.split(), src.split())
+
+    def test_empty_and_missing_input(self):
+        self.assertEqual(merge_and_build.separate_headings(''), '')
+        self.assertEqual(merge_and_build.separate_headings(None), '')

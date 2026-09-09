@@ -208,6 +208,9 @@ here; the test is the real record. This file is for the *reasoning*, the
 | A whole appendix is absent from the book and one block is reported | [K188](#k188) |
 | The build refuses to number sections and prints none at all | [K189](#k189) |
 | doctor says the advisors are installed and the briefs are a week old | [K190](#k190) |
+| A section heading prints as ### text and the book has no outline | [K191](#k191) |
+| A cited paper's title fails the glossary or untranslated check | [K192](#k192) |
+| The referee raises CHRONIC on checks a dry run always fails | [K193](#k193) |
 
 ---
 
@@ -2755,6 +2758,51 @@ byte for byte, and the remedy names `--force`, which is what a differing
 file actually needs. The middle state is the one under test: a check that
 only ever passes is worth nothing.
 *Status: fixed, `TheAdvisorCheckNoticesASkippedInstall`.*
+
+---
+
+### K191
+**A heading glued to the line above is not a heading, and nothing says so.**
+pandoc reads `### Methods` with no blank line before it as a lazy
+continuation of that paragraph: the `###` prints as literal text and the
+section never exists. The markdown looks perfectly structured throughout.
+It bites every paper read out of a PDF, because the extraction has no blank
+lines and a translator told to mark the headings marks them where the title
+sits. s41467-021-27672-z had 19 headings in `output.md`, 18 of them glued,
+4 reaching the HTML, a 3-entry table of contents and ONE PDF bookmark
+across 22 pages; a reader could not navigate the book at all. Normalising
+at merge time inserts only blank lines, so it can add no word and merge no
+block. After it: 22 headings, 21 entries, 19 bookmarks.
+*Status: fixed, `AHeadingNeedsABlankLineOrItIsNotAHeading`.*
+
+---
+
+### K192
+**A wrapped reference entry read as prose and failed the chunk.**
+A bibliography extracted from a PDF has no `\bibitem` and no leading
+number on a continuation line: an entry opens `48. Kroeger, T.` and runs
+on with the article title, which reads like prose because it IS prose,
+correctly left in English. `_is_reference_line` is per line, so the title
+line failed `untranslated_block` and its words failed `glossary`. Two
+fixes: a short gap BETWEEN two reference lines is filled, and the numbered
+branch accepts an accented surname, which `[A-Z][a-z]+,` did not.
+Flanking on both sides is what keeps a Methods section above the list from
+being swallowed, the failure the older cut-at-a-position approach caused.
+*Status: fixed, `AWrappedReferenceEntryIsStillAReference`.*
+
+---
+
+### K193
+**A dry run feeds the referee as if it were a translation run.**
+`dry_run.py` stages every source chunk as its own output and builds that,
+so `untranslated` and `untranslated_block` fail on every chunk by
+construction. The build records the tally, and after two dry runs on the
+same day the referee raised CHRONIC on both checks: "fired in 3 runs,
+nobody has fixed it". Two of those three were dry runs where the firing
+means nothing. The signal that exists to separate a repeat from an
+accident is the one being fed noise, and it is the referee's most serious
+verdict. The tally itself is right; what it is counting is not.
+*Status: open, measured. `referee.py history` shows the three runs.*
 
 ---
 

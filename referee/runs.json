@@ -249,51 +249,21 @@
   },
   {
    "checks": {
-    "meta": {
+    "glossary": {
      "chunks": [
-      "chunk0001",
-      "chunk0002",
-      "chunk0003",
-      "chunk0004",
-      "chunk0005",
-      "chunk0006",
-      "chunk0007",
-      "chunk0008",
-      "chunk0009",
       "chunk0010",
-      "chunk0012",
-      "chunk0013"
+      "chunk0012"
      ],
-     "severity": "warn"
+     "severity": "fail"
     },
     "untranslated": {
      "chunks": [
-      "chunk0001",
-      "chunk0002",
-      "chunk0003",
-      "chunk0004",
-      "chunk0005",
-      "chunk0006",
-      "chunk0007",
-      "chunk0008",
-      "chunk0009",
-      "chunk0010",
-      "chunk0012",
-      "chunk0013"
+      "chunk0012"
      ],
      "severity": "fail"
     },
     "untranslated_block": {
      "chunks": [
-      "chunk0001",
-      "chunk0002",
-      "chunk0003",
-      "chunk0004",
-      "chunk0005",
-      "chunk0006",
-      "chunk0007",
-      "chunk0008",
-      "chunk0009",
       "chunk0010",
       "chunk0012",
       "chunk0013"
@@ -302,7 +272,7 @@
     }
    },
    "chunks": 13,
-   "failed": 12,
+   "failed": 2,
    "lang": "ko",
    "paper": "s41467-021-27672-z"
   }
