@@ -73,6 +73,7 @@ A finding about a tool goes there. A finding about the method goes here.
 | skip a step's probe because every other check is green | [H39](#h39) |
 | keep hunting for a shape after the hunt has answered | [H40](#h40) |
 | verify with the one probe you trust and call the run checked | [H41](#h41) |
+| write a pattern that decides presence without asking old-man first | [H42](#h42) |
 
 ---
 
@@ -600,6 +601,22 @@ The probe you reach for is the one whose failures you already understand,
 which is exactly why it is not the one that finds anything new.
 *Cost when skipped: an hour of work reported as "seven of eight pass"
 while one of them was losing an appendix.*
+---
+
+### H42
+**Call old-man BEFORE writing the pattern, not after the paper finds it.**
+A day of work turned on one question: which spellings does a construct
+have that a pattern deciding presence would miss? That is the whole of
+old-man's brief, and it was not called once. Every answer arrived the
+expensive way instead. `appendices` was in the strip rule and the singular
+`appendix` was not, found only when a paper's whole appendix was absent
+from its book. `alignat` was missing from four separate lists and each was
+discovered on its own. A module-mention check passed on a substring of
+another symbol's name. `advisors.py status` says the last consultation was
+six days before any of it -- and the log exists precisely because an
+advisor whose store never moves looks exactly like one nobody calls.
+*Cost when skipped: three spelling faults found one paper at a time, and
+seven places that each had to learn the same fact separately.*
 ---
 
 ## Maintenance protocol
