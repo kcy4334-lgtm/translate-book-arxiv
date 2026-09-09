@@ -188,6 +188,45 @@ class EveryReaderOfTheConventionsUsesThem(unittest.TestCase):
         self.assertEqual(mb.flat_equation_numbers(self.work), ['1.1'])
 
 
+class ARunInHeadingIsNotAMissingOne(unittest.TestCase):
+    r"""The seventh reader of the same fact, and the one that decided
+    whether two finished books carried section numbers at all.
+
+    The build refuses to number when too few headings can be located in
+    the original PDF, which is right when they are missing. amsart's
+    subsections are not missing: they are typeset inside the paragraph
+    they open, so no heading line exists to find. Counted in the
+    denominator they made the ratio unreachable -- 11 of 30 against a
+    three-fifths bar -- and both amsart papers shipped unnumbered.
+    """
+
+    def test_run_in_headings_leave_the_denominator(self):
+        self.assertEqual(
+            mb.locatable_headings(30, {'run_in': 17}), 13)
+
+    def test_a_paper_with_none_is_unchanged(self):
+        """Every non-amsart class reports zero, so the arithmetic for them
+        is the arithmetic it always was."""
+        self.assertEqual(mb.locatable_headings(30, {'run_in': 0}), 30)
+        self.assertEqual(mb.locatable_headings(30, {}), 30)
+        self.assertEqual(mb.locatable_headings(30, None), 30)
+
+    def test_the_count_never_goes_negative(self):
+        self.assertEqual(mb.locatable_headings(2, {'run_in': 9}), 0)
+
+    def test_the_bar_that_two_amsart_papers_could_not_clear(self):
+        """11 located of 30 headings failed; of 13 locatable it passes,
+        and the share itself never changed."""
+        self.assertGreater(mb.enough_located(30), 11)
+        self.assertLessEqual(mb.enough_located(13), 11)
+
+    def test_a_floor_under_the_ratio(self):
+        """A share of two or three headings says nothing, so three is the
+        minimum however small the paper."""
+        self.assertEqual(mb.enough_located(0), 3)
+        self.assertEqual(mb.enough_located(4), 3)
+
+
 FLOATS = ('\\documentclass{%s}\n\\begin{document}\n'
           '\\begin{table}\\caption{One}\\label{t:one}\\end{table}\n'
           '\\begin{figure}\\caption{One}\\label{f:one}\\end{figure}\n'

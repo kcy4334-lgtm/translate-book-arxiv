@@ -206,6 +206,7 @@ here; the test is the real record. This file is for the *reasoning*, the
 | Appendix equations are numbered 8.1 where the paper prints A.1 | [K186](#k186) |
 | A section issues one more equation number than the paper prints | [K187](#k187) |
 | A whole appendix is absent from the book and one block is reported | [K188](#k188) |
+| The build refuses to number sections and prints none at all | [K189](#k189) |
 
 ---
 
@@ -2721,6 +2722,22 @@ CONTENT rather than mis-numbering it. Safe because `flat.tex` is written
 before `sanitize_tex` runs and every reader that letters an appendix reads
 `flat.tex` -- checked, not assumed, since the alternative reverts K180.
 *Status: fixed. Untraceable blocks 4 to 3, numbering unchanged.*
+
+---
+
+### K189
+**A run-in heading counted as a missing one, and two books lost their numbers.**
+The build refuses to number sections when too few headings can be located
+in the original PDF, which is right when they are missing. amsart's
+subsections are not missing: the class typesets them inside the paragraph
+they open, so no heading line exists to find. Counted in the denominator
+they put the bar out of reach -- 11 located of 30 against three fifths --
+and both amsart papers shipped with no section numbers at all. The seventh
+place to need this fact, and a refusal aimed at a paper whose headings are
+absent landed on one whose headings are merely inline. Their own labels
+stay empty and their titles print exactly as before; what changes is that
+the located headings get their numbers.
+*Status: fixed, `ARunInHeadingIsNotAMissingOne`.*
 
 ---
 

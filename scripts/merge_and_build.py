@@ -1987,6 +1987,29 @@ def read_pdf_section_prefixes(temp_dir, tex_heads):
     return prefixes, stats
 
 
+def locatable_headings(total, pdf_stats):
+    r"""How many of a paper's headings the PDF could show at all.
+
+    A level the class sets run-in is typeset inside the paragraph it opens,
+    so there is no heading line to find and no amount of matching will ever
+    find one. Counting those in the denominator made the ratio unreachable:
+    amsart papers offered 11 locatable headings out of 30 and were refused
+    numbering entirely, a refusal meant for a paper whose headings are
+    MISSING landing on one whose headings are merely inline.
+    """
+    return max(0, total - (pdf_stats or {}).get('run_in', 0))
+
+
+def enough_located(locatable, share=0.6, floor=3):
+    r"""The number of headings that must be found before numbering is safe.
+
+    Three at minimum, because a ratio over two or three headings says
+    nothing. The share is what it always was; only what it is a share OF
+    has changed.
+    """
+    return max(floor, int(share * locatable))
+
+
 def _longest_prefix_match(key, numbered, minimum=14):
     """The longest heading in `numbered` that `key` starts with."""
     best = None
@@ -2219,10 +2242,11 @@ def number_sections(md_text, temp_dir, bilingual=True):
             'invent a scheme' % pdf_stats['reason'])
         return md_text, stats
     found = pdf_stats['matched'] + pdf_stats['unnumbered']
-    if found < max(3, int(0.6 * len(tex_heads))):
+    locatable = locatable_headings(len(tex_heads), pdf_stats)
+    if found < enough_located(locatable):
         stats['skipped_reason'] = (
-            'only %d of %d headings could be located in the original PDF '
-            '— refusing to guess' % (found, len(tex_heads)))
+            'only %d of %d locatable headings could be found in the original '
+            'PDF — refusing to guess' % (found, locatable))
         return md_text, stats
     stats['pdf'] = pdf_stats
     labels = ['' if lb is None else lb for lb in labels]
