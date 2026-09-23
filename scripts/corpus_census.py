@@ -388,6 +388,20 @@ def record(temp_dir, quiet=False):
     style = read_style_files(temp_dir)
     if style:
         shapes.update(survey(style, STYLE_MARKERS))
+    # A re-record must not turn "seen" back into "never seen". This census
+    # answers whether the corpus has EVER met a shape, and its style-file
+    # groups depend on `arxiv_src/` still being on disk: rebuilding a paper
+    # whose temp dir has since been cleaned surveyed no style files, dropped
+    # the `macro in style files` group from that row, and `xparse-command`
+    # went from classified-and-seen to classified-but-never-seen, which is
+    # the state `test_source_lint` exists to fail on. Absence of the source
+    # is not evidence of absence of the shape.
+    for group, seen in (known.get('shapes') or {}).items():
+        merged = dict(shapes.get(group) or {})
+        for marker, count in (seen or {}).items():
+            merged.setdefault(marker, count)
+        if merged:
+            shapes[group] = merged
     data['papers'][key] = {
         'title': (title.group(1).strip() if title else known.get('title', '')),
         'shapes': shapes,

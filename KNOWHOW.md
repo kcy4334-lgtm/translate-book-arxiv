@@ -75,6 +75,7 @@ A finding about a tool goes there. A finding about the method goes here.
 | verify with the one probe you trust and call the run checked | [H41](#h41) |
 | write a pattern that decides presence without asking old-man first | [H42](#h42) |
 | merge the sub-agent meta and find every chunk flagged for re-translation | [H43](#h43) |
+| delete the chunks to re-convert, and lose every translated table caption | [H44](#h44) |
 
 ---
 
@@ -634,6 +635,22 @@ in against its own canonical singular, and a second spelling of silicon
 nitride beside the first. Neither collided on surface form.
 *Cost when skipped: a twelve-chunk re-translation to fix five occurrences,
 or a book that spells one term two ways in four separate chunks.*
+---
+
+### H44
+**Deleting the sidecars costs every table translation. Copy them first.**
+`run_state` protects the prose: re-convert and the chunks whose text did
+not change keep their translations, so a fix that moves two chunks costs
+two agents. The `.math.json` sidecars have no such protection. They are
+regenerated wholesale, and with them go every translated caption, header
+cell and row label, however few chunks actually changed. Re-converting to
+recover two stray directives cost two prose agents and FOUR table agents,
+because the second number was never in the estimate.
+`.sidecar_edits.jsonl` does not save you: it records the prose before and
+after as an audit trail, not the LaTeX, so nothing can be replayed from it.
+One `cp *.math.json` before the delete is the whole remedy.
+*Cost when skipped: seven table translations redone, four agents, for a
+change that touched two chunks.*
 ---
 
 ## Maintenance protocol

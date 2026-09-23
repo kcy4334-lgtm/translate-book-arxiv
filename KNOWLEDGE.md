@@ -223,6 +223,19 @@ here; the test is the real record. This file is for the *reasoning*, the
 | A table column header prints as a heading (`# Trials`) | [K200](#k200) |
 | A translated sentence states the opposite of the paper | [K201](#k201) |
 | A glossary alias means something different from its term | [K201](#k201) |
+| A table is absent and the build says only "1 FAILED" | [K202](#k202), [K203](#k203) |
+| Column letters (`@p 0.30 p`) print as prose where a table should be | [K202](#k202) |
+| pandoc exits 0 and returns one character | [K203](#k203) |
+| An appendix prints G, H, J where the paper prints A, B, D | [K204](#k204) |
+| pandoc refuses the whole document over one heading | [K205](#k205) |
+| Body sections are lettered as if they were the appendix | [K206](#k206) |
+| A figure reference names a number two too high | [K207](#k207) |
+| A reference entry is dispatched to a translator | [K208](#k208), [K198](#k198) |
+| A figure is dropped and its caption left over blank space | [K209](#k209) |
+| A shape the corpus has met is reported NEVER SEEN | [K210](#k210) |
+| A bold table cell prints `97.9 0.4` where the paper prints `97.9 ± 0.4` | [K211](#k211) |
+| `(tab:a,tab:b)` printed raw while the check reports zero unresolved | [K212](#k212) |
+| A probe fails a book whose numbers are right | [K213](#k213) |
 
 ---
 
@@ -2928,6 +2941,173 @@ this satisfies perfectly. An alias sharing a word stem is not an alias
 sharing a meaning, and a negation's aliases must be negations. It was
 caught only because translators questioned a table they were told to obey.
 *Fixed in this book's glossary. No check exists for it yet.*
+
+---
+
+### K202
+**pandoc abandons a tabular at a column spec it cannot read.**
+`\begin{tabular}{@{}p{0.30\textwidth}p{0.64\textwidth}@{}}` and
+`\multicolumn{2}{@{}l@{}}{...}` both defeat pandoc 3.10.2. It does not
+error: it emits `<div class="tabular">` with the column letters printed as
+PROSE, `expand_raw_latex_tables` sees no `<table>`, and a 24-row notation
+table was absent from the book. Fixing only the preamble left it just as
+absent; the multicolumn spec was the one that mattered. Width and spacing
+are presentation and an HTML table uses neither, so `_clean_colspec` keeps
+the alignment letters and drops the rest.
+*Fixed: `merge_and_build.normalise_tabular_preambles`, both call sites.
+`_latex_fragment_to_html` now also prints pandoc's exit code and stderr,
+because throwing the reason away is what made this cost an afternoon.*
+
+---
+
+### K203
+**The colour rewriter swallowed a `$` and deleted the whole table.**
+`{\color{red} X}` scopes to its brace; a bare `\color{red} X` in a cell
+scopes to the `&`, which is what `_cell_end` finds. Inside maths that is
+too far: the `&` sits past the closing `$`, so the rewrite pulled that `$`
+into `\textcolor{red}{...}`. Brace counts still balanced, so no check saw
+it; pandoc abandoned the tabular and the table vanished. The clue was
+pandoc exiting 0 with ONE character of output, which is what an unbalanced
+maths span produces.
+*Fixed: the scope is clamped to the maths it opened in.*
+
+---
+
+### K204
+**A macro refused for its layout hides the structure inside it.**
+`paper_macros` refuses a macro whose body carries commands it cannot
+resolve, and checked that against `_PANDOC_READS` alone. `_STRUCTURAL`
+names are deliberately never expanded, so meeting one counted as a reason
+to refuse. `\beginappendix` is `\clearpage\appendix\section{...}\sffamily`:
+refused for the layout, it hid the `\appendix` from the numbering, and a
+paper whose appendix prints A, B, D came out G, H, J with fifteen
+cross-references disagreeing with the printed paper.
+*Fixed: the check reads `_NEVER_EXPAND`, and `_drop_body_layout` removes
+the presentation first. Font SHAPE stays: bold and italic carry emphasis.*
+
+---
+
+### K205
+**A font-group rewrite dropped the braces its command needed.**
+`_apply_font_groups` turns `{\bfseries X}` into `\textbf{X}` and replaced
+the group without keeping its braces. Harmless in prose, fatal as an
+argument: `\section*{\sffamily\bfseries Appendix}` became
+`\section*\textbf{Appendix}`, and pandoc refused the whole document rather
+than one heading. It surfaced only once [K204](#k204) let that macro expand
+at all.
+*Fixed: the outer braces stay. They are redundant in prose and
+load-bearing as an argument, so keeping them is free.*
+
+---
+
+### K206
+**A definition is not an occurrence.**
+`\renewcommand{\beginappendix}{...\appendix...}` puts an `\appendix` in the
+preamble, and the four walks that letter an appendix read it as the start
+of one: everything after the DEFINITION was lettered, so body sections 4,
+5.1 and 5.3 printed D, E.1 and E.3. Every structural walk is open to the
+same trap, a `\begin{figure}` in a definition included, which is why the
+mask went where all of them already pass rather than into the appendix
+readers one at a time. A counter format is exempt: `\def\theequation{...}`
+declares a convention and `read_counter_parents` exists to read it.
+*Fixed: `strip_tex_comments` masks definition bodies by default;
+`theorem_declarations` and `read_one_argument_macros` ask to keep them.*
+
+---
+
+### K207
+**`\caption` steps the counter, so a float without one takes no number.**
+`float_units` says this in its own docstring and still counted an
+`algorithm` nested in a `figure`: the caption belongs to the algorithm's
+counter, not the figure's. A paper laying two algorithms side by side in
+one uncaptioned `\begin{figure}` numbered two figures it never prints, and
+every later figure reference named a number two too high while the captions
+under the plots stayed right.
+*Fixed: `_nested_counter_spans`, beside the subfigure exemption that was
+already there for the same reason.*
+
+---
+
+### K208
+**A corporate author takes no comma.**
+`_BIB_LINE_RE` opens an entry on `Surname, F.`, and citeproc writes
+`OpenAI. 2024. Title.` for an organisation. One such entry sat between two
+reference chunks, split the bibliography run in half, and was dispatched to
+a translator as if it were the author's own prose. Google, Anthropic,
+DeepMind and every model card cite this way now.
+*Fixed: a branch requiring CAPITALISED name words, a year and a full stop,
+which is what keeps "The model works well. 2024." out.*
+
+---
+
+### K209
+**`\graphicspath` is a preamble declaration, and the resolver never saw it.**
+`\graphicspath{{figures/}}` is how a paper says a bare
+`\includegraphics{plot.pdf}` means `figures/plot.pdf`. Of one paper's seven
+figures, the five written with the prefix resolved and the two without it
+were dropped with a warning, their captions left over blank space. The
+first fix read the declaration from `resolve_images`'s own argument, which
+is the markdown pandoc already produced: by then the preamble is long gone.
+Only two of nine papers on hand declare it, and the other lost nothing.
+*Fixed: read from `flat.tex`, which the backend writes for exactly this.*
+
+---
+
+### K210
+**A census must not un-learn a shape when the source is gone.**
+`corpus_census.record` surveys `flat.tex` and the style files, and rebuilds
+the row from scratch. Re-recording a paper whose temp dir had since been
+cleaned surveyed no style files, dropped the `macro in style files` group,
+and `xparse-command` went from classified-and-seen to classified-but-never
+-seen, which is the state `test_source_lint` exists to fail on. The census
+answers whether the corpus has EVER met a shape; absence of the source is
+not evidence of absence of the shape.
+*Fixed: a known group is merged forward, never replaced by an empty one.*
+
+---
+
+### K211
+**Maths split out of a text group must be reopened with `\ensuremath`.**
+`split_nested_math_text` rewrites `\text{A$X$B}` as `\text{A}X\text{B}` so no
+flat `$`-scanner mis-closes on the nesting, and X then lands in whatever mode
+the group was in. The two are opposite: inside a formula X needs no
+delimiters and `$X$` would close the formula it stands in; in a table cell X
+needs them, or `\pm` is a text-mode command pandoc drops without a word.
+Looped flows shipped `97.9 0.4`, `58.8 1.8` and `12.2 1.9` in table 1, the
+three cells that were bold, beside a correct `86.7 ± 1.1` that never nested.
+Telling the modes apart needs a scanner that knows every display a paper can
+open; `\ensuremath` asks where the answer is certain, and both readers honour
+it (LaTeX in a cell, `$$`, `\[`, equation, align; texmath in the prose).
+*Status: LOCKED, `test_nested_math_text`. Measured 2026-09-23, pandoc 3.10.2.*
+
+---
+
+### K212
+**`\Cref{a,b}` is one reference to two labels, and both sides read one.**
+pandoc hands the list over inside a single bracket, so `resolve_references`
+looked up `a,tab:b` as a name and left the reference alone, while
+`consistency_probe`'s pattern required a label ALONE inside its parentheses,
+which the comma defeats. Twelve raw labels printed across four pages of
+Looped flows while the check reported `unresolved references: 0`: the defect
+was invisible because the resolver and its check shared one blind spot.
+Measured across 27 built books, counting a colon label wherever it stands
+adds exactly those twelve and nothing anywhere else.
+*Status: LOCKED, `test_merge_and_build.test_multi_label_reference_*`.*
+
+---
+
+### K213
+**A probe that reads the source PDF its own way reads the wrong characters.**
+`source_probe` opened the original with a bare `get_text` while `pdf_text.py`
+already knew what page furniture is, so a page number joined the stream
+between two sentences and was read as a table number. With that fixed it read
+`A`: the context that locates a reference site deletes every brace group, but
+`\paragraph{Additional inference-time metrics.}` is a run-in heading the page
+prints. Either way the probe FAILED a book whose numbers were right, which is
+the one thing a check may not do. Both fixed, the references it can verify
+rose across eight builds (SINQ 36 to 47) and sections, equations and float
+numbers came out identical on every one.
+*Status: fixed in `pdf_text.lines_without_furniture`, `source_probe._KEPT_ARG_RE`.*
 
 ---
 

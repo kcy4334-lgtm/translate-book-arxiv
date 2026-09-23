@@ -1144,13 +1144,32 @@ def split_nested_math_text(md_text):
     the nesting, so every flat `$`-pairing scanner downstream — this module's
     own included — stops mis-closing on these.
 
+    X is reopened with `\ensuremath`, and that word is the whole of the repair.
+    The split leaves X wherever the group already was, and the group is in one
+    of two modes: inside a formula, where X needs no delimiters, or in text,
+    where a bare `\pm` is nothing and pandoc drops it without a word. Emitting
+    X bare is right in the first and wrong in the second; wrapping it in `$…$`
+    is right in the second and wrong in the first, because the dollar closes
+    the formula it is standing in. Looped flows shipped `97.9 0.4` in table 1
+    for exactly this: three bold cells that read `\textbf{97.9 $\pm$ 0.4}`.
+
+    Telling the two apart means a scanner that knows every way a paper can
+    open a display — `$`, `$$`, `\[`, and the amsmath environments, of which
+    this corpus alone carries equation, align and their starred forms — and a
+    scanner like that is wrong the first time a paper spells one differently.
+    `\ensuremath` asks that question at the point where the answer is known
+    for certain, and both of pandoc's readers honour it: the LaTeX reader in a
+    table cell and inside every display form above, and texmath in the `$…$`
+    of the prose. One form, both modes, nothing to keep in step.
+
     Boundary: one nested span per argument. `\text{a$x$b$y$c}` is left exactly
     as it was rather than widened for; a pattern that reached further is what
     caused the ResNet regression above.
     """
     total = 0
     for _ in range(4):                        # an argument may hold several
-        md_text, n = _NESTED_MATH_IN_TEXT_RE.subn(r'\1\2}\3\1\4}', md_text)
+        md_text, n = _NESTED_MATH_IN_TEXT_RE.subn(
+            r'\1\2}\\ensuremath{\3}\1\4}', md_text)
         total += n
         if not n:
             break
@@ -1713,9 +1732,114 @@ _COMMENT_ENV_RE = re.compile(
     r'\\begin\s*\{comment\}.*?\\end\s*\{comment\}', re.DOTALL)
 
 
-def strip_tex_comments(text):
-    r"""Remove % comments and `comment` environments, honouring \\% escapes."""
+# A definition is not an occurrence. `\renewcommand{\beginappendix}{%
+# \clearpage\appendix\section{Appendix}}` puts a `\appendix` in the preamble,
+# and the walks that letter an appendix read it as the start of one: a paper
+# whose appendix begins two thirds of the way down had everything after the
+# definition lettered, so its BODY sections 4, 5.1 and 5.3 printed D, E.1 and
+# E.3 and seven cross-references disagreed with the printed paper.
+#
+# The same trap is open to every other structural walk -- a `\begin{figure}`
+# or `\begin{table}` in a definition counts once per definition, not once per
+# use -- which is why this is masked for all of them rather than patched into
+# the appendix readers one at a time. `theorem_declarations` and
+# `read_one_argument_macros` exist to READ definitions, and say so by asking
+# for them.
+_DEF_HEAD_RE = re.compile(
+    r'\\(?:new|renew|provide)command\*?(?![A-Za-z])'
+    r'|\\DeclareRobustCommand\*?(?![A-Za-z])'
+    r'|\\(?:new|renew)environment\*?(?![A-Za-z])'
+    r'|\\[gex]?def(?![A-Za-z])')
+_DEF_BODIES = 2         # \newenvironment has a begin AND an end body
+_DEF_SCAN_LIMIT = 400   # a definition head is short; do not run off the file
+
+
+def _blank_span(text):
+    """The same text with nothing in it: length and line breaks preserved, so
+    anything downstream that reports a position still reports the right one."""
+    return ''.join('\n' if ch == '\n' else ' ' for ch in text)
+
+
+_COUNTER_FORMAT_RE = re.compile(r'\\?the[a-zA-Z@]*\Z')
+
+
+def mask_macro_definitions(tex):
+    r"""Blank the body of every macro and environment definition.
+
+    Except a counter format. `\def\theequation{\thesection.\arabic{equation}}`
+    is not a wrapper holding content for later use; it is how a paper DECLARES
+    that its equations are numbered within sections, and `read_counter_parents`
+    exists to read exactly that. Blanking it numbered equations 1, 2, 3 in a
+    paper that prints 1.1, 1.2, 2.1.
+    """
+    cursor, pieces = 0, []
+    for m in _DEF_HEAD_RE.finditer(tex):
+        if m.start() < cursor:
+            continue
+        head = m.group(0)
+        i = m.end()
+        limit = min(len(tex), i + _DEF_SCAN_LIMIT)
+        # The name: `{\foo}`, `{foo}` or a bare `\foo`, then any [n] or
+        # [default] arguments, then `\def`'s delimited parameters.
+        name_start = i
+        while i < limit and tex[i] not in '{':
+            if tex[i] == '[':
+                close = tex.find(']', i, limit)
+                if close < 0:
+                    break
+                i = close + 1
+                continue
+            i += 1
+        if i >= limit or tex[i] != '{':
+            continue
+        # `\def\theequation{...}` names itself before the brace, so the first
+        # group IS the body. `\newcommand{\foo}{...}` puts the name in that
+        # group, and it has to be CONSUMED -- peeking at it and then blanking
+        # one group from here blanks the name and leaves the body standing,
+        # which is a mask that does nothing and corrupts the definition.
+        name = tex[name_start:i].strip()
+        if not name:
+            name, i = _brace_group(tex, i)
+            name = (name or '').strip()
+        if _COUNTER_FORMAT_RE.match(name):
+            continue
+        while True:                              # [n] and [default]
+            j = i
+            while j < len(tex) and tex[j] in ' \t\n':
+                j += 1
+            if j < len(tex) and tex[j] == '[':
+                close = tex.find(']', j)
+                if close < 0:
+                    break
+                i = close + 1
+                continue
+            break
+        bodies = _DEF_BODIES if 'environment' in head else 1
+        start = i
+        for _ in range(bodies):
+            while i < len(tex) and tex[i] in ' \t\n':
+                i += 1
+            if i >= len(tex) or tex[i] != '{':
+                break
+            _, i = _brace_group(tex, i)
+        if i <= start:
+            continue
+        pieces.append(tex[cursor:start])
+        pieces.append(_blank_span(tex[start:i]))
+        cursor = i
+    pieces.append(tex[cursor:])
+    return ''.join(pieces) if pieces else tex
+
+
+def strip_tex_comments(text, keep_definitions=False):
+    r"""Remove % comments and `comment` environments, honouring \\% escapes.
+
+    Macro definition BODIES are blanked too, for the reason above. Pass
+    `keep_definitions=True` when the definitions are what you came to read.
+    """
     text = _COMMENT_ENV_RE.sub('', text)
+    if not keep_definitions:
+        text = mask_macro_definitions(text)
     out = []
     for line in text.split('\n'):
         i, n = 0, len(line)
@@ -2105,7 +2229,7 @@ def theorem_declarations(temp_dir):
         return []
     try:
         with open(flat, 'r', encoding='utf-8', errors='replace') as fh:
-            tex = strip_tex_comments(fh.read())
+            tex = strip_tex_comments(fh.read(), keep_definitions=True)
     except OSError:
         return []
 
@@ -2589,8 +2713,10 @@ def float_units(tex):
         panels = _panel_spans(body)
         # A \caption inside a subfigure is a subcaption; it letters the panel
         # rather than numbering the float.
+        nested = _nested_counter_spans(body)
         captions = [m for m in _CAPTION_CMD_RE.finditer(body)
-                    if not any(s <= m.start() < e for s, e, _t in panels)]
+                    if not any(s <= m.start() < e for s, e, _t in panels)
+                    and not any(s <= m.start() < e for s, e in nested)]
         # Split at caption STARTS, which is the one rule that survives both
         # layouts in the wild: content-then-caption and caption-then-content.
         bounds = [0] + [m.start() for m in captions[1:]] + [len(body)]
@@ -3015,6 +3141,31 @@ _XREF_BODY = (
     r'prop|proposition|cor|corollary)[:.]\s*([^()\s]+?)\s*\)')
 _XREF_RE = re.compile(_XREF_LEAD + _XREF_BODY, re.IGNORECASE)
 
+# `\Cref{tab:a,tab:b}` is ONE reference naming two floats, and cleveref prints
+# both numbers. pandoc hands the whole list over inside one bracket, so the
+# body above captures `a,tab:b` as the name and nothing resolves: Looped flows
+# printed `(tab:sde_ablation,tab:multi_solution_sde_ablation)` to its readers,
+# and five more pairs like it across four pages.
+#
+# The first label arrives with its kind already taken off by the pattern; the
+# ones after it carry their own, and need not agree -- `\cref{fig:a,tab:b}` is
+# ordinary usage. A label may itself contain a colon, so only the first one
+# separates the kind from the name.
+_XREF_PART_RE = re.compile(r'^([A-Za-z]+)[:.](.+)$')
+
+
+def _xref_parts(kind, rest):
+    """[(kind, name), ...] for one reference, which may name several labels."""
+    out = []
+    for piece in (rest or '').split(','):
+        piece = piece.strip()
+        if not piece:
+            continue
+        head = _XREF_PART_RE.match(piece) if out else None
+        out.append((head.group(1).lower(), head.group(2)) if head
+                   else (kind, piece))
+    return out
+
 
 def template_affixes(formats, words):
     r"""The literal words a reference template puts around the number.
@@ -3145,6 +3296,32 @@ _SUBFLOAT_RE = re.compile(r'\\subfloat\s*(?:\[[^\]]*\])?\s*\{')
 _SUBFLOAT_CAPTIONED_RE = re.compile(r'\\subfloat\s*\[[^\]]*\]\s*\{')
 _PANEL_CAPTION_RE = re.compile(r'\\caption(?![A-Za-z])')
 _SUBREF_RE = re.compile(r'\\subref\s*\{([^{}]+)\}')
+
+
+# An environment that numbers ITSELF. A `\caption` inside one belongs to that
+# environment's counter, not to the float around it. A paper laying two
+# `algorithm`s side by side inside one uncaptioned `\begin{figure}` is the
+# common idiom, and reading their captions as the figure's numbered two
+# figures the paper never prints: every later figure reference named a number
+# two too high, while the captions under the plots stayed right.
+#
+# Kept to the non-float environments on purpose. A nested `figure` or `table`
+# is itself a float, and `_FLOAT_ENV_RE` already walks it on its own.
+_SELF_NUMBERING_ENVS = ('algorithm', 'algorithm2e', 'algorithmic',
+                        'listing', 'lstlisting', 'minted')
+_SELFNUM_ENV_RE = re.compile(
+    r'\\begin\s*\{(%s)\*?\}' % '|'.join(_SELF_NUMBERING_ENVS))
+
+
+def _nested_counter_spans(body):
+    """[(start, stop)] for each self-numbering environment inside a float."""
+    spans = []
+    for m in _SELFNUM_ENV_RE.finditer(body):
+        close = re.search(r'\\end\s*\{%s\*?\}' % re.escape(m.group(1)),
+                          body[m.end():])
+        spans.append((m.start(),
+                      m.end() + close.end() if close else len(body)))
+    return spans
 
 
 def _panel_spans(body):
@@ -3737,18 +3914,20 @@ def resolve_references(md_text, temp_dir, lang_cfg=None):
     formats = dict(_XREF_FORMATS)
     formats.update(lang_cfg.get('ref_formats') or {})
 
-    def xref_sub(m):
-        kind = m.group(1).lower()
+    def render_xref(kind, name):
+        """One `kind:name` as the reader should see it, or None.
+
+        None means it did not resolve, and the caller then leaves the
+        reference exactly as it was rather than printing a wrong number.
+        """
         source, slot = _XREF_KINDS.get(kind, (None, None))
         if source is None:
-            stats['xrefs_missed'] += 1
-            return m.group(0)
-        rest = m.group(2).strip()
+            return None
         if source == 'float':
             prefix = 'fig' if slot == 'figure' else 'tab'
-            number = floats.get('%s:%s' % (prefix, rest))
+            number = floats.get('%s:%s' % (prefix, name))
         else:
-            entry = index.get('%s:%s' % (kind, rest)) or index.get(rest)
+            entry = index.get('%s:%s' % (kind, name)) or index.get(name)
             number = entry[0] if entry else None
             # The prefix says what the author called it; the source says what
             # it is. `\cref{lem:norm}` on a label sitting inside an equation
@@ -3762,11 +3941,28 @@ def resolve_references(md_text, temp_dir, lang_cfg=None):
                     and entry[1] in words and entry[1] != slot:
                 slot = entry[1]
         if number is None:
+            return None
+        template = formats.get(slot, '{label} {number}')
+        return template.format(label=words[slot], number=number)
+
+    def xref_sub(m):
+        parts = _xref_parts(m.group(1).lower(), m.group(2).strip())
+        rendered = [render_xref(k, n) for k, n in parts]
+        # Every label or none. A half-resolved list prints one number beside
+        # one raw `tab:x`, which reads as a defect in the number too -- the
+        # rule the citation path above keeps, for the same reason.
+        if not rendered or any(r is None for r in rendered):
             stats['xrefs_missed'] += 1
             return m.group(0)
-        stats['xrefs'] += 1
-        template = formats.get(slot, '{label} {number}')
-        out = template.format(label=words[slot], number=number)
+        # Counted per label, because that is what lands on the page: one
+        # `\Cref{tab:a,tab:b}` puts two numbers in front of the reader.
+        stats['xrefs'] += len(rendered)
+        # Joined with a comma, which needs no vocabulary. cleveref writes
+        # "Tables 4 and 5" in English, but the conjunction is a different
+        # word in every language this builds and no language config carries
+        # one; the citation path a few lines up joins with a comma for the
+        # same reason.
+        out = ', '.join(rendered)
         # The translator's own closing word, if the pattern took one. Drop it
         # only where the reference this emits already ends in it; otherwise it
         # belonged to the sentence and goes back untouched.
@@ -4853,6 +5049,133 @@ def substitute_dings(latex):
     return out, total - len(unknown), sorted(set(unknown))
 
 
+def _brace_group(text, start):
+    """(content, index after the group) for the `{...}` at `text[start]`."""
+    depth = 0
+    for i in range(start, len(text)):
+        if text[i] == '{':
+            depth += 1
+        elif text[i] == '}':
+            depth -= 1
+            if depth == 0:
+                return text[start + 1:i], i + 1
+    return None, start
+
+
+def _clean_colspec(spec):
+    r"""Keep the alignment of a tabular preamble and drop the presentation.
+
+    `@{}` and `!{...}` set inter-column spacing, `>{...}` and `<{...}` inject
+    material either side of a cell, and `p{0.30\textwidth}` fixes a width. An
+    HTML table uses none of it; alignment is the part that carries meaning.
+    """
+    out, i = [], 0
+    while i < len(spec):
+        ch = spec[i]
+        if ch in '@!><' and i + 1 < len(spec) and spec[i + 1] == '{':
+            _, i = _brace_group(spec, i + 1)
+        elif ch in 'pmbPC' and i + 1 < len(spec) and spec[i + 1] == '{':
+            _, i = _brace_group(spec, i + 1)
+            out.append('l')                # a paragraph column reads left
+        elif ch in 'lcr':
+            out.append(ch)
+            i += 1
+        elif ch in 'XY':
+            out.append('l')                # tabularx stretch columns
+            i += 1
+        elif ch == '|':
+            out.append('|')
+            i += 1
+        else:
+            i += 1                         # whitespace, widths, anything else
+    return ''.join(out) or 'l'
+
+
+# How many brace groups sit between the environment name and the preamble.
+_TABULAR_ENVS = {'tabular': 0, 'array': 0, 'longtable': 0,
+                 'tabular*': 1, 'tabularx': 1, 'tabulary': 1}
+_TABULAR_BEGIN_RE = re.compile(
+    r'\\begin\{(tabular\*?|array|longtable|tabularx|tabulary)\}')
+
+
+def normalise_tabular_preambles(latex):
+    r"""Rewrite every tabular preamble down to alignment letters.
+
+    pandoc 3.10.2 cannot read a preamble mixing `@{}` spacing with `p{width}`
+    columns. It abandons the tabular and emits a `<div class="tabular">` with
+    the preamble printed as PROSE: the paper that found this shows
+    `@p 0.30 p 0.64 @` where its notation table should be. Nothing downstream
+    sees a table, so the table is absent from the book and the only report is
+    a count of failures.
+
+    Returns (latex, number of preambles rewritten).
+    """
+    out, cursor, changed = [], 0, 0
+    for m in _TABULAR_BEGIN_RE.finditer(latex):
+        if m.start() < cursor:
+            continue
+        skip = _TABULAR_ENVS.get(m.group(1), 0)
+        i = m.end()
+        while i < len(latex) and latex[i] in ' \t\n':
+            i += 1
+        if i < len(latex) and latex[i] == '[':          # \begin{tabular}[t]
+            close = latex.find(']', i)
+            if close < 0:
+                continue
+            i = close + 1
+            while i < len(latex) and latex[i] in ' \t\n':
+                i += 1
+        for _ in range(skip):                           # tabularx width arg
+            if i >= len(latex) or latex[i] != '{':
+                break
+            _, i = _brace_group(latex, i)
+            while i < len(latex) and latex[i] in ' \t\n':
+                i += 1
+        if i >= len(latex) or latex[i] != '{':
+            continue
+        spec, end = _brace_group(latex, i)
+        if spec is None:
+            continue
+        cleaned = _clean_colspec(spec)
+        if cleaned == spec.strip():
+            continue
+        out.append(latex[cursor:i])
+        out.append('{%s}' % cleaned)
+        cursor = end
+        changed += 1
+    out.append(latex[cursor:])
+    latex = ''.join(out)
+
+    # And every `\multicolumn{2}{@{}l@{}}{...}`, which is the one that
+    # actually mattered. Normalising the tabular preamble alone left the
+    # notation table still absent: pandoc parses `{ll}` happily, then meets a
+    # multicolumn span whose own spec it cannot read and abandons the whole
+    # tabular, falling back to the unknown-environment rendering. `\multirow`
+    # takes a width in the same position and is left alone; it is not a
+    # column spec.
+    out, cursor = [], 0
+    for m in re.finditer(r'\\multicolumn\s*\{', latex):
+        if m.start() < cursor:
+            continue
+        _n, i = _brace_group(latex, m.end() - 1)
+        while i < len(latex) and latex[i] in ' \t\n':
+            i += 1
+        if i >= len(latex) or latex[i] != '{':
+            continue
+        spec, end = _brace_group(latex, i)
+        if spec is None:
+            continue
+        cleaned = _clean_colspec(spec)
+        if cleaned == spec.strip():
+            continue
+        out.append(latex[cursor:i])
+        out.append('{%s}' % cleaned)
+        cursor = end
+        changed += 1
+    out.append(latex[cursor:])
+    return ''.join(out), changed
+
+
 def _latex_fragment_to_html(latex, pandoc, work, name, inline=False,
                             math_mode='mathml'):
     """Render one LaTeX fragment to HTML. Returns '' when pandoc cannot.
@@ -4863,19 +5186,28 @@ def _latex_fragment_to_html(latex, pandoc, work, name, inline=False,
     in the cell. --wrap=none keeps pandoc from breaking lines inside tags.
     """
     latex, _swapped, _unknown = substitute_dings(latex)
+    latex, _specs = normalise_tabular_preambles(latex)
     path = os.path.join(work, name)
     with open(path, 'w', encoding='utf-8', newline='') as fh:
         fh.write(latex + '\n')
     cmd = [pandoc, '-f', 'latex', '-t', 'html', '--wrap=none', path]
     if math_mode == 'mathml':
         cmd.insert(-1, '--mathml')
+    # A fragment that will not convert is a table missing from the book, and
+    # for a long time the only report was a count. Say what happened: the
+    # first diagnosis of this cost an afternoon because the reason was thrown
+    # away here.
     try:
         result = subprocess.run(cmd,
                                 capture_output=True, text=True,
                                 encoding='utf-8', errors='replace', timeout=120)
-    except (OSError, subprocess.SubprocessError):
+    except (OSError, subprocess.SubprocessError) as exc:
+        print("  %s: pandoc could not run (%s)" % (name, str(exc)[:120]))
         return ''
     if result.returncode != 0:
+        detail = ' '.join((result.stderr or '').split())[:200]
+        print("  %s: pandoc exited %d%s"
+              % (name, result.returncode, ' -- ' + detail if detail else ''))
         return ''
     html = (result.stdout or '').strip()
     if inline:
@@ -4910,6 +5242,7 @@ _FRAGMENT_WRITER = ('markdown-simple_tables-multiline_tables+grid_tables'
 
 def _latex_fragment_to_markdown(latex, pandoc, work, name):
     """Render one LaTeX fragment to markdown. '' when pandoc cannot."""
+    latex, _specs = normalise_tabular_preambles(latex)
     path = os.path.join(work, name)
     with open(path, 'w', encoding='utf-8', newline='') as fh:
         fh.write(latex + '\n')
@@ -5338,6 +5671,18 @@ def rewrite_color_declarations(tex):
             stop = _cell_end(tex, m.end())
         if stop < 0:
             continue
+        # A declaration that opens inside math must not be closed outside it.
+        # `_cell_end` stops at the `&`, which on this paper's notation table
+        # is past the closing `$`, so the rewrite swallowed that `$` into
+        # `\textcolor{...}{...}` and left the maths unbalanced. pandoc then
+        # abandoned the whole tabular, emitted no `<table>`, and the table was
+        # simply absent from the book -- reported as "1 FAILED" and nothing
+        # more. Clamp the scope to the maths it started in.
+        run = tex[m.end():stop]
+        marks = [i for i, ch in enumerate(run)
+                 if ch == '$' and (i == 0 or run[i - 1] != '\\')]
+        if len(marks) % 2:
+            stop = m.end() + marks[0]
         body = tex[m.end():stop].strip()
         if not body:
             continue
@@ -5598,7 +5943,7 @@ def read_one_argument_macros(temp_dir):
         return macros
     try:
         with open(flat, 'r', encoding='utf-8', errors='replace') as fh:
-            tex = strip_tex_comments(fh.read())
+            tex = strip_tex_comments(fh.read(), keep_definitions=True)
     except OSError:
         return macros
     tex = tex.split(r'\begin{document}')[0]

@@ -59,9 +59,27 @@ _TAG_RE = re.compile(r'<[^>]+>')
 
 _LATEX_CMD_RE = re.compile(re.escape(B) + r'([a-zA-Z]{2,})')
 _INLINE_MATH_RE = re.compile(r'\$[^$\n]{1,120}\$')
+_REF_KIND = r'(?:sec|subsec|eq|eqn|alg|app|fig|tab|thm|lem|def|prop|cor)'
+# Two branches, because the two separators are not equally safe.
+#
+# A colon label counts wherever it stands. This used to require the label to
+# sit ALONE inside its own parentheses, and `\cref{tab:a,tab:b}` does not:
+# it prints `(tab:sde_ablation,tab:multi_solution_sde_ablation)`, where the
+# comma is outside the identifier class and the closing paren never arrives.
+# Looped flows printed twelve labels to its readers across four pages while
+# this line reported "unresolved references: 0". The resolver had the same
+# blind spot, which is why nothing caught it from either side.
+#
+# A dot label keeps its parentheses, because `prop.value`, `config.py` and
+# `def.py` are how prose writes code and the check may not call those a
+# defect. Nothing is lost by the asymmetry: no book in the corpus spells a
+# label with a dot, and the branch stays only because the old pattern had it.
+#
+# Measured across 27 built books: the colon branch finds those twelve labels
+# and nothing anywhere else.
 _RAW_REF_RE = re.compile(
-    r'\((?:sec|subsec|eq|eqn|alg|app|fig|tab|thm|lem|def|prop|cor)'
-    r'[:.][A-Za-z0-9_:\-]+\)')
+    r'(?<![A-Za-z0-9_])' + _REF_KIND + r':[A-Za-z0-9_:\-]+'
+    r'|\(' + _REF_KIND + r'\.[A-Za-z0-9_:\-]+\)')
 
 # `한국어(English)` -- at most three words, starting at a script boundary.
 _GLOSS_RE = re.compile(

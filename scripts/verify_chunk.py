@@ -248,6 +248,17 @@ _BIB_LINE_RE = re.compile(
     # no date, and without this it cut the Limitation section in half.
     r'|^\s*[A-Z][A-Za-z\u00C0-\u024F\'-]+,\s+[A-Z]'
     r'(?=[^\n]*(?:\b(?:19|20)\d{2}[a-z]?\b|n\.d\.))'
+    # A corporate or mononym author takes no comma: `OpenAI. 2024. Title.`
+    # citeproc writes them exactly so, and the surname branch above requires
+    # the comma, so such an entry read as prose. One of them sat between two
+    # reference chunks of a real paper, broke the run in half, and was sent
+    # to a translator as if it were the author's own sentence. Google,
+    # Anthropic, DeepMind and every model card cite this way now.
+    # Only CAPITALISED words count towards the name, which is what keeps an
+    # ordinary sentence out: "The model works well. 2024." stops at "The".
+    r'|^\s*[A-Z][A-Za-z\u00C0-\u024F0-9&.\'-]*'
+    r'(?:\s+[A-Z][A-Za-z\u00C0-\u024F0-9&.\'-]*){0,3}'
+    r'\.\s+(?:19|20)\d{2}[a-z]?\.'
     # LaTeX bibliographies, and the vocabulary of a citation
     r'|\\(?:bibitem|newblock|emph\{|href\{)'
     r'|\b(?:arXiv|arxiv|preprint|In Proceedings|In Advances|In \*|pp\.|vol\.'

@@ -13,6 +13,101 @@ import arxiv_backend
 import backends
 
 
+class LayoutDirectivesMustNotReachTheReader(unittest.TestCase):
+    r"""`\endgroup` printed in monospace in the middle of a Korean page.
+
+    Grouping and penalty directives control where TeX may break a page and
+    nothing a reader sees, but they arrive as an ordinary inline escape.
+    Two things let them through: they were missing from the layout list, and
+    `_RAW_INLINE_RE` matched only ONE command per span, so
+    `\begingroup\postdisplaypenalty=10000` was never matched at all and was
+    neither cleaned nor dropped.
+    """
+
+    def test_a_grouping_directive_is_dropped(self):
+        self.assertEqual(
+            arxiv_backend.clean_raw_inline_latex(
+                'text `\\endgroup`{=latex} more'),
+            'text  more')
+
+    def test_several_directives_in_one_escape_are_dropped(self):
+        self.assertEqual(
+            arxiv_backend.clean_raw_inline_latex(
+                'a `\\begingroup\\postdisplaypenalty=10000`{=latex} b'),
+            'a  b')
+
+    def test_a_command_the_reader_needs_survives(self):
+        """The guard: an escape is dropped for what is LEFT after the layout
+        is removed, never for what it happens to start with."""
+        got = arxiv_backend.clean_raw_inline_latex(
+            'x `\\textbf{Important}`{=latex} y')
+        self.assertIn('Important', got)
+
+    def test_layout_followed_by_content_keeps_the_content(self):
+        got = arxiv_backend.clean_raw_inline_latex(
+            'x `\\vspace{2mm}\\textbf{Important}`{=latex} y')
+        self.assertIn('Important', got)
+
+    def test_a_reference_still_keeps_its_label(self):
+        got = arxiv_backend.clean_raw_inline_latex(
+            'see `\\ref{fig:one}`{=latex} there')
+        self.assertIn('fig:one', got)
+
+
+class GraphicsPathIsHowAPaperNamesItsFigureFolder(unittest.TestCase):
+    r"""`\graphicspath{{figures/}}` is how a paper says that a bare
+    `\includegraphics{plot.pdf}` means `figures/plot.pdf`.
+
+    Not reading it reports the figure missing while the file sits in the
+    tarball. On the paper that found this, the five calls written
+    `figures/x.pdf` resolved and the two written `x.pdf` did not: two
+    figures were dropped with nothing but a warning, and their captions
+    were left on the page with no picture under them.
+    """
+
+    def setUp(self):
+        self.root = tempfile.mkdtemp()
+        self.addCleanup(_rmtree, self.root)
+        os.makedirs(os.path.join(self.root, 'figures'))
+
+    def test_the_declared_folder_is_searched(self):
+        got = arxiv_backend.graphics_search_dirs(
+            r'\graphicspath{{figures/}}', [self.root])
+        self.assertEqual(got, [os.path.join(self.root, 'figures')])
+
+    def test_several_folders_are_all_searched(self):
+        os.makedirs(os.path.join(self.root, 'plots'))
+        got = arxiv_backend.graphics_search_dirs(
+            r'\graphicspath{{figures/}{plots/}}', [self.root])
+        self.assertEqual(sorted(got), sorted([
+            os.path.join(self.root, 'figures'),
+            os.path.join(self.root, 'plots')]))
+
+    def test_a_folder_that_is_not_there_is_not_offered(self):
+        """A declared path the tarball does not ship must not become a
+        search directory, or every later lookup walks a dead end."""
+        self.assertEqual(
+            arxiv_backend.graphics_search_dirs(
+                r'\graphicspath{{nowhere/}}', [self.root]),
+            [])
+
+    def test_no_declaration_adds_nothing(self):
+        self.assertEqual(
+            arxiv_backend.graphics_search_dirs(r'\section{One}', [self.root]),
+            [])
+
+    def test_a_missing_base_is_survivable(self):
+        self.assertEqual(
+            arxiv_backend.graphics_search_dirs(
+                r'\graphicspath{{figures/}}', [None, '']),
+            [])
+
+
+def _rmtree(path):
+    import shutil
+    shutil.rmtree(path, ignore_errors=True)
+
+
 class NormalizeArxivIdTests(unittest.TestCase):
     def test_plain_id(self):
         self.assertEqual(arxiv_backend.normalize_arxiv_id('2606.04980'), '2606.04980')

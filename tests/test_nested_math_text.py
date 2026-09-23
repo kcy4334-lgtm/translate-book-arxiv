@@ -9,6 +9,14 @@ that regression took a clean ResNet to 112 leaked tokens.
 
 Splitting the group satisfies both. These tests pin that, and pin the two ways
 the pattern previously reached too far.
+
+Splitting alone is not enough, though, and the missing half shipped: the split
+put X back with no delimiters, which is right inside a formula and wrong in a
+table cell, where `\pm` in text mode is nothing and pandoc drops it in
+silence. Looped flows' table 1 read `97.9 0.4` where the paper says
+`97.9 ± 0.4`, in the three cells that were bold. X is reopened with
+`\ensuremath` now, which is correct in both modes and so needs nobody to
+work out which mode this is.
 """
 import os
 import sys
@@ -24,7 +32,7 @@ class SplitNestedMathText(unittest.TestCase):
     def test_group_is_split_not_flattened(self):
         got, n = mb.split_nested_math_text(r'$\text{3$\times$3, 64}$')
         self.assertEqual(n, 1)
-        self.assertEqual(got, r'$\text{3}\times\text{3, 64}$')
+        self.assertEqual(got, r'$\text{3}\ensuremath{\times}\text{3, 64}$')
         # The delimiters must not simply vanish: that is the broken repair.
         self.assertNotIn(r'\text{3\times3, 64}', got)
 
@@ -34,6 +42,42 @@ class SplitNestedMathText(unittest.TestCase):
         self.assertEqual(n, 1)
         self.assertIn(r'\mathbf{z}(t)', got)
         self.assertNotIn(r'$\mathbf{z}(t)$', got)
+
+    def test_bold_table_cell_keeps_its_symbol(self):
+        # Looped flows' table 1. The cell is in TEXT mode, so the split has to
+        # put `\pm` back into maths: left bare, pandoc drops it and the column
+        # reads `97.9 0.4`, which is a different number from the one the paper
+        # reports. The neighbouring cell is not bold, so it never nested and
+        # never showed the defect -- that is why the table looked half right.
+        got, n = mb.split_nested_math_text(
+            r'\textbf{97.9 $\pm$ 0.4} & 86.7 $\pm$ 1.1 \\')
+        self.assertEqual(n, 1)
+        self.assertEqual(
+            got, r'\textbf{97.9 }\ensuremath{\pm}\textbf{ 0.4} & 86.7 $\pm$ 1.1 \\')
+
+    def test_symbol_is_never_left_in_text_mode(self):
+        # The shape the defect had. Whatever else changes, the symbol may not
+        # come out of this pass standing between two text groups on its own.
+        for text, symbol in ((r'\textbf{97.9 $\pm$ 0.4}', r'\pm'),
+                             (r'\textrm{a $\times$ b}', r'\times'),
+                             (r'\text{3$\times$3, 64}', r'\times')):
+            got, n = mb.split_nested_math_text(text)
+            self.assertEqual(n, 1)
+            self.assertIn(r'\ensuremath{%s}' % symbol, got)
+            self.assertNotIn('}%s' % symbol, got)
+
+    def test_same_output_whatever_the_surrounding_mode(self):
+        # The point of `\ensuremath`: the pass does not have to know whether
+        # the group sits in a formula, and so cannot get that question wrong.
+        # A display the pass has no scanner for -- an amsmath environment --
+        # comes out exactly as the inline form does.
+        inline, _a = mb.split_nested_math_text(r'$\text{3$\times$3}$')
+        env, _b = mb.split_nested_math_text(
+            '\\begin{equation}\n\\text{3$\\times$3}\n\\end{equation}')
+        cell, _c = mb.split_nested_math_text(r'x & \text{3$\times$3} \\')
+        body = r'\text{3}\ensuremath{\times}\text{3}'
+        for got in (inline, env, cell):
+            self.assertIn(body, got)
 
     def test_does_not_reach_across_two_formulas(self):
         # `\text{` in one formula and `}` in a later one must never pair up:

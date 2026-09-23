@@ -1316,6 +1316,67 @@
    },
    "title": "Existence of thermodynamically consistent solutions for data-driven porous media problems"
   },
+  "2609.11801": {
+   "shapes": {
+    "bibliography": {
+     "bibliography-file": 1,
+     "citep": 76,
+     "citet": 4
+    },
+    "caption": {
+     "caption": 16,
+     "captionsetup": 1
+    },
+    "float": {
+     "figure": 7,
+     "minipage": 5,
+     "table": 5,
+     "wrapfigure": 1
+    },
+    "front matter": {
+     "bibliographystyle": 1,
+     "maketitle": 1
+    },
+    "macro": {
+     "let-binding": 1,
+     "newcommand-braced": 8,
+     "providecommand": 1,
+     "renewcommand": 13,
+     "rowcolor": 4
+    },
+    "macro in style files": {
+     "bfseries-group": 2,
+     "let-binding": 1,
+     "newcommand-bare": 13,
+     "newcommand-braced": 4,
+     "optional-argument": 9,
+     "renewcommand": 6
+    },
+    "math": {
+     "display-bracket": 5,
+     "equation": 21,
+     "old-font-switch": 304,
+     "setlength": 7
+    },
+    "other": {
+     "algorithm": 2,
+     "algorithmic": 2,
+     "def": 2,
+     "newcommand": 8
+    },
+    "preamble": {
+     "documentclass": 1
+    },
+    "table": {
+     "cmidrule": 8,
+     "multicolumn": 11,
+     "multirow": 2,
+     "resizebox": 1,
+     "tabular": 7
+    }
+   },
+   "title": "Thinking with Looped Flows"
+  },
   "adam": {
    "shapes": {
     "preamble": {

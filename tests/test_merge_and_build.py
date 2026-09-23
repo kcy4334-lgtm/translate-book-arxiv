@@ -1052,6 +1052,35 @@ class ReferenceResolutionTests(unittest.TestCase):
         self.assertIn("(fig:nope)", out)
         self.assertEqual(stats["xrefs_missed"], 1)
 
+    def test_multi_label_reference_resolves_every_label(self):
+        """`\\Cref{tab:a,tab:b}` arrives as one bracket naming two floats.
+
+        Only the first was ever read, and the lookup then failed on the whole
+        string, so the reference was left as it was -- twelve raw labels
+        across four pages of a shipped book, with the check that should have
+        caught them looking for a label ALONE inside its parentheses.
+        """
+        md = "see (tab:zero,tab:two) for both" + NL
+        out, stats = merge_and_build.resolve_references(
+            md, self._temp(), {"table_label": "표"})
+        self.assertIn("표 1, 표 2", out)
+        self.assertNotIn("tab:two", out)
+        self.assertEqual(stats["xrefs"], 2)
+
+    def test_multi_label_reference_may_mix_kinds(self):
+        # `\cref{fig:a,tab:b}` is ordinary usage; the kinds need not agree.
+        md = "see (fig:one,tab:two) together" + NL
+        out, _ = merge_and_build.resolve_references(md, self._temp(), None)
+        self.assertIn("Figure 1, Table 2", out)
+
+    def test_multi_label_reference_needs_every_label(self):
+        """One number beside one raw label reads as a defect in the number."""
+        md = "see (tab:zero,tab:ghost) here" + NL
+        out, stats = merge_and_build.resolve_references(md, self._temp(), {})
+        self.assertIn("(tab:zero,tab:ghost)", out)
+        self.assertEqual(stats["xrefs"], 0)
+        self.assertEqual(stats["xrefs_missed"], 1)
+
     def test_no_bibliography_leaves_citations_untouched(self):
         md = "x [@alpha] y"
         out, stats = merge_and_build.resolve_references(md, self._temp(), {})

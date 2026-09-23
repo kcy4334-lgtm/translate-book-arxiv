@@ -117,5 +117,120 @@ class ColourDeclarations(unittest.TestCase):
         self.assertIn('3.3', got)
 
 
+class AColourDeclarationInsideMaths(unittest.TestCase):
+    r"""The colour rewriter deleted a whole table by moving one `$`.
+
+    `{\color{red} X}` scopes to its brace, and a bare `\color{red} X` in a
+    cell scopes to the `&`, which is what `_cell_end` finds. Inside maths
+    that is too far: the `&` sits past the closing `$`, so the rewrite pulled
+    that `$` into `\textcolor{red}{...}` and left the maths unbalanced. The
+    brace count still balanced, so nothing caught it; pandoc abandoned the
+    tabular, emitted no `<table>`, and a 24-row notation table was absent
+    from the book. The report was "1 FAILED" with no name and no reason.
+    """
+
+    def test_the_closing_dollar_is_not_swallowed(self):
+        tex = r'$\color{quantgreen}{\widehat{F}}$ & hidden error \\'
+        got, n = mb.rewrite_color_declarations(tex)
+        self.assertEqual(n, 1)
+        self.assertEqual(got.count('$'), 2, got)
+        self.assertTrue(got.startswith('$'), got)
+        self.assertIn(r'\textcolor{quantgreen}{{\widehat{F}}}', got)
+
+    def test_the_cell_after_it_is_untouched(self):
+        tex = r'$\color{red} x$ & second column \\'
+        got, _n = mb.rewrite_color_declarations(tex)
+        self.assertIn('& second column', got)
+        self.assertEqual(got.count('$'), 2, got)
+
+    def test_a_declaration_outside_maths_still_reaches_the_cell_end(self):
+        """The behaviour the clamp must not take away."""
+        tex = r'\color{red} 17.14 & 3.2 \\'
+        got, n = mb.rewrite_color_declarations(tex)
+        self.assertEqual(n, 1)
+        self.assertIn(r'\textcolor{red}{17.14}', got)
+        self.assertIn('& 3.2', got)
+
+    def test_a_braced_declaration_is_unaffected(self):
+        tex = r'{\color{red} 17.14}'
+        got, n = mb.rewrite_color_declarations(tex)
+        self.assertEqual(n, 1)
+        self.assertIn(r'\textcolor{red}{17.14}', got)
+
+    def test_two_maths_spans_in_one_cell_stay_balanced(self):
+        tex = r'$a$ and $\color{red} b$ & next \\'
+        got, _n = mb.rewrite_color_declarations(tex)
+        self.assertEqual(got.count('$'), 4, got)
+
+
+class ColumnSpecsPandocCannotRead(unittest.TestCase):
+    r"""A notation table went missing from a book, and the report was a count.
+
+    pandoc 3.10.2 reads `\begin{tabular}{ll}` happily and
+    `\multicolumn{2}{@{}l@{}}{...}` not at all: it abandons the whole tabular
+    at the span it cannot parse and falls back to the unknown-environment
+    rendering, a `<div class="tabular">` with the column letters printed as
+    prose. `expand_raw_latex_tables` then sees no `<table>` and counts a
+    failure, so the build said "1 FAILED (they will be missing)" and named
+    nothing.
+
+    Width and inter-column spacing are presentation; an HTML table uses
+    neither. Alignment is the part that carries meaning, so that is what
+    survives normalisation.
+    """
+
+    def test_spacing_and_width_leave_the_alignment_behind(self):
+        self.assertEqual(
+            mb._clean_colspec(r'@{}p{0.30\textwidth}p{0.64\textwidth}@{}'),
+            'll')
+
+    def test_a_plain_spec_is_untouched(self):
+        for spec in ('lcccc', 'lccc', 'l|c|r'):
+            self.assertEqual(mb._clean_colspec(spec), spec)
+
+    def test_array_package_cell_prefixes_go(self):
+        self.assertEqual(mb._clean_colspec(r'>{\bfseries}l<{\quad}c'), 'lc')
+
+    def test_tabularx_stretch_columns_read_left(self):
+        self.assertEqual(mb._clean_colspec('lXX'), 'lll')
+
+    def test_the_tabular_preamble_is_rewritten(self):
+        latex = (r'\begin{tabular}{@{}p{0.30\textwidth}p{0.64\textwidth}@{}}'
+                 '\n' r'a & b \\' '\n' r'\end{tabular}')
+        got, n = mb.normalise_tabular_preambles(latex)
+        self.assertEqual(n, 1)
+        self.assertIn(r'\begin{tabular}{ll}', got)
+
+    def test_the_multicolumn_span_is_rewritten(self):
+        """The one that actually mattered. Fixing only the preamble left the
+        table just as absent."""
+        latex = (r'\begin{tabular}{ll}' '\n'
+                 r'\multicolumn{2}{@{}l@{}}{\emph{Group}} \\' '\n'
+                 r'a & b \\' '\n' r'\end{tabular}')
+        got, n = mb.normalise_tabular_preambles(latex)
+        self.assertEqual(n, 1)
+        self.assertIn(r'\multicolumn{2}{l}{\emph{Group}}', got)
+
+    def test_a_width_argument_is_not_mistaken_for_a_spec(self):
+        r"""`\multirow` and `tabularx` take a WIDTH where multicolumn takes a
+        spec. Cleaning a width would delete it."""
+        latex = (r'\begin{tabularx}{\textwidth}{@{}lX@{}}' '\n'
+                 r'\multirow{2}{4em}{tall} & b \\' '\n' r'\end{tabularx}')
+        got, _n = mb.normalise_tabular_preambles(latex)
+        self.assertIn(r'\begin{tabularx}{\textwidth}{ll}', got)
+        self.assertIn(r'\multirow{2}{4em}{tall}', got)
+
+    def test_an_optional_position_argument_survives(self):
+        latex = r'\begin{tabular}[t]{@{}ll@{}}' '\n' r'\end{tabular}'
+        got, _n = mb.normalise_tabular_preambles(latex)
+        self.assertIn(r'\begin{tabular}[t]{ll}', got)
+
+    def test_nothing_to_do_reports_nothing(self):
+        latex = r'\begin{tabular}{lcr}' '\n' r'a & b & c \\' '\n' r'\end{tabular}'
+        got, n = mb.normalise_tabular_preambles(latex)
+        self.assertEqual(n, 0)
+        self.assertEqual(got, latex)
+
+
 if __name__ == '__main__':
     unittest.main()

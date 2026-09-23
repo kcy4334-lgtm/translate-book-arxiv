@@ -565,6 +565,41 @@ def page_records(doc):
     return out
 
 
+def lines_without_furniture(doc):
+    """Every line of the PDF in reading order, page furniture dropped.
+
+    The same rule `render_blocks` applies, on its own, because more than one
+    reader needs it and the second one did not have it. A page number sits in
+    the margin band but joins the text stream wherever PyMuPDF happens to
+    declare its block, which is regularly between two sentences: page 16 of
+    Looped flows lands as `... halt the flow integration. 16 Additional
+    inference-time metrics. Table 7 ...`. source_probe located a reference
+    site there, took the next number after it, and read 16 where the paper
+    prints 7 — reporting a correct book as wrong, which is the one thing a
+    check may not do.
+
+    Only furniture goes. Marginalia and figure text stay, because a caller
+    reading the original for its captions needs both, and neither has ever
+    been mistaken for a sentence.
+    """
+    records = page_records(doc)
+    pages = [(height, [(b['bbox'], block_text(b)) for b in blocks])
+             for height, _area, blocks, _rects in records]
+    furniture = furniture_keys(pages)
+    out = []
+    for height, _area, blocks, _rects in records:
+        for block in blocks:
+            text = block_text(block)
+            if not text.strip():
+                continue
+            if not _CAPTION_RE.match(_flat(text)):
+                zone = _zone_of(block['bbox'], height)
+                if zone and (zone, _furniture_key(text)) in furniture:
+                    continue
+            out.extend(text.split('\n'))
+    return out
+
+
 def render_blocks(records, images_by_page=None, images_dir='images'):
     """The document as markdown: furniture dropped, headings marked.
 

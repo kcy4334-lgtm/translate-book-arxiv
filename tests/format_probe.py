@@ -272,6 +272,11 @@ def check_table_language(temp_dir, lang):
 
 _CELL_RE = re.compile(r'<t[hd][^>]*>(.*?)</t[hd]>', re.DOTALL)
 _TAG_RE = re.compile(r'<[^>]+>')
+# MathML's carrier for the original TeX. Stripping tags flattens it into the
+# surrounding text, and it is TeX by definition, so anything reading a cell's
+# words has to drop it first. `merge_and_build` learned the same thing about
+# the table of contents.
+_ANNOTATION_RE = re.compile(r'<annotation\b[^>]*>.*?</annotation>', re.DOTALL)
 # What a table's own markup looks like when it did not become a table. Two
 # separators, not one: `|W|` is an ordinary norm and shows up in real cells.
 _MARKUP_IN_CELL_RE = re.compile(r'\|[^|]*\|[^|]*\||\+[-=:]{3,}\+|^\s*[-=]{3,}\s')
@@ -294,7 +299,14 @@ def check_collapsed_tables(temp_dir):
     bad, examples = 0, []
     for table in re.findall(r'<table.*?</table>', text, re.DOTALL):
         for cell in _CELL_RE.findall(table):
-            body = _TAG_RE.sub('', cell).strip()
+            # `--mathml` keeps the original TeX in `<annotation>` so a reader
+            # can copy the formula out. It is never displayed, and it is TeX
+            # by definition, so flattening it into the cell's text reports
+            # "markup sitting in the cells" for every table that holds any
+            # maths at all. This book's hyperparameter table failed the gate
+            # on `1/&#92;sqrt{|V|}` while its `<msqrt>` rendered correctly
+            # two tags earlier.
+            body = _TAG_RE.sub('', _ANNOTATION_RE.sub('', cell)).strip()
             if _MARKUP_IN_CELL_RE.search(body):
                 bad += 1
                 if len(examples) < 4:

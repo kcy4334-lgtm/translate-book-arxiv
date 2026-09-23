@@ -2004,7 +2004,13 @@ def clean_cross_references(text):
 # Inline raw LaTeX pandoc could not translate, emitted as `` `\cmd{...}`{=latex} ``.
 # Left alone these reach the reader as literal backslash commands, and a stray
 # one inside a formula makes pandoc fail to parse the whole span.
-_RAW_INLINE_RE = re.compile(r'`(\\[a-zA-Z@]+(?:\s*(?:\{[^{}]*\}|\[[^\[\]]*\]|=[-\d.]+))*)`\{=latex\}')
+# One or more commands, not exactly one. TeX writes several directives in a
+# single escape -- `\begingroup\postdisplaypenalty=10000` is two -- and a
+# pattern that stopped after the first never matched such a span at all, so
+# it was not cleaned, not dropped, and printed to the reader in monospace.
+_RAW_INLINE_RE = re.compile(
+    r'`((?:\\[a-zA-Z@]+(?:\s*(?:\{[^{}]*\}|\[[^\[\]]*\]|=[-\d.]+[a-z]*))*)+)'
+    r'`\{=latex\}')
 _LAYOUT_ONLY = re.compile(
     r'^\\(?:looseness|vspace|hspace|noindent|centering|small|footnotesize'
     r'|scriptsize|normalsize|bigskip|medskip|smallskip|clearpage|newpage'
@@ -2013,7 +2019,22 @@ _LAYOUT_ONLY = re.compile(
     # flat.tex rather than from here. Backticking it and letting
     # strip_latex_cruft empty the span left a bare `` glued to the image line,
     # which stopped format_figure_blocks from recognising the image at all.
+    # Grouping and penalty directives. They control where TeX may break a
+    # page and nothing a reader sees, but they arrive as an ordinary inline
+    # escape, so they fell through to the branch that keeps the literal and
+    # printed as `\endgroup` in monospace in the middle of a Korean page.
+    r'|begingroup|endgroup|penalty|postdisplaypenalty|predisplaypenalty'
+    r'|interlinepenalty|widowpenalty|clubpenalty|displaybreak|nobreak'
+    r'|goodbreak|phantomsection|leavevmode|protect|relax'
     r'|label)\b')
+# The same alternation, unanchored, to ask a different question: is there
+# anything left once every layout directive is removed? One escape can hold
+# several -- `\begingroup\postdisplaypenalty=10000` is two -- and matching
+# only the head would be right by luck here and wrong on a span whose layout
+# command is followed by text the reader needs.
+_LAYOUT_ONLY_ANY = re.compile(
+    _LAYOUT_ONLY.pattern.replace(r'^\\', r'\\', 1)
+    + r'\s*(?:\*?\s*=\s*[-\d.]+[a-z]*|\*?\s*\{[^{}]*\})?')
 _REF_CMD = re.compile(r'^\\(?:ref|eqref|autoref|cref|Cref)\s*\{([^{}]*)\}$')
 
 
@@ -2028,7 +2049,10 @@ def clean_raw_inline_latex(text):
     """
     def handle(m):
         cmd = m.group(1).strip()
-        if _LAYOUT_ONLY.match(cmd):
+        # Ask what is LEFT, not what it starts with. An escape can hold
+        # several directives, and a span whose layout command is followed by
+        # text the reader needs must keep that text.
+        if not _LAYOUT_ONLY_ANY.sub('', cmd).strip():
             return ''
         ref = _REF_CMD.match(cmd)
         if ref:
@@ -2156,11 +2180,54 @@ def _eps_to_pdf(src, work_dir):
 _RESOLVED_REF_RE = re.compile(r'^images/fig\d{4}_')
 
 
+_GRAPHICSPATH_RE = re.compile(r'\\graphicspath\s*\{((?:\s*\{[^{}]*\}\s*)+)\}')
+
+
+def _read_flat_source(temp_dir):
+    """The flattened LaTeX, or '' when there is none to read."""
+    path = os.path.join(temp_dir or '', 'flat.tex')
+    try:
+        with open(path, 'r', encoding='utf-8', errors='replace') as fh:
+            return fh.read()
+    except OSError:
+        return ''
+
+
+def graphics_search_dirs(text, bases):
+    r"""The directories `\graphicspath` adds, resolved against each base.
+
+    `\graphicspath{{figures/}}` is how a paper says that a bare
+    `\includegraphics{plot.pdf}` means `figures/plot.pdf`. Not reading it
+    reports the figure missing while the file sits in the tarball: on the
+    paper that found this, the five calls written `figures/x.pdf` resolved
+    and the two written `x.pdf` did not, so two figures were dropped with
+    nothing but a warning, their captions left orphaned on the page.
+    """
+    out = []
+    for m in _GRAPHICSPATH_RE.finditer(text or ''):
+        for piece in re.findall(r'\{([^{}]*)\}', m.group(1)):
+            piece = piece.strip()
+            if not piece:
+                continue
+            for base in bases:
+                if not base:
+                    continue
+                candidate = os.path.normpath(os.path.join(base, piece))
+                if os.path.isdir(candidate) and candidate not in out:
+                    out.append(candidate)
+    return out
+
+
 def resolve_images(text, tex_dir, root, temp_dir, work_dir):
     """Copy/convert every referenced figure into temp_dir/images and rewrite refs."""
     images_dir = os.path.join(temp_dir, 'images')
     os.makedirs(images_dir, exist_ok=True)
-    search_dirs = [tex_dir, root]
+    # `\graphicspath` is a PREAMBLE declaration, and `text` here is the
+    # markdown pandoc already produced, so the declaration is long gone from
+    # it. Read it from `flat.tex`, which the backend writes before conversion
+    # precisely so that later steps can ask the source a question.
+    search_dirs = [tex_dir, root] + graphics_search_dirs(
+        _read_flat_source(temp_dir), [tex_dir, root])
     counter = [0]
     unconverted = []
     resolved_cache = {}

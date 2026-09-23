@@ -471,6 +471,26 @@ class AWrappedReferenceEntryIsStillAReference(unittest.TestCase):
     def test_a_plain_surname_still_opens_one(self):
         self.assertTrue(vc._is_reference_line(self.REF_A))
 
+    def test_a_corporate_author_takes_no_comma(self):
+        r"""`Surname, F.` is not how every entry opens any more. citeproc
+        writes a corporate author as `OpenAI. 2024. Title.`, and the comma
+        branch cannot see it: one such entry sat between two reference
+        chunks of a real paper, split the run in half, and was dispatched to
+        a translator as if it were the author's own prose."""
+        for line in ('OpenAI. 2024. *Learning to Reason with LLMs*. [x](y)',
+                     'Google DeepMind. 2023. *Gemini*. url',
+                     'Anthropic. 2025. *Claude*. url'):
+            self.assertTrue(vc._is_reference_line(line), line)
+
+    def test_prose_that_happens_to_carry_a_year_is_not_one(self):
+        """The guard on that branch: only CAPITALISED words count towards
+        the name, so an ordinary sentence stops at its first word."""
+        for line in ('The model works well. 2024. was a strong year.',
+                     'We show that the model improves. 2024. Something.',
+                     'In this section we describe the training setup.',
+                     'Figure 3. 2024 results are shown in the plot below.'):
+            self.assertFalse(vc._is_reference_line(line), line)
+
 
 class AReferenceChunkIsCheckedForBeingUNCHANGED(unittest.TestCase):
     r"""The bibliography is copied, not translated, so every translation

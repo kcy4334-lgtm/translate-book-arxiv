@@ -50,6 +50,14 @@ B = chr(92)
 # from the build's for as long as it existed; `check_equations` reads
 # `merge_and_build` instead.
 _REF_RE = re.compile(re.escape(B) + r'(?:c|C)?ref\s*\{([^}]+)\}')
+# The macros whose argument is TEXT, and so reaches the page. Everything else
+# braced in front of a reference is a key or a length and reaches nothing, so
+# the context that locates a reference site drops those and keeps these. A
+# run-in `\paragraph{...}` heading matters most: it prints on the same line,
+# immediately before the sentence holding the reference.
+_KEPT_ARG_RE = re.compile(
+    re.escape(B) + r'(?:(?:sub)*(?:section|paragraph)\*?|textbf|textit'
+    r'|textrm|texttt|textsc|emph|text|mbox|underline)\s*\{([^{}]*)\}')
 # A paper that resets its equation counter per section prints `(2.1)`, not
 # `(2)`. Matching only the undotted form made this probe report "48 numbered by
 # LaTeX, 0 printed in the PDF" about a paper that prints all 48 — a missing
@@ -75,12 +83,20 @@ def read(path):
 
 
 def pdf_text(path):
+    """(lines, flat) for the source PDF, with the page furniture dropped.
+
+    Read through the extractor, not with a bare `get_text`. What a running
+    head and a page number look like is already known in one place, and this
+    was the second place that needed that fact and did not have it: a page
+    number joins the text stream wherever its block is declared, regularly
+    between two sentences, so the number this probe reads after a located
+    reference site was the page's rather than the table's.
+    """
     import pymupdf
+    import pdf_text as extractor
     doc = pymupdf.open(path)
     try:
-        lines = []
-        for page in doc:
-            lines.extend(page.get_text('text').split('\n'))
+        lines = extractor.lines_without_furniture(doc)
         return lines, re.sub(r'\s+', ' ', ' '.join(lines))
     finally:
         doc.close()
@@ -274,6 +290,16 @@ def check_references(temp_dir, flat, pdf_flat):
         before = re.sub(r'\s+', ' ', flat[max(0, m.start() - 160):m.start()])
         # Brace groups are macro arguments -- \ref{eq:pl_alpha_hill} leaves
         # `eq:pl_alpha_hill` in the context, which appears nowhere in the PDF.
+        #
+        # Not all of them, though, and the exceptions print right where they
+        # stand. `\paragraph{Additional inference-time metrics.}` is a run-in
+        # heading on the same line as the sentence that carries the
+        # reference, and `\textbf{...}` is its own words; deleting either
+        # ended the context short of what the page shows, so the characters
+        # this reads after the located site were the heading's rather than
+        # the number's. Looped flows failed on `we say 7, the paper prints A`
+        # -- the A of `Additional` -- with 7 correct on both sides.
+        before = _KEPT_ARG_RE.sub(r' \1 ', before)
         before = re.sub(r'\{[^{}]*\}', ' ', before)
         before = re.sub(re.escape(B) + r'[a-zA-Z]+\s*', ' ', before)
         before = re.sub(r'[{}$~]', ' ', before)

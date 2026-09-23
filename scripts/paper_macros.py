@@ -202,6 +202,55 @@ _STRUCTURAL = frozenset((
 ))
 _NEVER_EXPAND = frozenset(_PANDOC_READS) | _STRUCTURAL
 
+# Layout and bookkeeping a macro body may carry without that body having to be
+# refused. None of it reaches a reader: `\clearpage` and `\sffamily` are
+# presentation, and `\addcontentsline` writes a contents entry the build
+# regenerates from the headings it finds. Dropping it is what lets a wrapper
+# whose real content is STRUCTURAL expand at all.
+_BODY_LAYOUT_RE = re.compile(
+    r'\\(?:clearpage|cleardoublepage|newpage|pagebreak|nobreak|goodbreak'
+    r'|par|noindent|centering|raggedright|raggedleft|phantomsection'
+    r'|sffamily|rmfamily|normalfont'
+    r'|normalsize|small|footnotesize|scriptsize|tiny'
+    r'|large|Large|LARGE|huge|Huge|bigskip|medskip|smallskip)'
+    r'(?![A-Za-z])')
+# `\bfseries`, `\itshape` and `\ttfamily` are NOT here. A font SIZE or FAMILY
+# in a title is the paper's styling, but bold and italic carry emphasis a
+# reader is meant to see, and `_apply_font_groups` turns those into `\textbf`
+# and `\textit`. Dropping them here would delete the emphasis instead.
+# These take brace arguments, and the last one nests, so they are scanned.
+_BODY_TOC_ARGS = {'addcontentsline': 3, 'addtocontents': 2, 'markboth': 2,
+                  'markright': 1, 'thispagestyle': 1, 'pagestyle': 1}
+_BODY_TOC_RE = re.compile(r'\\(%s)(?![A-Za-z])'
+                          % '|'.join(sorted(_BODY_TOC_ARGS)))
+
+
+def _drop_body_layout(body):
+    r"""Strip presentation and contents bookkeeping from a macro body.
+
+    `\beginappendix` is `\clearpage\appendix\section{...}\sffamily`. Refused
+    for the layout around it, it hid the `\appendix` from the section
+    numbering: a paper whose appendix prints A, B, D came out G, H, J, and
+    fifteen of its cross-references disagreed with the printed paper.
+    """
+    body = _BODY_LAYOUT_RE.sub('', body)
+    out, cursor = [], 0
+    for m in _BODY_TOC_RE.finditer(body):
+        if m.start() < cursor:
+            continue
+        i = m.end()
+        for _ in range(_BODY_TOC_ARGS[m.group(1)]):
+            while i < len(body) and body[i] in ' \t\n':
+                i += 1
+            end = _group_end(body, i)
+            if end < 0:
+                break
+            i = end
+        out.append(body[cursor:m.start()])
+        cursor = i
+    out.append(body[cursor:])
+    return ''.join(out)
+
 # A tabbing control, not an abbreviation. Shor writes `\newcommand{\tab}{\>}`
 # and uses it 29 times to set the indentation of three algorithm listings;
 # `neutralize_tabbing_tabs` turns those into the four-space steps that made the
@@ -465,7 +514,12 @@ def _apply_font_groups(body):
             body = body[:m.start()] + body[m.end():]
             continue
         inner = (body[start + 1:m.start()] + body[m.end():close - 1]).strip()
-        body = (body[:start] + '\\%s{%s}' % (_FONT_GROUP[m.group(1)], inner)
+        # The outer braces stay. They are redundant in prose and load-bearing
+        # as a command's argument: the appendix wrapper is
+        # `\section*{\sffamily\bfseries Appendix}`, and replacing the group
+        # with a bare `\textbf{Appendix}` left `\section*\textbf{Appendix}`,
+        # which pandoc refuses outright -- it died on the whole document.
+        body = (body[:start] + '{\\%s{%s}}' % (_FONT_GROUP[m.group(1)], inner)
                 + body[close:])
     return body
 
@@ -626,6 +680,12 @@ def resolve(name, defs, seen=None, depth=0):
             body = body[:hit.start()] + sub + body[hit.end():]
 
     body = _drop_no_glyph(body)
+    # BEFORE `_apply_font_groups`, and that order is the whole of it. The
+    # appendix wrapper's body is `\section*{\sffamily Appendix}`; left in
+    # place, `\sffamily` makes that a font group, and rewriting the group
+    # takes with it the braces `\section*` needed for its own argument.
+    # pandoc then dies on `\section*\textbf{ Appendix}`.
+    body = _drop_body_layout(body)
     body = _apply_font_groups(body)
     body, suffix = _unwrap_unresolved(body, defs)
     body = _drop_no_glyph(body)
@@ -633,8 +693,15 @@ def resolve(name, defs, seen=None, depth=0):
     if _MACHINERY_RE.search(body):
         return None, 'body still carries TeX machinery pandoc cannot evaluate'
 
+    # `_NEVER_EXPAND`, not `_PANDOC_READS`. A structural command is one this
+    # module deliberately leaves alone, so meeting one in a body is not a
+    # reason to refuse the macro -- and refusing it is how the structure gets
+    # lost. `\beginappendix` is `\clearpage\appendix\section{...}\sffamily`:
+    # refused for its layout, it hid the `\appendix` from the section
+    # numbering, and a paper whose appendix prints A, B, D came out G, H, J
+    # with fifteen cross-references disagreeing with the printed paper.
     leftovers = [n for n in re.findall(r'\\([A-Za-z@]+)(?![A-Za-z])', body)
-                 if n not in _PANDOC_READS]
+                 if n not in _NEVER_EXPAND]
     if leftovers:
         return None, ('unresolved command(s): %s'
                       % ', '.join('\\' + x for x in sorted(set(leftovers))))
