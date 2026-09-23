@@ -235,7 +235,11 @@ here; the test is the real record. This file is for the *reasoning*, the
 | A shape the corpus has met is reported NEVER SEEN | [K210](#k210) |
 | A bold table cell prints `97.9 0.4` where the paper prints `97.9 ± 0.4` | [K211](#k211) |
 | `(tab:a,tab:b)` printed raw while the check reports zero unresolved | [K212](#k212) |
-| A probe fails a book whose numbers are right | [K213](#k213) |
+| A probe fails a book whose numbers are right | [K213](#k213), [K216](#k216) |
+| A section, equation or figure the paper does not print is counted | [K214](#k214) |
+| The paper numbers its sections and the book prints none | [K215](#k215) |
+| Every heading of a Springer (llncs) paper below subsection is "not found" | [K215](#k215) |
+| PDF bookmarks nest sibling headings inside each other | [K217](#k217) |
 
 ---
 
@@ -510,9 +514,11 @@ coverage. When adding a check, ask which artifacts it does *not* look at
 **Section numbering belongs to the document class, so it cannot be derived from
 the .tex, read it off the source PDF.** Four papers, four answers: IEEEtran
 prints `I.` / `A.` / `1)`, ICML's article prints `1.` / `2.1.` / `2.1.1.`
-(appendix `A`, `A.1`), and CafeQ and AlphaQ print no heading numbers at all
+(appendix `A`, `A.1`), ~~and CafeQ and AlphaQ print no heading numbers at all
 while their body still says "Section 4.1", the class hides the number, `\ref`
-still returns the counter. The hard-coded IEEE ladder mislabelled all 41 of
+still returns the counter~~ (wrong: both print `1`, `2.1`, `A.1` on a line of
+their own, which only the joined form missed; see [K215](#k215)). The
+hard-coded IEEE ladder mislabelled all 41 of
 SINQ's headings. `config.txt` records the input PDF; match each heading title
 against it and use whatever prefix the page shows, `''` included.
 *Status: LOCKED, `SectionNumberingTests` in tests/test_merge_and_build.py.*
@@ -3108,6 +3114,63 @@ the one thing a check may not do. Both fixed, the references it can verify
 rose across eight builds (SINQ 36 to 47) and sections, equations and float
 numbers came out identical on every one.
 *Status: fixed in `pdf_text.lines_without_furniture`, `source_probe._KEPT_ARG_RE`.*
+
+---
+
+### K214
+**`\iffalse ... \fi` hides a passage as surely as a `comment` environment.**
+TeX skips it and so does pandoc, so AdamX's translated text never carried the
+disabled "Strongly Convex Losses" subsection. Every reader that counts from
+flat.tex did: `strip_tex_comments` removed `comment` blocks and nothing else,
+so the heading list gained a section and the equation count read 25 against
+the 20 the paper prints. Skipping follows TeX: nested `\if...` levels, an outer
+`\else` kept, `\iff`, `\ifthenelse` and `\newif\ifx` not openers, and an
+unmatched `\iffalse` deletes nothing. Measured over the eight sources on disk:
+the only other body-hiding form is `comment`; `\ifdebug` and `\ifnum\withnotes`
+toggle preamble macros.
+*Status: LOCKED, `test_comment_environment.FalseConditionalsAreSkipped`.*
+
+---
+
+### K215
+**A section number on its own line above the title is still its number.**
+PyMuPDF extracts `1` and `Introduction` as two lines whenever the class sets
+them apart with a wide skip, and only `1 Introduction` was read, so those
+headings counted as unnumbered and the book printed none. Looped flows, the
+demo book, shipped without a section number while its prose said "(5.1절)".
+AlphaQ, CafeQ and VLA-Adapter read the same way, which is where K26's "print
+no heading numbers" came from. Reading the line above admits table cells
+(`11.1` above a row labelled `Looped flows`), so a split number must have one
+part per heading level, page furniture goes first, and a title used twice
+takes its numbers in order (CafeQ's `2` and `A` "Related work"). Every paper
+now reads a sequence matching its LaTeX structure. llncs sets run-in from L3.
+*Status: LOCKED, `test_split_line_prefixes`, `test_class_conventions`.*
+
+---
+
+### K216
+**A window unique on one side names a site on that side only.**
+`source_probe` locates a reference by the words before it, and required them to
+occur once in the PDF. 2609.11716 writes "A detailed derivation is given in
+App." twice; the second site's window was unique in the PDF only because an
+equation number stood in front of it there, so the probe read the first site's
+C.4 against a C.5 the paper's own contents print. The window must also occur
+at most once in the source. Captions the same way: AdamX's two bar plots share
+their first sentence, the probes were identical, and the second read the
+first's "Figure 1". A probe two floats share now locates neither.
+*Status: fixed in `source_probe.check_references` and `check_floats`.*
+
+---
+
+### K217
+**A bookmark's depth is the number of headings still open above it.**
+PyMuPDF refuses a depth that jumps by more than one, and papers jump all the
+time: `\paragraph` headings are h4 directly under an h1 section. The outline
+clamped each entry to one below the PREVIOUS entry, which chains siblings:
+h1, h4, h4, h4 came out 1, 2, 3, 4, and Looped flows' bookmarks put "Flow and
+diffusion models" inside "Looped models". The HTML had them right as siblings;
+only the outline was wrong, so no check that reads the HTML could see it.
+*Status: LOCKED, `test_outline_depths`.*
 
 ---
 

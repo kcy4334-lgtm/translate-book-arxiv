@@ -316,6 +316,27 @@ def apply_toc_pages(html, mapping):
     return _TOC_SENTINEL_RE.sub(repl, html)
 
 
+def outline_depths(levels):
+    """Bookmark depth for each heading level, siblings kept side by side.
+
+    PyMuPDF refuses a depth that jumps by more than one, and a paper jumps
+    all the time: `\\paragraph` headings are h4 straight under an h1 section.
+    Clamping each entry to one below the PREVIOUS entry's depth answered that
+    by chaining siblings: Looped flows' outline put "Flow and diffusion
+    models" inside "Looped models", and the next paragraph heading inside
+    that, four deep under one section. A heading's depth is one more than
+    the number of headings still open above it, which is never more than one
+    past the entry before and gives every sibling the same depth.
+    """
+    open_levels, out = [], []
+    for level in levels:
+        while open_levels and open_levels[-1] >= level:
+            open_levels.pop()
+        out.append(len(open_levels) + 1)
+        open_levels.append(level)
+    return out
+
+
 def build_pdf_outline(pdf_path, html):
     """Give the PDF real bookmarks. Returns the number of entries written."""
     pymupdf = _import_pymupdf()
@@ -327,15 +348,16 @@ def build_pdf_outline(pdf_path, html):
     doc = pymupdf.open(pdf_path)
     try:
         heading_lines, _body = _heading_index(doc)
-        toc, cursor = [], 0
+        found, cursor = [], 0
         for heading_id, (level, text) in headings.items():
             page = _find_text_page(doc, text, cursor, heading_lines)
             if not page:
                 continue
             cursor = max(0, page - 1)
-            # PyMuPDF rejects a level that jumps by more than one.
-            level = min(level, (toc[-1][0] + 1) if toc else 1)
-            toc.append([level, text[:120], page])
+            found.append((level, text[:120], page))
+        depths = outline_depths([level for level, _text, _page in found])
+        toc = [[depth, text, page]
+               for depth, (_level, text, page) in zip(depths, found)]
         if not toc:
             return 0
         doc.set_toc(toc)

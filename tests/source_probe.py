@@ -245,7 +245,13 @@ def check_floats(temp_dir, flat, pdf_flat):
         units.append((unit, caption_probe(tex[unit['start']:unit['stop']])))
     probes = [probe for _unit, probe in units if probe]
     for unit, probe in units:
-        if not probe:
+        # A probe two floats share names neither of them. AdamX captions its
+        # MNIST and CIFAR-10 bar plots with the same first sentence, so both
+        # probes are identical; the second one found the first one's caption,
+        # read "Figure 1", and reported the book's correct Figure 3 as wrong.
+        # The rival rule below cannot help, because a rival must be LONGER
+        # to claim a site and these are the same length.
+        if not probe or probes.count(probe) > 1:
             skipped += 1
             continue
         needle = probe[:44]
@@ -274,12 +280,36 @@ def check_floats(temp_dir, flat, pdf_flat):
     return agree, disagree, skipped, problems
 
 
+def _context_text(tex):
+    """LaTeX reduced to the words a reader would see, one space apart."""
+    text = re.sub(r'\s+', ' ', tex)
+    # Brace groups are macro arguments -- \ref{eq:pl_alpha_hill} leaves
+    # `eq:pl_alpha_hill` in the context, which appears nowhere in the PDF.
+    #
+    # Not all of them, though, and the exceptions print right where they
+    # stand. `\paragraph{Additional inference-time metrics.}` is a run-in
+    # heading on the same line as the sentence that carries the reference,
+    # and `\textbf{...}` is its own words; deleting either ended the context
+    # short of what the page shows, so the characters this reads after the
+    # located site were the heading's rather than the number's. Looped flows
+    # failed on `we say 7, the paper prints A` -- the A of `Additional` --
+    # with 7 correct on both sides.
+    text = _KEPT_ARG_RE.sub(r' \1 ', text)
+    text = re.sub(r'\{[^{}]*\}', ' ', text)
+    text = re.sub(re.escape(B) + r'[a-zA-Z]+\s*', ' ', text)
+    text = re.sub(r'[{}$~]', ' ', text)
+    return ' '.join(text.split())
+
+
 def check_references(temp_dir, flat, pdf_flat):
     """Every \\ref target, against the number printed at that spot."""
     labels = mb.build_label_numbers(temp_dir)
     floats = mb.build_float_numbers(temp_dir)
     agree = disagree = skipped = 0
     problems = []
+    # The whole source, reduced the way every context below is reduced, so a
+    # window can be counted on the source side as well as the PDF side.
+    src_flat = _context_text(flat)
     for m in _REF_RE.finditer(flat):
         key = m.group(1).strip()
         ours = labels.get(key)
@@ -287,26 +317,17 @@ def check_references(temp_dir, flat, pdf_flat):
             ours = str(floats[key])
         if ours is None:
             continue
-        before = re.sub(r'\s+', ' ', flat[max(0, m.start() - 160):m.start()])
-        # Brace groups are macro arguments -- \ref{eq:pl_alpha_hill} leaves
-        # `eq:pl_alpha_hill` in the context, which appears nowhere in the PDF.
-        #
-        # Not all of them, though, and the exceptions print right where they
-        # stand. `\paragraph{Additional inference-time metrics.}` is a run-in
-        # heading on the same line as the sentence that carries the
-        # reference, and `\textbf{...}` is its own words; deleting either
-        # ended the context short of what the page shows, so the characters
-        # this reads after the located site were the heading's rather than
-        # the number's. Looped flows failed on `we say 7, the paper prints A`
-        # -- the A of `Additional` -- with 7 correct on both sides.
-        before = _KEPT_ARG_RE.sub(r' \1 ', before)
-        before = re.sub(r'\{[^{}]*\}', ' ', before)
-        before = re.sub(re.escape(B) + r'[a-zA-Z]+\s*', ' ', before)
-        before = re.sub(r'[{}$~]', ' ', before)
-        words = [w for w in before.split() if w]
+        words = _context_text(flat[max(0, m.start() - 160):m.start()]).split()
         # "is provided in Appendix" occurs a dozen times in one paper, and the
         # first hit reported a mismatch the paper does not have. Only a
-        # context that lands in exactly one place identifies a reference site.
+        # context that lands in exactly one place identifies a reference site
+        # -- in the PDF AND in the source. Uniqueness on the PDF side alone
+        # says the window names one spot on the page, not that it is THIS
+        # reference's spot. 2609.11716 writes "A detailed derivation is given
+        # in App." twice, before C.4 and before C.5; the second site's window
+        # happened to occur once in the PDF because an equation number sits
+        # in front of it there, so the probe read the FIRST site's C.4 and
+        # reported a C.5 the paper prints in its own contents as wrong.
         at = -1
         # Longest first, and the first window that appears EXACTLY once in
         # the PDF wins. Three is the floor, and it was set by measurement
@@ -328,7 +349,12 @@ def check_references(temp_dir, flat, pdf_flat):
             if len(words) < take:
                 continue
             probe = ' '.join(words[-take:])
-            if len(probe) > 10 and pdf_flat.count(probe) == 1:
+            # At most once in the source rather than exactly once: the
+            # 160-character slice can start inside a brace group the whole
+            # text reduces differently, so a real window may count 0 there.
+            # Only a proven repeat is ambiguous.
+            if (len(probe) > 10 and pdf_flat.count(probe) == 1
+                    and src_flat.count(probe) <= 1):
                 at = pdf_flat.find(probe)
                 break
         if at < 0:

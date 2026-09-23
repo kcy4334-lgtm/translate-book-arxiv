@@ -1852,7 +1852,73 @@ def strip_tex_comments(text, keep_definitions=False):
                 break
             i += 1
         out.append(line)
-    return '\n'.join(out)
+    return drop_false_conditionals('\n'.join(out))
+
+
+# `\iffalse ... \fi` is the other way an author deletes a passage without
+# deleting it, and TeX skips it as surely as a `comment` environment. pandoc
+# honours it, so the translated text never carried AdamX's disabled
+# "Strongly Convex Losses" subsection -- but every reader that counts from
+# flat.tex did: the heading list gained a section the paper does not print,
+# and the figures inside two such blocks pushed the next figure to 3 where
+# the paper prints 1. Those counts are the numbers the book prints.
+#
+# Skipping follows TeX: every `\if...` met inside the block opens a level
+# that its own `\fi` closes, and an `\else` at the outer level ends the
+# skipped part, so what follows it is kept. Three names look like
+# conditionals and are not: `\iff` is the maths arrow, `\ifthenelse` is a
+# LaTeX command with brace arguments, and `\newif\ifdraft` DEFINES a
+# conditional rather than opening one. A block with no closing `\fi` is left
+# as it was: deleting from an unmatched `\iffalse` to the end of the paper is
+# the one mistake worse than keeping it. Newlines inside a dropped block are
+# kept, so line positions downstream do not move.
+_COND_TOKEN_RE = re.compile(r'\\(iffalse|if[a-zA-Z@]*|fi|else)(?![a-zA-Z@])')
+_NOT_A_CONDITIONAL = frozenset(('iff', 'ifthenelse'))
+
+
+def _opens_a_conditional(text, token):
+    name = token.group(1)
+    if name in _NOT_A_CONDITIONAL:
+        return False
+    return not text[max(0, token.start() - 16):token.start()].rstrip().endswith(
+        '\\newif')
+
+
+def drop_false_conditionals(text):
+    r"""Remove what `\iffalse ... [\else] ... \fi` tells TeX to skip."""
+    out, pos = [], 0
+    while True:
+        start = None
+        for token in _COND_TOKEN_RE.finditer(text, pos):
+            if token.group(1) == 'iffalse':
+                start = token
+                break
+        if start is None:
+            out.append(text[pos:])
+            return ''.join(out)
+        depth, else_at, end = 0, None, None
+        for token in _COND_TOKEN_RE.finditer(text, start.end()):
+            name = token.group(1)
+            if name == 'fi':
+                if depth == 0:
+                    end = token
+                    break
+                depth -= 1
+            elif name == 'else':
+                if depth == 0 and else_at is None:
+                    else_at = token
+            elif _opens_a_conditional(text, token):
+                depth += 1
+        if end is None:
+            out.append(text[pos:])
+            return ''.join(out)
+        out.append(text[pos:start.start()])
+        if else_at is None:
+            out.append('\n' * text.count('\n', start.start(), end.end()))
+        else:
+            out.append('\n' * text.count('\n', start.start(), else_at.end()))
+            out.append(text[else_at.end():end.start()])
+        pos = end.end()
 
 
 # `\subsection{Additional \texttt{PL\_Alpha\_Hill} Comparisons}` -- the title
@@ -2016,6 +2082,30 @@ def _normalize_heading(text):
 # "2.1.1." / "III." / "A.3" / "4" -- whatever the class chose to print.
 _PDF_PREFIX_RE = re.compile(
     r'^\s*((?:[0-9]+|[A-Z]|[IVXLC]+)(?:[.\-][0-9A-Z]+)*\.?)[ \t]+(\S.*)$')
+# The same number, alone on its line. A class that sets the number and the
+# title apart with a wide skip -- llncs, and whatever typeset Looped flows --
+# comes out of PyMuPDF as two lines, `1` and then `Introduction`. Reading only
+# the joined form called every one of those headings unnumbered, and the book
+# printed Looped flows without a single section number while its own prose
+# still said "(5.1절)".
+_PDF_BARE_PREFIX_RE = re.compile(
+    r'^\s*((?:[0-9]+|[A-Z]|[IVXLC]+)(?:[.\-][0-9A-Z]+)*)\.?\s*$')
+
+
+def _prefix_fits_level(prefix, level):
+    r"""Could `prefix` number a heading at `level`? Split-line reading only.
+
+    A number on the line above a title is a weaker witness than one on the
+    same line: a table cell holding `11.1` sits above a row labelled
+    `Looped flows` in the very paper that needed this. A section number has
+    one component per level, so `11.1` cannot number a top-level heading.
+    A lone letter or Roman numeral is let through at any level, because
+    IEEE-style papers number subsections `A.`, `B.` under `I.`, `II.`.
+    """
+    parts = [p for p in re.split(r'[.\-]', prefix.strip().rstrip('.')) if p]
+    if len(parts) == level:
+        return True
+    return len(parts) == 1 and bool(re.fullmatch(r'[A-Z]|[IVXLC]+', parts[0]))
 
 
 def read_pdf_section_prefixes(temp_dir, tex_heads):
@@ -2049,20 +2139,35 @@ def read_pdf_section_prefixes(temp_dir, tex_heads):
         return None, stats
 
     try:
+        import pdf_text
         doc = pymupdf.open(pdf_path)
         try:
-            lines = []
-            for page in doc:
-                lines.extend(page.get_text('text').split('\n'))
+            # Page furniture out first. A page number is a bare number on its
+            # own line, which is exactly what the split-line reading below
+            # takes for a section number when a heading opens a page.
+            lines = pdf_text.lines_without_furniture(doc)
         finally:
             doc.close()
     except Exception as exc:                               # noqa: BLE001
         stats['reason'] = 'could not read %s (%s)' % (os.path.basename(pdf_path), exc)
         return None, stats
 
+    return prefixes_from_lines(lines, tex_heads, run_in_level, stats)
+
+
+def prefixes_from_lines(lines, tex_heads, run_in_level=0, stats=None):
+    """[prefix or '' or None] per heading, from the PDF's text lines.
+
+    The half of `read_pdf_section_prefixes` that needs no PDF, so it can be
+    tested on the lines a real paper produced. `stats` is updated in place.
+    """
+    if stats is None:
+        stats = {'matched': 0, 'unnumbered': 0, 'missing': 0,
+                 'wrapped': 0, 'run_in': 0, 'reason': None}
     # title -> prefix. First occurrence wins: a heading is printed before it is
     # cited, and the table of contents (if any) agrees with the body anyway.
-    numbered, plain = {}, set()
+    numbered, split, plain = {}, {}, set()
+    before = ''
     for raw in lines:
         line = raw.strip()
         if not line or len(line) > 120:
@@ -2072,16 +2177,35 @@ def read_pdf_section_prefixes(temp_dir, tex_heads):
             key = _normalize_heading(m.group(2))
             if key and key not in numbered:
                 numbered[key] = m.group(1).strip()
+        bare = _PDF_BARE_PREFIX_RE.match(before)
+        if bare:
+            key = _normalize_heading(line)
+            if key:
+                split.setdefault(key, []).append(bare.group(1).strip())
         key = _normalize_heading(line)
         if key:
             plain.add(key)
+        before = line
 
-    prefixes = []
+    prefixes, used = [], {}
     for level, title, _is_numbered in tex_heads:
         key = _normalize_heading(title)
         if key in numbered:
             prefixes.append(numbered[key])
             stats['matched'] += 1
+            continue
+        # Every candidate is kept and the first that can number this level
+        # wins, so a table cell printed before the heading does not shadow it.
+        # A title the paper uses twice takes the candidates in order: CafeQ
+        # has `2 Related work` in the body and `A Related work` in the
+        # appendix, and first-wins gave both of them 2.
+        seen = used.get(key, 0)
+        fitting = [p for p in split.get(key, ()) if _prefix_fits_level(p, level)]
+        if len(fitting) > seen:
+            used[key] = seen + 1
+            prefixes.append(fitting[seen])
+            stats['matched'] += 1
+            stats['split'] = stats.get('split', 0) + 1
             continue
         if key in plain:
             prefixes.append('')
@@ -3628,6 +3752,10 @@ _CLASS_CONVENTIONS = {
     # separately rather than ignored: a check that fails correct work teaches
     # people to stop reading it, and one that hides a real loss is worse.
     'amsart': {'parents': {'equation': 'section'}, 'run_in_level': 2},
+    # llncs (Springer LNCS) sets \subsubsection and \paragraph run-in as
+    # well: AdamX prints `Baseline Algorithms To evaluate AdamX, ...` on one
+    # line, bold then roman. Its eight such headings were "not found".
+    'llncs': {'run_in_level': 3},
     # IEEEtran prints TABLE I, TABLE II and Fig. 1, Fig. 2: Roman for tables
     # and arabic for figures, which is why only the table is listed. TinyVLA
     # is the paper that showed it, with all six of its disagreeing
@@ -3673,9 +3801,11 @@ def build_label_index(temp_dir):
     LaTeX numbers except floats, which build_float_numbers already owns.
 
     Rebuilding the counters is necessary even when the headings show no
-    numbers. CafeQ and AlphaQ suppress the number in the heading but their body
-    still says "Section 4.1" and "Appendix A.2" -- \\ref returns the counter
-    either way.
+    numbers: \\ref returns the counter either way, so the body still says
+    "Section 4.1" and "Appendix A.2". CafeQ and AlphaQ were long taken for
+    papers that hide their heading numbers. They print them; PyMuPDF puts the
+    number on a line of its own, and only the joined form used to be read
+    (see prefixes_from_lines).
     """
     flat = os.path.join(temp_dir, 'flat.tex')
     if not os.path.exists(flat):

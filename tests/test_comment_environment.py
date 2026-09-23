@@ -86,5 +86,68 @@ class HeadingsSkipTheHiddenOnes(unittest.TestCase):
         self.assertEqual(titles, ['Introduction', 'Notation'])
 
 
+class FalseConditionalsAreSkipped(unittest.TestCase):
+    r"""`\iffalse ... \fi` hides a passage exactly as `comment` does.
+
+    AdamX (2609.11867) disables a "Strongly Convex Losses" subsection and two
+    figures that way. pandoc skipped them, so the translation was right, but
+    every count read from flat.tex included them: an extra section in the
+    heading list and a figure numbered 3 that the paper prints as 1.
+    """
+
+    def test_a_block_goes_with_its_contents(self):
+        tex = ('before' + NL + r'\iffalse' + NL +
+               r'\subsection{Strongly Convex Losses}' + NL + r'\fi' + NL +
+               'after')
+        got = mb.strip_tex_comments(tex)
+        self.assertNotIn('Strongly', got)
+        self.assertIn('before', got)
+        self.assertIn('after', got)
+
+    def test_line_positions_do_not_move(self):
+        tex = 'a' + NL + r'\iffalse' + NL + 'x' + NL + r'\fi' + NL + 'b'
+        got = mb.drop_false_conditionals(tex)
+        self.assertEqual(got.count(NL), tex.count(NL))
+        self.assertEqual(got.split(NL)[-1], 'b')
+
+    def test_the_else_branch_is_kept(self):
+        got = mb.drop_false_conditionals(
+            r'\iffalse hidden \else shown \fi end')
+        self.assertNotIn('hidden', got)
+        self.assertIn('shown', got)
+        self.assertIn('end', got)
+
+    def test_a_nested_conditional_does_not_end_the_block(self):
+        # The inner \fi closes the inner \ifx, not the \iffalse.
+        got = mb.drop_false_conditionals(
+            r'\iffalse a \ifx\x\y b \fi c \fi d')
+        self.assertEqual(got.split(), ['d'])
+
+    def test_the_maths_arrow_is_not_a_conditional(self):
+        # `\iff` opening a level would swallow everything after the block.
+        got = mb.drop_false_conditionals(
+            r'\iffalse $p \iff q$ \fi kept')
+        self.assertEqual(got.split(), ['kept'])
+
+    def test_ifthenelse_and_newif_open_nothing(self):
+        got = mb.drop_false_conditionals(
+            r'\iffalse \ifthenelse{1=1}{a}{b} \newif\ifdraft \fi kept')
+        self.assertEqual(got.split(), ['kept'])
+
+    def test_an_unmatched_iffalse_deletes_nothing(self):
+        tex = r'\iffalse' + NL + r'\section{Everything after}' + NL + 'more'
+        self.assertEqual(mb.drop_false_conditionals(tex), tex)
+
+    def test_a_longer_command_is_not_a_fi_or_an_else(self):
+        # \fill and \elsewhere are words, not the tokens that end a block.
+        got = mb.drop_false_conditionals(
+            r'\iffalse \fill \elsewhere x \fi kept')
+        self.assertEqual(got.split(), ['kept'])
+
+    def test_a_commented_iffalse_hides_nothing(self):
+        tex = r'% \iffalse' + NL + r'\section{Shown}' + NL + r'% \fi'
+        self.assertIn('Shown', mb.strip_tex_comments(tex))
+
+
 if __name__ == '__main__':
     unittest.main()

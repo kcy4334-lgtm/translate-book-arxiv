@@ -73,10 +73,16 @@ class WhatTheClassSays(unittest.TestCase):
         being located says nothing about the numbering."""
         self.assertEqual(self.conventions('amsart').get('run_in_level'), 2)
 
+    def test_llncs_sets_its_subsubsection_run_in(self):
+        """Measured on AdamX (2609.11867), the first llncs paper here: the
+        PDF prints `Baseline Algorithms To evaluate AdamX, ...` on one line.
+        Until that paper, llncs sat in the list below, and rightly."""
+        self.assertEqual(self.conventions('llncs').get('run_in_level'), 3)
+
     def test_a_class_nobody_measured_says_nothing(self):
         """Silence is the right answer for a class no paper here uses.
         Guessing one would put an unverified rule in front of every book."""
-        for cls in ('article', 'llncs', 'sig-alternate', 'elsarticle'):
+        for cls in ('article', 'sig-alternate', 'elsarticle'):
             self.assertEqual(self.conventions(cls), {}, cls)
 
     def test_class_options_do_not_hide_the_name(self):
