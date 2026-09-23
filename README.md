@@ -4,7 +4,7 @@ An agent skill for Codex, Claude Code, and OpenClaw that turns an arXiv paper in
 
 [<img src="assets/demo/03-table.png" alt="Left: Table 1 on page 7 of arXiv:2609.11801. Right: the same table on page 12 of the Korean book built from its LaTeX source, every number and every plus-minus sign unchanged.">](assets/demo/03-table.png)
 
-<sub>Left: page 7 of arXiv:2609.11801, *Thinking with Looped Flows* (CC BY 4.0). Right: page 12 of the Korean book this skill built from the paper's LaTeX source. Every number in Table 1 is the paper's, and so is every `±`. **The whole book, 29 pages: [`looped-flows_ko.pdf`](https://github.com/kcy4334-lgtm/translate-book-arxiv/releases/download/v0.4.1/looped-flows_ko.pdf).** The equations: [`02-math.png`](assets/demo/02-math.png). Source and licence: [`assets/demo`](assets/demo/README.md).</sub>
+<sub>Left: page 7 of arXiv:2609.11801, *Thinking with Looped Flows* (CC BY 4.0). Right: page 12 of the Korean book this skill built from the paper's LaTeX source. Every number in Table 1 is the paper's, and so is every `±`. **The whole book, 29 pages: [`looped-flows_ko.pdf`](https://github.com/kcy4334-lgtm/translate-book-arxiv/releases/download/v0.4.2/looped-flows_ko.pdf).** The equations: [`02-math.png`](assets/demo/02-math.png). Source and licence: [`assets/demo`](assets/demo/README.md).</sub>
 
 ```bash
 npx skills add kcy4334-lgtm/translate-book-arxiv -a claude-code -g
