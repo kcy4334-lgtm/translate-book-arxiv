@@ -2,6 +2,16 @@
 
 An agent skill for Codex, Claude Code, and OpenClaw that turns an arXiv paper into a translated, printable book, reading the paper's **LaTeX source**, so the equations, figures, tables and the paper's own numbering survive the trip. PDF, DOCX and EPUB inputs are supported too, through Calibre.
 
+[<img src="assets/demo/03-table.png" alt="Left: Table 1 on page 7 of arXiv:2609.11801. Right: the same table on page 12 of the Korean book built from its LaTeX source, every number and every plus-minus sign unchanged.">](assets/demo/03-table.png)
+
+<sub>Left: page 7 of arXiv:2609.11801, *Thinking with Looped Flows* (CC BY 4.0). Right: page 12 of the Korean book this skill built from the paper's LaTeX source. Every number in Table 1 is the paper's, and so is every `±`. The equations: [`02-math.png`](assets/demo/02-math.png). Source and licence: [`assets/demo`](assets/demo/README.md).</sub>
+
+```bash
+npx skills add kcy4334-lgtm/translate-book-arxiv -a claude-code -g
+```
+
+Then ask for it: *"translate /path/to/paper.pdf to Korean"*. An arXiv preprint is recognised from its first page, and the agent asks before it downloads the source. Other agents and a manual install are in [Quick Start](#quick-start).
+
 Translating a paper from its PDF means translating what a PDF reader can recover from it, and a formula is the first thing that does not survive: `pdftohtml` scatters every equation into positioned text spans, and no flag brings it back. This skill fetches the LaTeX the authors actually wrote.
 
 Target language is a flag: `zh`, `en`, `ja`, `ko`, `fr`, `de`, `es` and extensible. Korean is what it is measured against, and the print layout ships with Korean typography already tuned.
@@ -64,10 +74,15 @@ method names are translated while every number, unit and citation is not, the
 body font is chosen per script, and the line breaking follows each language's
 own rules.
 
-**The page is written for this repository; the work it cites is real.** An
-arXiv paper is its authors' work and this project has no licence to republish
-a page of one, so the sample is a short paper of our own, with invented
-results and citations to the papers a real one would cite. It lives at
+**The page is written for this repository; the work it cites is real.** It is
+a short paper of our own, with invented results and citations to the papers a
+real one would cite, so one page can be shown in seven languages without
+resting on any one paper's licence. The real paper is the one at the top: an
+arXiv paper under CC BY may be translated and republished with attribution,
+and one under arXiv's default licence may not. arXiv states which in the
+`<license>` field of its OAI-PMH record; the Atom API carries no licence
+field at all, so a check built on it reports every paper as unlicensed. The
+sample lives at
 `tests/fixtures/sample_page.md`, with each translation checked in beside it as
 `sample_page.<lang>.md`. Regenerate every image with
 
