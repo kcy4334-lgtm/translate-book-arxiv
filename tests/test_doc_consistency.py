@@ -231,17 +231,17 @@ def suite_size():
 
 # (label, what the repository actually holds, how the docs spell the claim,
 #  how many places spell it). Patterns stay on one line: a claim is always
-#  written next to the thing it counts.
+#  written next to the thing it counts. The README states each count once,
+#  in the stores table under "Growing the skill"; it used to repeat them in
+#  a second table, which is one more place for a number to go stale.
 CLAIMS = [
     ('KNOWLEDGE.md entries', lambda: entry_count('KNOWLEDGE.md', 'K'),
-     r'`KNOWLEDGE\.md`[^\n]{0,80}?(\d[\d,]*)', 2),
+     r'`KNOWLEDGE\.md`[^\n]{0,80}?(\d[\d,]*)', 1),
     ('KNOWHOW.md entries', lambda: entry_count('KNOWHOW.md', 'H'),
-     r'`KNOWHOW\.md`[^\n]{0,80}?(\d[\d,]*)', 2),
+     r'`KNOWHOW\.md`[^\n]{0,80}?(\d[\d,]*)', 1),
     ('REFEREE.md entries', lambda: entry_count('REFEREE.md', 'R'),
-     r'`REFEREE\.md`[^\n]{0,80}?(\d[\d,]*)', 2),
-    ('corpus papers, in the census sentence', corpus_papers,
-     r'corpus has met across (\d[\d,]*) papers', 1),
-    ('corpus papers, in the structure table', corpus_papers,
+     r'`REFEREE\.md`[^\n]{0,80}?(\d[\d,]*)', 1),
+    ('corpus papers, in the stores table', corpus_papers,
      r'`corpus/shapes\.json`[^\n]{0,140}?(\d[\d,]*) papers', 1),
     ('tests', suite_size, r'\*\*Tests\*\*[^\n]{0,20}?(\d[\d,]*)', 1),
 ]
