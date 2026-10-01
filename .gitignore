@@ -1,0 +1,33 @@
+# Translation temp directories
+*_temp/
+
+# Who consulted whom, on THIS machine. Unlike corpus/shapes.json and
+# referee/runs.json — which are knowledge about the papers, and are what the
+# advisors reason from — this is local process metadata. Shipping it would
+# tell a recipient that old-man has been consulted once when they have
+# consulted nobody, hiding the exact state `advisors.py status` exists to show.
+advisors/consults.jsonl
+
+# Full-pipeline test artifacts
+tests/.artifacts/*
+!tests/.artifacts/.gitkeep
+!tests/.artifacts/README.md
+
+# OS files
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+
+# Calibre intermediates
+*.htmlz
+
+# Local AI agent / tooling configs and caches
+.agents/
+.claude/*
+!.claude/commands/
+# The two advisors ship with the skill: SKILL.md says when to call them, and
+# these files are what they say when you do.
+!.claude/agents/
+_bmad/

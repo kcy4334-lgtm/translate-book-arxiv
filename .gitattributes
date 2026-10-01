@@ -1,0 +1,21 @@
+# Text is stored as LF and checked out as LF everywhere, Windows included.
+#
+# This project has already been bitten by the alternative. `normalize_newlines`
+# in `scripts/arxiv_backend.py` exists because a CRLF that survives into
+# pandoc's output gets written as `\r\r\n`, which reads back as a blank line —
+# and a blank line inside `$$` display maths terminates the formula, so the
+# prose after it is swallowed as maths. CI runs on Ubuntu; a working copy that
+# differs from CI in line endings is a class of bug nobody needs.
+* text=auto eol=lf
+
+# Archives and images. Never convert these.
+*.epub binary
+*.zip  binary
+*.pdf  binary
+*.jpg  binary
+*.jpeg binary
+*.png  binary
+*.gif  binary
+*.docx binary
+*.ttf  binary
+*.otf  binary
