@@ -157,6 +157,11 @@ def manifest(version, description):
         'author': {'name': 'kcy4334-lgtm', 'url': 'https://github.com/kcy4334-lgtm'},
         'homepage': REPO_URL,
         'repository': REPO_URL,
+        # Read by Anthropic's directory, not by Claude Code (which strips
+        # unknown keys). Without supportUrl the directory took the first
+        # issues link in the README, which is the upstream project's.
+        'supportUrl': REPO_URL + '/issues',
+        'documentationUrl': REPO_URL + '#readme',
         'license': 'MIT',
         'keywords': ['translation', 'arxiv', 'latex', 'pdf', 'epub',
                      'academic-papers', 'multilingual'],
