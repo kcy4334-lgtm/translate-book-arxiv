@@ -3,13 +3,18 @@ description: Release a new version to GitHub
 argument-hint: <semver, e.g. 0.3.0>
 ---
 
-Release version `$1` by running these two commands in order. Stop and report
-immediately if either step fails, do not attempt to recover automatically.
+Release version `$1` by running these commands in order. Stop and report
+immediately if any step fails, do not attempt to recover automatically.
 
 ```bash
 git push origin main
 git tag v$1 && git push --tags
+python tools/build_plugin_branch.py && git push origin claude-plugin
 ```
+
+The third line refreshes the branch Anthropic's plugin directory follows. It
+builds from the tag the second line made, and the directory publishes the new
+version from there.
 
 `$1` is bare semver (e.g. `0.3.0`). The `v` prefix is applied only to the git
 tag.

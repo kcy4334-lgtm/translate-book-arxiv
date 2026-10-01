@@ -206,6 +206,28 @@ python tests/layout_probe.py --strict
 python -m unittest discover -s tests -p "test_*.py"
 ```
 
+## What it runs, fetches and writes
+
+Everything the skill does outside your agent's own conversation:
+
+- **Fetches** one thing over the network: an arXiv paper's LaTeX source,
+  `https://arxiv.org/e-print/<id>`, and only after asking you. The request
+  carries the user agent `translate-book/1.0` and nothing about you; the
+  download is cached in the working folder, so a resumed run does not fetch
+  it again. Nothing else is downloaded.
+- **Sends** nothing. There is no telemetry and no upload. The translation is
+  done by your agent's own model, in its own sub-agents.
+- **Runs** its bundled Python scripts, Pandoc, Calibre's `ebook-convert`, and
+  a headless Chromium, Chrome or Edge to print the PDF.
+- **Writes** its working files and the finished book into `<book>_temp/`, in
+  the current directory or under the `temp_root` you name. When a run teaches
+  it something, it appends to its own logs inside the skill folder
+  (`KNOWLEDGE.md`, `KNOWHOW.md`, `REFEREE.md`, `referee/runs.json`,
+  `corpus/shapes.json`), and it records which advisors were consulted in
+  `advisors/consults.jsonl` there.
+  `scripts/install_advisors.py` copies the four advisor definitions to
+  `~/.claude/agents/`, and only when you run it yourself.
+
 ## Quick Start
 
 ### 1. Install the skill
@@ -331,10 +353,22 @@ python -m unittest discover -s tests -p "test_*.py"
 there under the name `translate-book`. This repository does not, and publishing
 a fork under a name someone else owns is not ours to do.
 
-Built books are not attached as release assets. A translated paper is a
-derivative of somebody else's work, and this project has no licence to
-redistribute one. The per-language samples above are written for this
-repository precisely so that they can be shown without that question arising.
+**Anthropic's plugin directory follows the `claude-plugin` branch**, not
+`main`. The directory refuses a file over 5 MiB and holds binaries for review,
+and `main` carries test books the suite needs, so the branch is built from the
+tag with only the files the skill runs on plus `.claude-plugin/plugin.json`.
+After tagging:
+
+```bash
+python tools/build_plugin_branch.py && git push origin claude-plugin
+```
+
+A built book is attached to a release only when the paper's licence allows a
+derivative to be redistributed. `looped-flows_ko.pdf` on v0.4.2 is from a CC BY
+4.0 paper; a paper under arXiv's default licence gives no such right, and its
+translation is never attached. The per-language samples above are written for
+this repository precisely so that they can be shown without that question
+arising.
 
 Pull requests are not the preferred contribution path and may be closed in favor of an issue. If you already have a patch, include the idea, key diff, failing case, or verification notes in the issue; the maintainer may rework or split the implementation before merging.
 
