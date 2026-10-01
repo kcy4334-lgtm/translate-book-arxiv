@@ -9,6 +9,8 @@
   },
   "homepage": "https://github.com/kcy4334-lgtm/translate-book-arxiv",
   "repository": "https://github.com/kcy4334-lgtm/translate-book-arxiv",
+  "supportUrl": "https://github.com/kcy4334-lgtm/translate-book-arxiv/issues",
+  "documentationUrl": "https://github.com/kcy4334-lgtm/translate-book-arxiv#readme",
   "license": "MIT",
   "keywords": [
     "translation",
