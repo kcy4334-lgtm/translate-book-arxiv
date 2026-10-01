@@ -1,7 +1,7 @@
 ---
 name: translate-book
 description: Translate an arXiv paper, or any PDF/DOCX/EPUB book, into any language as a printable book. For arXiv papers it reads the LaTeX source, so equations, tables, figures and numbering survive. Parallel sub-agents translate the chunks; output is HTML, DOCX, EPUB and PDF.
-allowed-tools: Read, Write, Edit, Bash, Glob, Grep, Agent, AskUserQuestion
+allowed-tools: Read, Write, Edit, Bash(python *), Bash(python3 *), Bash(grep *), Bash(echo *), Glob, Grep, Agent, AskUserQuestion
 metadata: {"openclaw":{"requires":{"bins":["python","pandoc","ebook-convert"],"anyBins":["calibre","ebook-convert"]},"homepage":"https://github.com/kcy4334-lgtm/translate-book-arxiv"}}
 ---
 

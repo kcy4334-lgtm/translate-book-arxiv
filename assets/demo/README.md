@@ -2,14 +2,13 @@
 
 Each image puts one page of the source paper next to the page of the Korean
 book built from it, at the same scale. They are rendered, not composed by
-hand: `01-title.png` is page 1 against page 1, `02-math.png` is the Background
-section, `03-table.png` is Table 1.
+hand.
 
-| File | Source page | Book page | What it shows |
+| Strip | Source page | Book page | What it shows |
 |---|---|---|---|
-| `01-title.png` | 1 | 1 | Title, authors and abstract |
-| `02-math.png` | 3 | 5 | Equations stay equations, and keep the paper's numbers |
-| `03-table.png` | 7 | 12 | Table 1, every number and every `±` unchanged |
+| ![Page 1 of the paper beside page 1 of the Korean book](01-title.png) | 1 | 1 | Title, authors and abstract |
+| ![The Background section beside its Korean page, equations (1) and (2) intact](02-math.png) | 3 | 5 | Equations stay equations, and keep the paper's numbers |
+| ![Table 1 of the paper beside Table 1 of the Korean book](03-table.png) | 7 | 12 | Table 1, every number and every `±` unchanged |
 
 ## Source and licence
 
