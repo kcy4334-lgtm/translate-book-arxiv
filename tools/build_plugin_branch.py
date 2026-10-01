@@ -162,6 +162,10 @@ def manifest(version, description):
         # issues link in the README, which is the upstream project's.
         'supportUrl': REPO_URL + '/issues',
         'documentationUrl': REPO_URL + '#readme',
+        # The README section that lists everything the skill reads, fetches,
+        # sends and writes; the directory's compliance step asks the submitter
+        # to confirm the privacy policy describes exactly that.
+        'privacyPolicyUrl': REPO_URL + '#what-it-runs-fetches-and-writes',
         'license': 'MIT',
         'keywords': ['translation', 'arxiv', 'latex', 'pdf', 'epub',
                      'academic-papers', 'multilingual'],
