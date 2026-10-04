@@ -101,6 +101,14 @@ class WorkflowWiringTests(unittest.TestCase):
                         self.skill.index("### 1. Collect Parameters"),
                         "the pointer must come before the workflow, not after it")
 
+    def test_machine_check_runs_before_conversion(self):
+        # Without it, a missing pandoc or browser is found at the build,
+        # after every chunk has already been translated.
+        step0 = self.skill.index("### 0. Check the Machine")
+        step1 = self.skill.index("### 1. Collect Parameters")
+        self.assertLess(step0, step1)
+        self.assertIn("scripts/doctor.py --strict", self.skill[step0:step1])
+
     def test_recording_is_a_numbered_step(self):
         self.assertIn("### 9. Record What You Learned", self.skill)
 

@@ -165,6 +165,28 @@ they read, they do not run the pipeline.
 
 ## Workflow
 
+### 0. Check the Machine
+
+Before anything else, run:
+
+```bash
+python {baseDir}/scripts/doctor.py --strict
+```
+
+It takes about a second and lists every component with `OK`, `MISSING` or
+`absent`.
+
+- **Exit 1 (a `MISSING` line):** stop here. Tell the user which components
+  are missing, quote the reason `doctor.py` prints under each, and point them
+  to the Prerequisites section of the README. Do not convert or translate
+  anything yet. A missing pandoc or browser otherwise surfaces only at the
+  build, after every chunk has been translated.
+- **Exit 0 with `absent` lines:** carry on, and say what each one costs. A
+  missing font for the target language changes the line breaks and the page
+  count. Missing advisor sub-agents mean `python
+  {baseDir}/scripts/install_advisors.py` has not been run, so the four
+  advisors below cannot be called; offer to run it.
+
 ### 1. Collect Parameters
 
 Determine the following from the user's message:
