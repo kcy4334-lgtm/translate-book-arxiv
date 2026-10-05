@@ -119,6 +119,23 @@ def is_excluded(path):
     return path in EXCLUDE_FILES or path.startswith(EXCLUDE_PREFIXES)
 
 
+def plugin_agents(entries):
+    """The shipped agent definitions again, at the plugin's `agents/`.
+
+    Claude Code loads a plugin's sub-agents from `agents/` at its root, as
+    `translate-book-arxiv:<name>`. The skill keeps them in `.claude/agents/`,
+    where no runtime looks, and as a plain skill they have to be copied to
+    `~/.claude/agents/` by `install_advisors.py`. A directory install never
+    runs that script, so without this its chunks went to general-purpose
+    agents and its advisors could not be called at all.
+    """
+    out = []
+    for mode, sha, size, path in entries:
+        if path.startswith('.claude/agents/') and path.endswith('.md')                 and path.count('/') == 2:
+            out.append((mode, sha, size, 'agents/' + path.rsplit('/', 1)[-1]))
+    return out
+
+
 def check(entries):
     """Refuse what the directory would refuse; list what it would hold."""
     errors, held = [], []
@@ -236,6 +253,7 @@ def main(argv=None):
     tag, version = resolve_tag(args.ref)
     tag_sha = git_text('rev-parse', '%s^{commit}' % tag)
     entries = [e for e in tree_entries(tag) if not is_excluded(e[3])]
+    entries += plugin_agents(entries)
 
     errors, held = check(entries)
     if errors:

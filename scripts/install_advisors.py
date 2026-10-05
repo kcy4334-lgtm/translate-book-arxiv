@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 r"""Put the advisors where a runtime will actually find them.
 
-The four advisor definitions ship inside this skill, at
-`<skill>/.claude/agents/`. No runtime searches that path: sub-agents are
+The four advisor definitions, and the translator each chunk is dispatched
+to, ship inside this skill, at `<skill>/.claude/agents/`. No runtime searches that path: sub-agents are
 discovered in `~/.claude/agents/` and in `<project>/.claude/agents/`. Left
 where they ship, the advisors cannot be called at all — which is the state the
 first ten papers were translated in, with nothing anywhere reporting it.
@@ -120,7 +120,7 @@ def main():
     installed, up_to_date, conflicts = install(dest, force=args.force,
                                                dry_run=args.dry_run)
     verb = 'would install' if args.dry_run else 'installed'
-    print('Advisor definitions -> %s' % dest)
+    print('Agent definitions -> %s' % dest)
     for name in installed:
         print('   %s %s' % (verb, name))
     for name in up_to_date:

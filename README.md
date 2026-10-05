@@ -76,7 +76,7 @@ This page was written for the repository, with made-up results, so it can be sho
 - **Resumable**: SHA-256 hashes in a manifest keep stale outputs out of the merge, and a changed glossary re-translates only the chunks that used the changed terms
 - **Print-ready PDF**: headless Chromium against a real `@page` box (A4, 18/18/22/18 mm, 11.5 pt), page numbers stamped afterwards because Chrome has no margin boxes. `scripts/layout.py` holds the page geometry and fonts
 - **Output**: HTML with a floating TOC, DOCX, EPUB and PDF, with an optional EPUB cover, working folder and export name
-- **Tests**: 2,269, standard library only, run in CI
+- **Tests**: 2,275, standard library only, run in CI
 
 ## Growing the skill
 
@@ -156,8 +156,9 @@ Everything the skill does outside your agent's own conversation:
   (`KNOWLEDGE.md`, `KNOWHOW.md`, `REFEREE.md`, `referee/runs.json`,
   `corpus/shapes.json`), and it records which advisors were consulted in
   `advisors/consults.jsonl` there.
-  `scripts/install_advisors.py` copies the four advisor definitions to
-  `~/.claude/agents/`, and only when you run it yourself.
+  `scripts/install_advisors.py` copies the four advisor definitions and the
+  translator agent to `~/.claude/agents/`, and only when you run it yourself.
+  Installed as a plugin, the plugin carries them instead.
 
 ## Quick Start
 
@@ -293,7 +294,7 @@ A temp dir belongs to one run. After changing the title, author, language, templ
 |------|---------|
 | `SKILL.md` | The skill definition the agent follows |
 | `KNOWLEDGE.md`, `KNOWHOW.md`, `REFEREE.md` | The logs described under [Growing the skill](#growing-the-skill) |
-| `.claude/agents/` | The four advisors: `old-man.md`, `question-monster.md`, `fast-finder.md`, `referee.md` |
+| `.claude/agents/` | The four advisors: `old-man.md`, `question-monster.md`, `fast-finder.md`, `referee.md`; and `translator.md`, the agent each chunk is translated by |
 | `scripts/convert.py` | PDF/DOCX/EPUB to Markdown chunks |
 | `scripts/backends.py` | Chooses the calibre or arXiv path and records which one built the temp dir |
 | `scripts/arxiv_backend.py` | The arXiv path: fetch, flatten, convert with pandoc, figures from the originals |
@@ -325,7 +326,7 @@ A temp dir belongs to one run. After changing the title, author, language, templ
 | `scripts/corpus_census.py` | The census of LaTeX constructs per paper; `digest` shows frequencies and what has never been seen |
 | `scripts/referee.py` | `tally`, `record`, `history`: failures across chunks and books |
 | `scripts/advisors.py` | Records which advisor was consulted, on what, and what it said |
-| `scripts/install_advisors.py` | Copies the advisor definitions to `~/.claude/agents/` |
+| `scripts/install_advisors.py` | Copies the advisor and translator definitions to `~/.claude/agents/` |
 | `corpus/shapes.json`, `referee/runs.json` | The census and the referee's run history |
 | `tests/` | The test suite, the probes listed under [Verifying a build](#verifying-a-build), and baseline books in `tests/baselines/` |
 

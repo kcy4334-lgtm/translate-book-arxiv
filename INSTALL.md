@@ -29,11 +29,13 @@ project's `.claude/skills/translate-book/` instead of the home directory.
 
 ## 2b. Install the advisors; they do NOT travel with the skill
 
-Four advisor sub-agents ship inside this folder at
-`translate-book/.claude/agents/`. **No runtime searches that path.** Claude
-Code looks for sub-agents in your home directory and in the project you are
-working in (never inside a skill) so left where they are, the four cannot be
-called at all. Copy them out:
+Four advisor sub-agents, and the translator every chunk is sent to, ship
+inside this folder at `translate-book/.claude/agents/`. **No runtime searches
+that path.** Claude Code looks for sub-agents in your home directory and in
+the project you are working in (never inside a skill) so left where they are,
+none of them can be called. Without the translator each chunk runs as a
+general-purpose agent, which uses about twice the tokens. Copy
+them out:
 
 From the skill folder, run:
 
@@ -41,12 +43,15 @@ From the skill folder, run:
 python scripts/install_advisors.py
 ```
 
-It copies the four definitions into `~/.claude/agents/`, is safe to re-run,
+It copies the five definitions into `~/.claude/agents/`, is safe to re-run,
 and refuses to overwrite a file of the same name it did not put there: if you
 already have an agent called `referee`, it says so and leaves yours alone
 rather than silently replacing it. `--force` overrides that; `--dry-run` shows
 what would happen; `--project <path>` installs into one project instead of your
 home directory.
+
+Installed as a plugin from Anthropic's plugin directory, skip this step: the
+plugin carries all five, under names that start with `translate-book-arxiv:`.
 
 Then confirm:
 

@@ -155,6 +155,65 @@ def check_font(needles, why, fonts):
     return bool(hit), hit, why
 
 
+SKILL_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+SHIPPED_AGENTS = os.path.join(SKILL_ROOT, '.claude', 'agents')
+TRANSLATOR = 'translator.md'
+
+
+def _installed_copy(name):
+    """Where a runtime will load this agent definition from, or None.
+
+    Installed as a plugin, the skill's root is the plugin's root, and the
+    definitions sit in its `agents/` folder, which Claude Code loads with the
+    plugin; nothing has to be copied. Installed as a plain skill, they have to
+    be copied to `~/.claude/agents/`.
+    """
+    for path in (os.path.join(SKILL_ROOT, 'agents', name),
+                 os.path.join(os.path.expanduser('~'), '.claude', 'agents',
+                              name)):
+        if os.path.isfile(path):
+            return path
+    return None
+
+
+def _installed(names):
+    """(found, stale) for these shipped definitions."""
+    found, stale = [], []
+    for name in names:
+        target = _installed_copy(name)
+        if target is None:
+            continue
+        found.append(name)
+        try:
+            if not filecmp.cmp(os.path.join(SHIPPED_AGENTS, name), target,
+                               shallow=False):
+                stale.append(name)
+        except OSError:
+            stale.append(name)
+    return found, stale
+
+
+def check_translator():
+    """The agent each chunk is translated by.
+
+    Without it the skill falls back to a general-purpose agent, which starts
+    with every tool in the session. On the same chunk it started with 22,555
+    tokens of context against the translator's 9,636 and used over twice the
+    tokens in all, for the same output.
+    """
+    why = ('without it each chunk runs as a general-purpose agent, which '
+           'uses about twice the tokens; `python '
+           'scripts/install_advisors.py` installs it with the advisors')
+    if not os.path.isfile(os.path.join(SHIPPED_AGENTS, TRANSLATOR)):
+        return False, 'not shipped', why
+    found, stale = _installed([TRANSLATOR])
+    if not found:
+        return False, 'not installed', why
+    if stale:
+        return False, 'installed, out of date', why
+    return True, 'installed and current', why
+
+
 def check_advisors():
     r"""The four advisor definitions, where a runtime will actually find them.
 
@@ -173,15 +232,13 @@ def check_advisors():
            'referee — cannot be called until `python '
            'scripts/install_advisors.py` copies them where the runtime looks; '
            'a brief that changed since it was installed needs `--force`')
-    shipped = os.path.join(os.path.dirname(os.path.dirname(
-        os.path.abspath(__file__))), '.claude', 'agents')
     try:
-        names = sorted(n for n in os.listdir(shipped) if n.endswith('.md'))
+        names = sorted(n for n in os.listdir(SHIPPED_AGENTS)
+                       if n.endswith('.md') and n != TRANSLATOR)
     except OSError:
         return False, 'none shipped', why
     if not names:
         return False, 'none shipped', why
-    dest = os.path.join(os.path.expanduser('~'), '.claude', 'agents')
 
     # Presence was all this asked, and presence is not the question. The four
     # briefs were installed once and then edited here four times; the runtime
@@ -189,18 +246,7 @@ def check_advisors():
     # while, so a referee brief corrected on the 6th never reached a session.
     # `install_advisors.py` refuses to overwrite what it did not put there, so
     # nothing else was ever going to notice either.
-    found, stale = [], []
-    for name in names:
-        target = os.path.join(dest, name)
-        if not os.path.isfile(target):
-            continue
-        found.append(name)
-        try:
-            if not filecmp.cmp(os.path.join(shipped, name), target,
-                               shallow=False):
-                stale.append(name)
-        except OSError:
-            stale.append(name)
+    found, stale = _installed(names)
 
     if len(found) < len(names):
         return False, '%d of %d installed' % (len(found), len(names)), why
@@ -225,6 +271,7 @@ def probe(strict=False):
         (RECOMMENDED, 'Calibre ebook-convert', check_calibre()),
         (REQUIRED, 'PyMuPDF', check_pymupdf()),
         (RECOMMENDED, 'advisor sub-agents', check_advisors()),
+        (RECOMMENDED, 'translator sub-agent', check_translator()),
         (RECOMMENDED, 'pypandoc',
          check_module('pypandoc', 'used by the conversion path')),
         (OPTIONAL, 'beautifulsoup4',

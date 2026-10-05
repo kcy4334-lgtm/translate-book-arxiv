@@ -159,9 +159,13 @@ meet a shape `digest` cannot see, add a marker to `MARKERS` in
 `corpus_census.py`: that is how the advisor gets better rather than merely
 busier.
 
-Spawn each with a general-purpose sub-agent; the definitions in
-`.claude/agents/` carry the full prompts. Give them the paths they need;
-they read, they do not run the pipeline.
+Spawn each by its agent name. Installed as a plain skill (by
+`install_advisors.py`) the names are `old-man`, `question-monster`,
+`fast-finder` and `referee`; installed as a plugin they carry its name,
+`translate-book-arxiv:old-man` and so on. Use whichever form your list of
+agent types shows. Give them the paths they need; they read, they do not run
+the pipeline. If neither form is listed, they are not installed: Step 0
+reports that, and `install_advisors.py` fixes it.
 
 ## Workflow
 
@@ -183,9 +187,11 @@ It takes about a second and lists every component with `OK`, `MISSING` or
   build, after every chunk has been translated.
 - **Exit 0 with `absent` lines:** carry on, and say what each one costs. A
   missing font for the target language changes the line breaks and the page
-  count. Missing advisor sub-agents mean `python
-  {baseDir}/scripts/install_advisors.py` has not been run, so the four
-  advisors below cannot be called; offer to run it.
+  count. A missing advisor or translator sub-agent means `python
+  {baseDir}/scripts/install_advisors.py` has not been run (a plugin install
+  brings them with it): the four advisors below cannot be called, and every
+  chunk costs about twice the tokens. Offer to run it; the new agents
+  load when the next session starts.
 - **Calibre `absent`:** an arXiv paper read from its LaTeX source still
   builds its PDF and DOCX, and the build skips the EPUB. Say so and carry on.
   A PDF, DOCX or EPUB input cannot be converted without Calibre, so for one
@@ -486,6 +492,18 @@ glossary before recording would file the wrong version. Nothing else has to
 wait for that chunk.
 
 **Spawn each sub-agent with the following task.** Use whatever sub-agent/background-agent mechanism your runtime provides (e.g. the Agent tool, sessions_spawn, or equivalent).
+
+**Dispatch every chunk to the `translator` agent**: `translator` installed as
+a plain skill, `translate-book-arxiv:translator` installed as a plugin; use
+whichever your list of agent types shows. A general-purpose agent starts with
+every tool in the session. Measured on one paper, that was about 27,000 tokens
+of context before it read a word, paid again on every turn; the advisors,
+whose tool lists are as short as the translator's, start at about 6,000.
+Translating the same chunk both ways, the translator used under half the
+tokens of a general-purpose agent and kept the same 41 placeholders. Only
+if neither name is listed, dispatch general-purpose agents and tell the user
+that `python {baseDir}/scripts/install_advisors.py` makes the next run
+cheaper.
 
 **Chunks that must NOT be translated.** The reference list is kept as
 published (author names, titles and venues have to stay looked-up-able) and
@@ -962,8 +980,8 @@ Find out whether this paper is affected:
 python {baseDir}/tests/format_probe.py "<temp_dir>" --lang <target_lang>
 ```
 
-If it reports untranslated captions, run one sub-agent per file that holds
-tables (`chunkNNNN.math.json` for placeheld floats, `output_chunkNNNN.md` for
+If it reports untranslated captions, run one `translator` agent (as in
+step 4) per file that holds tables (`chunkNNNN.math.json` for placeheld floats, `output_chunkNNNN.md` for
 inline ones) and have each translate:
 
 - the body of `\caption{...}` (and its optional `[...]` argument),
