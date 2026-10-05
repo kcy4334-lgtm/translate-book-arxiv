@@ -8252,6 +8252,12 @@ def add_toc(temp_dir, lang_cfg=None):
 # Step 7: Generate DOCX/EPUB/PDF with error transparency
 # =============================================================================
 
+def calibre_available():
+    """True when Calibre's ebook-convert can be found."""
+    import calibre_html_publish
+    return bool(calibre_html_publish.find_calibre_convert())
+
+
 def generate_format(html_file, temp_dir, output_ext, lang_attr, cover=None,
                     pdf_engine='chromium', print_cfg=None):
     """Generate a specific format.
@@ -8639,6 +8645,15 @@ def generate_formats(temp_dir, lang_attr, cover=None, title=None, author=None,
                             if docx else ('FAILED', ''))
 
     for ext in ['.epub', '.pdf']:
+        # Calibre is the only EPUB writer, and on the arXiv path it is the
+        # only thing Calibre is used for. A machine without it still gets the
+        # PDF and DOCX, so a missing Calibre skips the EPUB rather than
+        # failing a build whose PDF came out fine.
+        if ext == '.epub' and not calibre_available():
+            print("Skipping .epub - Calibre ebook-convert is not installed "
+                  "(https://calibre-ebook.com/)")
+            results[ext] = ('SKIPPED', 'Calibre is not installed')
+            continue
         result = generate_format(html_file, temp_dir, ext, lang_attr, cover=cover,
                                  pdf_engine=pdf_engine, print_cfg=print_cfg)
         if result:
@@ -8654,7 +8669,7 @@ def generate_formats(temp_dir, lang_attr, cover=None, title=None, author=None,
     print("\nFormat results:")
     has_failures = False
     for ext, (status, detail) in results.items():
-        if status == 'OK':
+        if status in ('OK', 'SKIPPED'):
             print(f"  {ext}: {status} ({detail})")
         else:
             print(f"  {ext}: {status}")

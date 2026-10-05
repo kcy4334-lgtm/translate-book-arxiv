@@ -76,7 +76,7 @@ This page was written for the repository, with made-up results, so it can be sho
 - **Resumable**: SHA-256 hashes in a manifest keep stale outputs out of the merge, and a changed glossary re-translates only the chunks that used the changed terms
 - **Print-ready PDF**: headless Chromium against a real `@page` box (A4, 18/18/22/18 mm, 11.5 pt), page numbers stamped afterwards because Chrome has no margin boxes. `scripts/layout.py` holds the page geometry and fonts
 - **Output**: HTML with a floating TOC, DOCX, EPUB and PDF, with an optional EPUB cover, working folder and export name
-- **Tests**: 2,264, standard library only, run in CI
+- **Tests**: 2,269, standard library only, run in CI
 
 ## Growing the skill
 
@@ -118,7 +118,7 @@ Run `python scripts/doctor.py --strict` first. It reports what is installed and 
 - **Python 3.8+**
 - **Pandoc**: every Markdown and HTML conversion goes through it ([download](https://pandoc.org/))
 - **Chromium, Chrome or Edge**: prints the PDF. Set `TRANSLATE_BOOK_CHROME` if yours is somewhere the finder does not look
-- **Calibre**: `ebook-convert`, for EPUB and for PDF/DOCX/EPUB input ([download](https://calibre-ebook.com/))
+- **Calibre**: `ebook-convert`, for EPUB output and for PDF/DOCX/EPUB input ([download](https://calibre-ebook.com/)). An arXiv paper builds its PDF and DOCX without it; only the EPUB is skipped
 - **PyMuPDF** (`pip install pymupdf`): stamps page numbers, and every probe that reads a PDF needs it
 - **pypandoc** (`pip install pypandoc`): used by the conversion path
 - **beautifulsoup4**: optional, for a better table of contents

@@ -79,7 +79,9 @@ def check_calibre():
         exe = None
     exe = exe or shutil.which('ebook-convert')
     if not exe:
-        return False, None, 'EPUB output and the calibre ingest backend'
+        return False, None, ('EPUB output, and any input that is not an arXiv '
+                             'paper read from its LaTeX source; an arXiv '
+                             'paper still gets its PDF and DOCX without it')
     return True, os.path.basename(exe), exe
 
 
@@ -216,7 +218,11 @@ def probe(strict=False):
         (REQUIRED, 'Python', check_python()),
         (REQUIRED, 'pandoc', check_pandoc()),
         (REQUIRED, 'Chromium/Chrome/Edge', check_chromium()),
-        (REQUIRED, 'Calibre ebook-convert', check_calibre()),
+        # Not REQUIRED: on the arXiv path Calibre writes only the EPUB, and
+        # the build skips that format when it is absent. A PDF, DOCX or EPUB
+        # input still needs it, and convert.py stops at once without it,
+        # before anything is translated.
+        (RECOMMENDED, 'Calibre ebook-convert', check_calibre()),
         (REQUIRED, 'PyMuPDF', check_pymupdf()),
         (RECOMMENDED, 'advisor sub-agents', check_advisors()),
         (RECOMMENDED, 'pypandoc',
@@ -276,11 +282,17 @@ def probe(strict=False):
     elif missing_other:
         print('Everything required is present. Missing: %s'
               % ', '.join(missing_other))
-        if any('font' in name for name in missing_other):
+        font_missing = any('font' in name for name in missing_other)
+        calibre_missing = 'Calibre ebook-convert' in missing_other
+        if font_missing:
             print('A missing font is not cosmetic: the fallback face has '
                   'different metrics, so the lines break elsewhere and the '
                   'page count of the finished book will not match.')
-        else:
+        if calibre_missing:
+            print('Without Calibre an arXiv paper still builds its PDF and '
+                  'DOCX, with no EPUB. A PDF, DOCX or EPUB input cannot be '
+                  'converted at all until Calibre is installed.')
+        if not font_missing and not calibre_missing:
             print('Nothing here changes the finished book.')
     else:
         print('Everything this pipeline uses is present.')

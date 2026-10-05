@@ -2,7 +2,7 @@
 name: translate-book
 description: Translate an arXiv paper, or any PDF/DOCX/EPUB book, into any language as a printable book. For arXiv papers it reads the LaTeX source, so equations, tables, figures and numbering survive. Parallel sub-agents translate the chunks; output is HTML, DOCX, EPUB and PDF.
 allowed-tools: Read, Write, Edit, Bash(python *), Bash(python3 *), Bash(grep *), Bash(echo *), Glob, Grep, Agent, AskUserQuestion
-metadata: {"openclaw":{"requires":{"bins":["python","pandoc","ebook-convert"],"anyBins":["calibre","ebook-convert"]},"homepage":"https://github.com/kcy4334-lgtm/translate-book-arxiv"}}
+metadata: {"openclaw":{"requires":{"bins":["python","pandoc"]},"homepage":"https://github.com/kcy4334-lgtm/translate-book-arxiv"}}
 ---
 
 # Book Translation Skill
@@ -186,6 +186,10 @@ It takes about a second and lists every component with `OK`, `MISSING` or
   count. Missing advisor sub-agents mean `python
   {baseDir}/scripts/install_advisors.py` has not been run, so the four
   advisors below cannot be called; offer to run it.
+- **Calibre `absent`:** an arXiv paper read from its LaTeX source still
+  builds its PDF and DOCX, and the build skips the EPUB. Say so and carry on.
+  A PDF, DOCX or EPUB input cannot be converted without Calibre, so for one
+  of those stop and ask the user to install it.
 
 ### 1. Collect Parameters
 
@@ -1255,7 +1259,7 @@ This produces in the temp directory:
 - `book.html`: web version with floating TOC
 - `book_doc.html`: ebook version
 - `book.docx`: via pandoc, with editable equations
-- `book.epub`: via Calibre (requires Calibre)
+- `book.epub`: via Calibre; skipped, not failed, when Calibre is not installed
 - `book.pdf`: via headless Chromium, laid out by the `@page` rule and the
   print stylesheet in `template_ebook.html`. Page numbers are stamped into the
   bottom margin by PyMuPDF afterwards, because Chromium implements no `@page`
