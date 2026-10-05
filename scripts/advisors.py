@@ -43,6 +43,11 @@ STORE = os.path.join(STORE_DIR, 'consults.jsonl')
 # DID happen, and the whole point is to see what did not.
 KNOWN = ('old-man', 'question-monster', 'fast-finder', 'referee')
 
+# Shipped beside them but not an advisor: the agent each chunk is translated
+# by. It is dispatched by the pipeline, never consulted, so it has no place in
+# the consultation log or in SKILL.md's advisor sections.
+WORKERS = ('translator',)
+
 
 def _now():
     return datetime.datetime.now().strftime('%Y-%m-%d %H:%M')
@@ -115,6 +120,9 @@ def installed_where(name):
     """
     shipped = os.path.join(SKILL_DIR, '.claude', 'agents')
     candidates = [
+        # Installed as a plugin, the skill's root is the plugin's root and
+        # Claude Code loads the definitions from its `agents/` folder.
+        os.path.join(SKILL_DIR, 'agents', '%s.md' % name),
         os.path.join(os.path.expanduser('~'), '.claude', 'agents',
                      '%s.md' % name),
         os.path.join(os.getcwd(), '.claude', 'agents', '%s.md' % name),

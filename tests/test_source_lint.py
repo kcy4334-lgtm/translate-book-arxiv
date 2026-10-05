@@ -650,7 +650,8 @@ class ShippedAdvisorsAreUsable(unittest.TestCase):
         sys.path.insert(0, SCRIPTS)
         import advisors
         _d, names = self._agents()
-        self.assertEqual(sorted(n[:-3] for n in names),
+        self.assertEqual(sorted(n[:-3] for n in names
+                                if n[:-3] not in advisors.WORKERS),
                          sorted(advisors.KNOWN),
                          'the definitions on disk and advisors.KNOWN disagree; '
                          'status would report an advisor that cannot exist, or '

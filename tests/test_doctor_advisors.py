@@ -53,7 +53,8 @@ class TheAdvisorCheckNoticesASkippedInstall(unittest.TestCase):
             shutil.copy2(str(SHIPPED / name), os.path.join(dest, name))
 
     def shipped_names(self):
-        return sorted(p.name for p in SHIPPED.glob("*.md"))
+        return sorted(p.name for p in SHIPPED.glob("*.md")
+                      if p.name != doctor.TRANSLATOR)
 
     def test_the_skill_ships_four_advisors(self):
         # If this ever changes, the counts in the messages below change with it.

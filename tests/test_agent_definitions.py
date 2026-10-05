@@ -11,6 +11,7 @@ None of this needs a person to notice it, so it should not wait for one.
 """
 import os
 import re
+import sys
 import unittest
 
 SKILL_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -24,6 +25,14 @@ def agent_files():
     if not os.path.isdir(AGENT_DIR):
         return []
     return sorted(f for f in os.listdir(AGENT_DIR) if f.endswith('.md'))
+
+
+def advisor_files():
+    """The shipped definitions that are advisors, not pipeline workers."""
+    sys.path.insert(0, os.path.join(SKILL_DIR, 'scripts'))
+    import advisors
+    return [f for f in agent_files()
+            if os.path.splitext(f)[0] not in advisors.WORKERS]
 
 
 def read(path):
@@ -91,7 +100,7 @@ class SkillDocument(unittest.TestCase):
         self.skill = read(os.path.join(SKILL_DIR, 'SKILL.md'))
 
     def test_the_heading_counts_the_advisors_that_exist(self):
-        n = len(agent_files())
+        n = len(advisor_files())
         self.assertIn('## %s advisors' % COUNT_WORD[n], self.skill,
                       'SKILL.md heading does not say there are %d' % n)
 
@@ -102,7 +111,7 @@ class SkillDocument(unittest.TestCase):
                           'SKILL.md never mentions %s' % stem)
 
     def test_each_one_says_when_to_call_it(self):
-        for name in agent_files():
+        for name in advisor_files():
             stem = os.path.splitext(name)[0]
             head = re.search(r'(?m)^### `%s`.*$' % re.escape(stem), self.skill)
             self.assertIsNotNone(head, '%s has no section' % stem)
