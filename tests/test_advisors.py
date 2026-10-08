@@ -164,14 +164,20 @@ class NotInstalledIsLouderThanNotConsulted(_Store):
         self._cwd = os.getcwd()
         self._empty = tempfile.mkdtemp(prefix='tb-nohome-')
 
+        self._plugin = advisors.PLUGIN_AGENTS
+
     def tearDown(self):
         os.path.expanduser = self._home
         os.chdir(self._cwd)
+        advisors.PLUGIN_AGENTS = self._plugin
         _Store.tearDown(self)
 
     def _pretend_not_installed(self):
         os.path.expanduser = lambda p: p.replace('~', self._empty)
         os.chdir(self._empty)
+        # The plugin branch ships the definitions at `agents/`, where a
+        # plugin install loads them; run from that folder, they are installed.
+        advisors.PLUGIN_AGENTS = os.path.join(self._empty, 'agents')
 
     def test_an_uninstalled_advisor_is_detected(self):
         self._pretend_not_installed()

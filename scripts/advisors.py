@@ -37,6 +37,9 @@ for _stream in (sys.stdout, sys.stderr):
 SKILL_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 STORE_DIR = os.path.join(SKILL_DIR, 'advisors')
 STORE = os.path.join(STORE_DIR, 'consults.jsonl')
+# Installed as a plugin, the skill's root is the plugin's root and Claude Code
+# loads the definitions from its `agents/` folder.
+PLUGIN_AGENTS = os.path.join(SKILL_DIR, 'agents')
 
 # The advisors this skill ships. Listing them here is what lets `status` report
 # an advisor that has never been consulted -- a store alone can only show what
@@ -120,9 +123,7 @@ def installed_where(name):
     """
     shipped = os.path.join(SKILL_DIR, '.claude', 'agents')
     candidates = [
-        # Installed as a plugin, the skill's root is the plugin's root and
-        # Claude Code loads the definitions from its `agents/` folder.
-        os.path.join(SKILL_DIR, 'agents', '%s.md' % name),
+        os.path.join(PLUGIN_AGENTS, '%s.md' % name),
         os.path.join(os.path.expanduser('~'), '.claude', 'agents',
                      '%s.md' % name),
         os.path.join(os.getcwd(), '.claude', 'agents', '%s.md' % name),

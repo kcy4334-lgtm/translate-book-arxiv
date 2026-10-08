@@ -23,7 +23,11 @@ TOOLS_DIR = ROOT / "tools"
 if str(TOOLS_DIR) not in sys.path:
     sys.path.insert(0, str(TOOLS_DIR))
 
-import build_plugin_branch as bpb  # noqa: E402
+# These check the builder, and the plugin folder it writes ships no tools/.
+HAVE_TOOLS = (TOOLS_DIR / "build_plugin_branch.py").is_file()
+NO_TOOLS = "the plugin folder ships no tools/"
+if HAVE_TOOLS:
+    import build_plugin_branch as bpb  # noqa: E402
 
 
 def allowed(text):
@@ -31,6 +35,7 @@ def allowed(text):
     return [t.strip() for t in line.split(",")]
 
 
+@unittest.skipUnless(HAVE_TOOLS, NO_TOOLS)
 class ThePluginSkill(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -76,6 +81,7 @@ def allowed_line(text):
     return re.search(r"^allowed-tools:.*$", text, re.M).group(0)
 
 
+@unittest.skipUnless(HAVE_TOOLS, NO_TOOLS)
 class ItRefusesWhatItCannotNarrow(unittest.TestCase):
     def skill(self, tools, body="Run `python {baseDir}/scripts/doctor.py`.\n"):
         return "---\nname: x\nallowed-tools: %s\n---\n%s" % (tools, body)
@@ -95,6 +101,7 @@ class ItRefusesWhatItCannotNarrow(unittest.TestCase):
                       allowed(out))
 
 
+@unittest.skipUnless(HAVE_TOOLS, NO_TOOLS)
 class NoShippedFileIsTooBigToRead(unittest.TestCase):
     """The directory's validator reads every text file up to 256 KiB, and
     holds a release for a human reviewer when one is bigger. merge_and_build.py

@@ -157,6 +157,7 @@ def check_font(needles, why, fonts):
 
 SKILL_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SHIPPED_AGENTS = os.path.join(SKILL_ROOT, '.claude', 'agents')
+PLUGIN_AGENTS = os.path.join(SKILL_ROOT, 'agents')
 TRANSLATOR = 'translator.md'
 
 
@@ -168,7 +169,7 @@ def _installed_copy(name):
     plugin; nothing has to be copied. Installed as a plain skill, they have to
     be copied to `~/.claude/agents/`.
     """
-    for path in (os.path.join(SKILL_ROOT, 'agents', name),
+    for path in (os.path.join(PLUGIN_AGENTS, name),
                  os.path.join(os.path.expanduser('~'), '.claude', 'agents',
                               name)):
         if os.path.isfile(path):
