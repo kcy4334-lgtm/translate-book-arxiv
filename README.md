@@ -76,7 +76,7 @@ This page was written for the repository, with made-up results, so it can be sho
 - **Resumable**: SHA-256 hashes in a manifest keep stale outputs out of the merge, and a changed glossary re-translates only the chunks that used the changed terms
 - **Print-ready PDF**: headless Chromium against a real `@page` box (A4, 18/18/22/18 mm, 11.5 pt), page numbers stamped afterwards because Chrome has no margin boxes. `scripts/layout.py` holds the page geometry and fonts
 - **Output**: HTML with a floating TOC, DOCX, EPUB and PDF, with an optional EPUB cover, working folder and export name
-- **Tests**: 2,289, standard library only, run in CI
+- **Tests**: 2,290, standard library only, run in CI
 
 ## Growing the skill
 

@@ -167,6 +167,24 @@ agent types shows. Give them the paths they need; they read, they do not run
 the pipeline. If neither form is listed, they are not installed: Step 0
 reports that, and `install_advisors.py` fixes it.
 
+## How to run commands
+
+Every command in this file is one of the skill's own scripts, named by its
+full path. Run each exactly as written, one per call.
+
+- **Add nothing to it:** no `cd ... &&`, no `;`, no `| head`, no `2>&1`, no
+  shell variables. Every path is already absolute. A command with any of
+  those is no longer the one the skill's permission rules allow, so the user
+  is asked to approve it. On one paper run as a plugin, 44 of 76 shell
+  commands fell outside those rules, and 13 of them were the skill's own
+  scripts with a `cd` or a pipe added.
+- **Files go through the file tools:** Read, Grep and Glob to look, Write and
+  Edit to change. Not `cat`, `ls`, `head`, `grep`, `echo` or a heredoc.
+- **A check no script gives:** write it to a `.py` file in `<temp_dir>` with
+  Write and run that file. It asks for approval once, and the user can read
+  what it does. Not `python -c`: its quoting breaks on the first backslash,
+  and LaTeX is mostly backslashes.
+
 ## Workflow
 
 ### 0. Check the Machine

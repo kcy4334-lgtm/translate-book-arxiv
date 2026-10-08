@@ -121,6 +121,15 @@ class TheRunBookRunsOnlyItsOwnScripts(unittest.TestCase):
         self.assertNotRegex(self.skill, r"(?m)^\s*echo ")
         self.assertNotRegex(self.skill, r"\|\s*python")
 
+    def test_the_orchestrator_is_told_to_add_nothing(self):
+        """Measured on an end-to-end plugin run: 13 of 76 commands were the
+        skill's own scripts with `cd ... &&` or a pipe added, each one a
+        prompt the rules would otherwise have spared."""
+        rules = self.skill[self.skill.index("## How to run commands"):
+                           self.skill.index("## Workflow")]
+        for word in ("cd ... &&", "| head", "2>&1", "python -c", "Write"):
+            self.assertIn(word, rules)
+
     def test_every_script_call_names_its_base_directory(self):
         loose = re.findall(r"(?m)^\s*python3? (?!\{baseDir\}/|-m )\S+", self.skill)
         self.assertEqual(loose, [])
