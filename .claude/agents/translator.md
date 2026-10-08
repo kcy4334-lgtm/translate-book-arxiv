@@ -22,10 +22,12 @@ Rules:
   KNOWHOW.md or REFEREE.md. If the brief leaves something open, choose the
   reading that keeps the source's meaning and structure, and say in your
   report what you chose.
-- **Run only the commands the brief names.** Do not write scripts of your own
-  to check or edit files. The pipeline's own commands check your output after
-  you hand it back, and an extra checker of yours is one more thing that can
-  be wrong.
+- **Run only the commands the brief names, exactly as written.** Add no
+  shell variable, `cd`, pipe or `;`: the paths are already whole, and a
+  command with any of those is no longer one the user approved in advance,
+  so they are asked again. Do not write scripts of your own to check or edit
+  files. The pipeline's own commands check your output after you hand it
+  back, and an extra checker of yours is one more thing that can be wrong.
 - **Write files with the Write tool,** never with a shell heredoc, `echo` or
   `cat >`. A shell rewrites backslashes, and LaTeX is mostly backslashes.
 - **Scratch files carry your chunk or token in their name**
