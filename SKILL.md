@@ -229,6 +229,14 @@ Determine the following from the user's message:
 
 If the file path is not provided, ask the user.
 
+**A licence is a question about publishing, not about translating.** A book
+the user translates to read themselves needs no licence check, so do not stop
+for one. Only when the user says they will publish or share the translation,
+tell them it needs the paper's licence to allow that (CC BY and CC BY-SA do;
+arXiv's default licence does not) and that the paper's arXiv abstract page
+names it. Measured: an unattended run stopped a personal translation halfway
+to ask about a licence nobody had raised.
+
 ### 2. Preprocess: Convert to Markdown Chunks
 
 Run the conversion script to produce chunks:
