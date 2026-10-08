@@ -21,6 +21,7 @@ A fork of [deusyu/translate-book](https://github.com/deusyu/translate-book); ups
 - `scripts/repair.py`: In-place fixes for a book that is already translated: `sidecar` rewrites the raw LaTeX tables held in `chunk*.math.json`, `rehash` refreshes `manifest.json` after a chunk was edited by hand. Re-converting instead would move every chunk boundary and cost a full re-translation
 - `scripts/arxiv_backend.py`: arXiv LaTeX source → Markdown; every ingest-side fix for constructs pandoc cannot read lives here
 - `scripts/merge_and_build.py`: Merge translated chunks → HTML/DOCX/EPUB/PDF
+- `scripts/latex_cleanup.py`, `scripts/numbering.py`, `scripts/latex_tables.py`, `scripts/build_common.py`: the parts of the build split out of merge_and_build.py (LaTeX and math clean-up with section numbering; figures, floats, labels and cross-references; raw LaTeX tables; what those share). merge_and_build.py re-exports the names its callers and tests use
 - `scripts/layout.py`: Language font tables and print profiles (page size, margins, body size); the single source of truth both merge_and_build.py and calibre_html_publish.py read
 - `scripts/chromium_pdf.py`: Headless-Chromium PDF renderer and PyMuPDF page-number stamping
 - `scripts/calibre_html_publish.py`: Calibre format conversion wrapper (EPUB, and DOCX fallback)
@@ -204,6 +205,7 @@ table; it says which of these documents to open for the change you are making.
 
 ## Do not
 
+- Do not let a shipped text file grow past 256 KiB. Anthropic's plugin directory holds every release that has one for a human reviewer; `tests/test_plugin_skill_rules.py` fails first
 - Do not put language font data or page geometry anywhere but `scripts/layout.py`; it used to be duplicated across two modules that had already drifted
 - Do not list a variable font (`Noto Serif KR`, `Noto Sans KR`) in a CJK stack; Chromium cannot subset-embed one and emits a Type3 object per glyph instead
 - Do not reintroduce `page*` file support; it was intentionally removed

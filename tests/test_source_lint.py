@@ -802,8 +802,8 @@ class ASectionWalkKnowsAboutTheAppendix(unittest.TestCase):
         the count claims in `test_doc_consistency` went stale."""
         found = {'%s:%s' % (module, func)
                  for module, func, _body in self.walkers()}
-        for expected in ('merge_and_build.py:float_units',
-                         'merge_and_build.py:flat_equation_numbers'):
+        for expected in ('numbering.py:float_units',
+                         'numbering.py:flat_equation_numbers'):
             self.assertIn(expected, found)
 
 

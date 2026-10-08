@@ -136,6 +136,69 @@ def plugin_agents(entries):
     return out
 
 
+SKILL_PATH_TOKEN = '{baseDir}'
+PLUGIN_ROOT_TOKEN = '${CLAUDE_PLUGIN_ROOT}'
+SCRIPT_CALL = re.compile(r'python3?\s+\$\{CLAUDE_PLUGIN_ROOT\}/([\w./-]+\.py)')
+BROAD_SHELL = re.compile(r'^Bash\((python3?|grep|echo) \*\)$')
+
+
+def plugin_skill(text):
+    """SKILL.md as the plugin ships it: no blanket shell rule.
+
+    Main's `allowed-tools` pre-approves `Bash(python *)`, and the directory
+    holds any plugin that does: that rule lets a skill run any Python at all
+    without a prompt. Its reviewer asked for one rule per bundled script,
+    written with `${CLAUDE_PLUGIN_ROOT}`, which Claude Code fills in both in
+    the rule and in the skill's text, so the command the skill names is the
+    command the rule matches. Main keeps `{baseDir}` and the broad rules,
+    because OpenClaw and the other runtimes it installs into know neither
+    variable.
+
+    The rules are read off the text, so a script SKILL.md starts calling is
+    allowed without anyone remembering to add it. `grep *` and `echo *` go
+    too: the Grep tool covers the one grep, and the one echo is a pipe into a
+    script, which asks once rather than holding every release.
+    """
+    out = text.replace(SKILL_PATH_TOKEN, PLUGIN_ROOT_TOKEN)
+    calls = SCRIPT_CALL.findall(out)
+    if out.count(PLUGIN_ROOT_TOKEN) != len(calls):
+        raise SystemExit('SKILL.md uses {baseDir} somewhere other than '
+                         '`python {baseDir}/<script>.py`; the plugin rules '
+                         'would not cover it')
+    m = re.search(r'^allowed-tools:[ \t]*(.+)$', out, re.M)
+    if not m:
+        raise SystemExit('SKILL.md has no allowed-tools line')
+    rules = ['Bash(%s %s/%s:*)' % (py, PLUGIN_ROOT_TOKEN, script)
+             for script in sorted(set(calls)) for py in ('python', 'python3')]
+    tools = []
+    for tool in (t.strip() for t in m.group(1).split(',')):
+        if BROAD_SHELL.match(tool):
+            if rules:
+                tools += rules      # where the first broad rule stood
+                rules = []
+        elif tool.startswith('Bash('):
+            raise SystemExit('SKILL.md pre-approves %s, which this script does '
+                             'not know how to narrow' % tool)
+        elif tool:
+            tools.append(tool)
+    tools += rules
+    line ='allowed-tools: ' + ', '.join(tools)
+    return out[:m.start()] + line + out[m.end():]
+
+
+def with_plugin_skill(entries):
+    """The entries with SKILL.md swapped for the plugin's version of it."""
+    out = []
+    for mode, sha, size, path in entries:
+        if path == 'SKILL.md':
+            data = plugin_skill(git('cat-file', 'blob', sha).decode('utf-8'))
+            data = data.encode('utf-8')
+            sha = git_text('hash-object', '-w', '--stdin', input=data)
+            size = len(data)
+        out.append((mode, sha, size, path))
+    return out
+
+
 def check(entries):
     """Refuse what the directory would refuse; list what it would hold."""
     errors, held = [], []
@@ -254,6 +317,7 @@ def main(argv=None):
     tag_sha = git_text('rev-parse', '%s^{commit}' % tag)
     entries = [e for e in tree_entries(tag) if not is_excluded(e[3])]
     entries += plugin_agents(entries)
+    entries = with_plugin_skill(entries)
 
     errors, held = check(entries)
     if errors:
