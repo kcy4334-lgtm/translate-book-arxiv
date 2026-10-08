@@ -130,6 +130,7 @@ ARTEFACT_CONSUMERS = {
     'manifest.json': 'manifest.py, repair.py',
     'config.txt': 'backends.py, merge_and_build.py, corpus_census.py',
     'glossary.json': 'glossary.py, merge_meta.py, verify_chunk.py',
+    'merge_decisions.json': 'merge_meta.py',
     'run_state.json': 'run_state.py',
     'source_fingerprint.json': 'convert.py',
     'output.md': 'merge_and_build.py',

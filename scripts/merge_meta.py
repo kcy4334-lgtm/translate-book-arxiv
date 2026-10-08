@@ -11,7 +11,9 @@ Three subcommands:
   are quarantined (warn + skip + count separately) — they don't crash the
   step.
 
-- `apply-merge <temp_dir>` — read a decisions JSON from stdin, conservatively
+- `apply-merge <temp_dir> --decisions <file>` — read a decisions JSON from
+  the file (the run book writes `<temp_dir>/merge_decisions.json`; stdin
+  without `--decisions`), conservatively
   apply the auto-applies and resolved decisions to the glossary, and write
   meta content hashes into `applied_meta_hashes` for every chunk in
   `consumed_chunk_ids`. Atomic save.
@@ -485,12 +487,28 @@ def cmd_prepare_merge(temp_dir):
     print(json.dumps(output, ensure_ascii=False, indent=2))
 
 
-def cmd_apply_merge(temp_dir):
-    """Read decisions JSON from stdin and apply to the glossary."""
+def cmd_apply_merge(temp_dir, decisions_path=None):
+    """Read decisions JSON and apply it to the glossary.
+
+    From a file the orchestrator wrote with its Write tool, by preference.
+    The run book used to pipe it in with `echo '{...}' |`, and a decision
+    whose text holds an apostrophe ends the shell's quoting halfway through
+    the JSON; the same pipe also needs `echo` pre-approved, which Anthropic's
+    plugin directory holds a release for. stdin still works when no file is
+    named.
+    """
+    where = decisions_path or 'stdin'
     try:
-        decisions_doc = json.load(sys.stdin)
+        if decisions_path:
+            with open(decisions_path, encoding='utf-8') as fh:
+                decisions_doc = json.load(fh)
+        else:
+            decisions_doc = json.load(sys.stdin)
+    except OSError as e:
+        sys.stderr.write(f"error: cannot read the decisions file: {e}\n")
+        sys.exit(2)
     except json.JSONDecodeError as e:
-        sys.stderr.write(f"error: decisions JSON on stdin is not valid: {e}\n")
+        sys.stderr.write(f"error: decisions JSON in {where} is not valid: {e}\n")
         sys.exit(2)
 
     if not isinstance(decisions_doc, dict):
@@ -1045,8 +1063,10 @@ def main():
     p_prep = sub.add_parser('prepare-merge', help="Scan unmerged metas; emit merge proposal")
     p_prep.add_argument('temp_dir')
 
-    p_app = sub.add_parser('apply-merge', help="Apply merge decisions from stdin")
+    p_app = sub.add_parser('apply-merge', help="Apply merge decisions")
     p_app.add_argument('temp_dir')
+    p_app.add_argument('--decisions', default=None,
+                       help='JSON file holding the decisions (default: stdin)')
 
     p_stat = sub.add_parser('status', help="Read-only observability snapshot")
     p_stat.add_argument('temp_dir')
@@ -1056,7 +1076,7 @@ def main():
     if args.cmd == 'prepare-merge':
         cmd_prepare_merge(args.temp_dir)
     elif args.cmd == 'apply-merge':
-        cmd_apply_merge(args.temp_dir)
+        cmd_apply_merge(args.temp_dir, args.decisions)
     elif args.cmd == 'status':
         cmd_status(args.temp_dir)
 

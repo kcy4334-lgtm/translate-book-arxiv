@@ -139,7 +139,7 @@ def plugin_agents(entries):
 SKILL_PATH_TOKEN = '{baseDir}'
 PLUGIN_ROOT_TOKEN = '${CLAUDE_PLUGIN_ROOT}'
 SCRIPT_CALL = re.compile(r'python3?\s+\$\{CLAUDE_PLUGIN_ROOT\}/([\w./-]+\.py)')
-BROAD_SHELL = re.compile(r'^Bash\((python3?|grep|echo) \*\)$')
+BROAD_SHELL = re.compile(r'^Bash\(python3? \*\)$')
 
 
 def plugin_skill(text):
@@ -155,9 +155,8 @@ def plugin_skill(text):
     variable.
 
     The rules are read off the text, so a script SKILL.md starts calling is
-    allowed without anyone remembering to add it. `grep *` and `echo *` go
-    too: the Grep tool covers the one grep, and the one echo is a pipe into a
-    script, which asks once rather than holding every release.
+    allowed without anyone remembering to add it. Any other shell rule stops
+    the build: the run book needs none, and one would hold the release.
     """
     out = text.replace(SKILL_PATH_TOKEN, PLUGIN_ROOT_TOKEN)
     calls = SCRIPT_CALL.findall(out)

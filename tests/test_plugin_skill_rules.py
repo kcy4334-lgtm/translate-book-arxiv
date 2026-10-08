@@ -101,6 +101,31 @@ class ItRefusesWhatItCannotNarrow(unittest.TestCase):
                       allowed(out))
 
 
+@unittest.skipUnless(HAVE_TOOLS, "the plugin folder's SKILL.md is the "
+                     "rewritten one, checked by ThePluginSkill")
+class TheRunBookRunsOnlyItsOwnScripts(unittest.TestCase):
+    """Every command the run book gives is one of the skill's scripts by its
+    `{baseDir}` path, so the plugin's rules cover every one of them. A pipe
+    through `echo`, or a script named relative to a directory the user is
+    not in, prompts every time in the plugin and fails outright in a
+    project folder."""
+
+    def setUp(self):
+        self.skill = (ROOT / "SKILL.md").read_text(encoding="utf-8")
+
+    def test_main_pre_approves_no_shell_but_python(self):
+        shell = [t for t in allowed(self.skill) if t.startswith("Bash(")]
+        self.assertEqual(sorted(shell), ["Bash(python *)", "Bash(python3 *)"])
+
+    def test_no_command_is_piped_through_echo(self):
+        self.assertNotRegex(self.skill, r"(?m)^\s*echo ")
+        self.assertNotRegex(self.skill, r"\|\s*python")
+
+    def test_every_script_call_names_its_base_directory(self):
+        loose = re.findall(r"(?m)^\s*python3? (?!\{baseDir\}/|-m )\S+", self.skill)
+        self.assertEqual(loose, [])
+
+
 @unittest.skipUnless(HAVE_TOOLS, NO_TOOLS)
 class NoShippedFileIsTooBigToRead(unittest.TestCase):
     """The directory's validator reads every text file up to 256 KiB, and

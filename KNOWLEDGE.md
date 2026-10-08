@@ -3258,8 +3258,8 @@ $PY tests/dry_run.py "<temp_dir>" --lang ko
 # 4. Merge state + glossary, once per batch.
 $PY scripts/run_state.py record "<temp_dir>" chunk0001 ...
 $PY scripts/merge_meta.py prepare-merge "<temp_dir>" > prep.json
-# resolve the decisions, then pipe them back:
-$PY scripts/merge_meta.py apply-merge "<temp_dir>" < apply.json
+# resolve the decisions, write them to a file, then apply it:
+$PY scripts/merge_meta.py apply-merge "<temp_dir>" --decisions "<temp_dir>/merge_decisions.json"
 
 # 5. Build.
 $PY scripts/merge_and_build.py --temp-dir "<temp_dir>" \

@@ -1,7 +1,7 @@
 ---
 name: translate-book
 description: Translate an arXiv paper, or any PDF/DOCX/EPUB book, into any language as a printable book. For arXiv papers it reads the LaTeX source, so equations, tables, figures and numbering survive. Parallel sub-agents translate the chunks; output is HTML, DOCX, EPUB and PDF.
-allowed-tools: Read, Write, Edit, Bash(python *), Bash(python3 *), Bash(grep *), Bash(echo *), Glob, Grep, Agent, AskUserQuestion
+allowed-tools: Read, Write, Edit, Bash(python *), Bash(python3 *), Glob, Grep, Agent, AskUserQuestion
 metadata: {"openclaw":{"requires":{"bins":["python","pandoc"]},"homepage":"https://github.com/kcy4334-lgtm/translate-book-arxiv"}}
 ---
 
@@ -31,9 +31,9 @@ and they only grow; reading both to answer one question costs more than the
 answer. Look things up instead:
 
 ```bash
-python scripts/kb.py find "<symptom, file, function or LaTeX command>"
-python scripts/kb.py list          # id + title for everything, to browse
-python scripts/kb.py show K102 H26 # named entries, in full
+python {baseDir}/scripts/kb.py find "<symptom, file, function or LaTeX command>"
+python {baseDir}/scripts/kb.py list          # id + title for everything, to browse
+python {baseDir}/scripts/kb.py show K102 H26 # named entries, in full
 ```
 
 `kb.py` parses both files fresh on every call, so it is never out of date with
@@ -122,9 +122,9 @@ same prompt; the same defect in a third book is something nobody has fixed.
 None of that is visible from inside a chunk.
 
 ```bash
-python scripts/referee.py tally  <temp_dir> --lang <lang>   # judge this run
-python scripts/referee.py record <temp_dir> --lang <lang>   # and remember it
-python scripts/referee.py history                           # every run so far
+python {baseDir}/scripts/referee.py tally  <temp_dir> --lang <lang>   # judge this run
+python {baseDir}/scripts/referee.py record <temp_dir> --lang <lang>   # and remember it
+python {baseDir}/scripts/referee.py history                           # every run so far
 ```
 
 `tally` only counts and compares. **Whose fault it is is not in the count**:
@@ -147,7 +147,7 @@ style, maths and front matter it used. `merge_and_build.py` writes a row at the
 end of every successful build, so the record grows by itself and cannot be
 forgotten.
 
-    python scripts/corpus_census.py digest
+    python {baseDir}/scripts/corpus_census.py digest
 
 turns it into frequency ("`wrapfigure` in 1 of 5, `figure*` in 4 of 5") and,
 at the end, **NEVER SEEN**: the shapes no paper in the corpus has ever
@@ -178,14 +178,15 @@ python {baseDir}/scripts/doctor.py --strict
 ```
 
 It takes about a second and lists every component with `OK`, `MISSING` or
-`absent`.
+`absent`. Run it exactly as written, with nothing appended, and decide from
+the lines it prints rather than from its exit code.
 
-- **Exit 1 (a `MISSING` line):** stop here. Tell the user which components
+- **A `MISSING` line:** stop here. Tell the user which components
   are missing, quote the reason `doctor.py` prints under each, and point them
   to the Prerequisites section of the README. Do not convert or translate
   anything yet. A missing pandoc or browser otherwise surfaces only at the
   build, after every chunk has been translated.
-- **Exit 0 with `absent` lines:** carry on, and say what each one costs. A
+- **`absent` lines and no `MISSING`:** carry on, and say what each one costs. A
   missing font for the target language changes the line breaks and the page
   count. A missing advisor or translator sub-agent means `python
   {baseDir}/scripts/install_advisors.py` has not been run (a plugin install
@@ -517,11 +518,9 @@ output and no agent is ever dispatched for it. You do not have to do anything.
 
 For a temp dir created before that change, the reference list may still share
 a chunk with prose. Check, and if you find one, copy it verbatim to its
-`output_` name and write an empty meta file rather than translating it:
-
-```bash
-grep -l "begin{thebibliography}" "<temp_dir>"/chunk*.md
-```
+`output_` name and write an empty meta file rather than translating it. To
+check, search the `chunk*.md` files in `<temp_dir>` for
+`begin{thebibliography}` with the Grep tool.
 
 **Tell every sub-agent to translate the headings.** Left to itself a sub-agent
 will often leave `# Introduction` as it found it. That is not a cosmetic
@@ -910,7 +909,7 @@ must not change is the order within a chunk: record before merge.
 
 3. **If `consumed_chunk_ids` is empty** → nothing was scanned; skip to Step 5.
 
-4. **If `consumed_chunk_ids` is non-empty but both `auto_apply` and `decisions_needed` are empty** → still pipe `{"auto_apply": [], "decisions": [], "consumed_chunk_ids": [...]}` into `apply-merge` so the hashes get recorded. **Skipping this is the bug**: no-op metas would re-scan forever otherwise.
+4. **If `consumed_chunk_ids` is non-empty but both `auto_apply` and `decisions_needed` are empty** → still hand `{"auto_apply": [], "decisions": [], "consumed_chunk_ids": [...]}` to `apply-merge` (step 6) so the hashes get recorded. **Skipping this is the bug**: no-op metas would re-scan forever otherwise.
 
 5. **Otherwise, resolve each decision**:
    - Read its evidence quotes inline.
@@ -921,16 +920,23 @@ must not change is the order within a chunk: record before merge.
      {"id": "d1", "kind": "alias", "variant": "Taig", "candidate_source": "Tai", "choice": "yes_alias"}
      ```
 
-6. Pipe the decisions JSON into apply-merge:
+6. Write the decisions JSON to `<temp_dir>/merge_decisions.json` with the
+   Write tool, then apply it:
+
+   ```json
+   {"auto_apply": [...], "decisions": [...], "consumed_chunk_ids": [...]}
+   ```
 
    ```bash
-   echo '{"auto_apply": [...], "decisions": [...], "consumed_chunk_ids": [...]}' \
-     | python {baseDir}/scripts/merge_meta.py apply-merge "<temp_dir>"
+   python {baseDir}/scripts/merge_meta.py apply-merge "<temp_dir>" --decisions "<temp_dir>/merge_decisions.json"
    ```
+
+   Not `echo '...' |`: a term or a quote with an apostrophe in it ends the
+   shell's quoting halfway through the JSON.
 
    Surface the summary JSON (`auto_applied`, `decisions_resolved`, `consumed_chunks`, `errors`) in your batch progress message.
 
-   **apply-merge is transactional.** If any decision is malformed (wrong choice for kind, missing fields, references a non-existent entity), the entire batch aborts with a non-zero exit and stderr details, no glossary mutation, no hashes recorded. On non-zero exit, fix the offending decision and re-pipe; `prepare-merge` will surface the same proposals because nothing was consumed.
+   **apply-merge is transactional.** If any decision is malformed (wrong choice for kind, missing fields, references a non-existent entity), the entire batch aborts with a non-zero exit and stderr details, no glossary mutation, no hashes recorded. On non-zero exit, fix the offending decision in the file and run it again; `prepare-merge` will surface the same proposals because nothing was consumed.
 
    **Decision order in the input list is not significant.** `apply-merge` internally dispatches entity-creating decisions before alias-attaching ones, so `yes_alias` decisions whose candidate is created by another decision in the same batch (a `use_standalone_N`, `use_variant_N`, or `promote_to_separate_entity`) succeed regardless of the order you pass them in. Alias chains (e.g. `Taighi → Taig` where `Taig → Tai` is also a pending alias decision) resolve via a fixed-point loop within the alias-attacher pass; you don't need to topo-sort or sequence chained aliases manually.
 
@@ -1435,14 +1441,14 @@ instead. The verification gate is:
 ```bash
 python -m compileall scripts tests
 python -m unittest discover -s tests -p 'test_*.py'
-python tests/layout_probe.py --strict
-python tests/layout_probe.py --stress --strict
-python tests/format_probe.py <temp_dir> --lang <lang> --strict
-python tests/source_probe.py <temp_dir> --strict
-python tests/table_probe.py <temp_dir> --lang <lang> --strict
-python tests/inventory_probe.py <temp_dir> --lang <lang> --strict
-python tests/leak_probe.py <temp_dir> --strict
-python tests/consistency_probe.py <temp_dir> --lang <lang> --strict
+python {baseDir}/tests/layout_probe.py --strict
+python {baseDir}/tests/layout_probe.py --stress --strict
+python {baseDir}/tests/format_probe.py <temp_dir> --lang <lang> --strict
+python {baseDir}/tests/source_probe.py <temp_dir> --strict
+python {baseDir}/tests/table_probe.py <temp_dir> --lang <lang> --strict
+python {baseDir}/tests/inventory_probe.py <temp_dir> --lang <lang> --strict
+python {baseDir}/tests/leak_probe.py <temp_dir> --strict
+python {baseDir}/tests/consistency_probe.py <temp_dir> --lang <lang> --strict
 ```
 
 Each looks at something the others cannot see, so none of them is redundant:
