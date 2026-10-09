@@ -99,5 +99,33 @@ class CroppingThem(unittest.TestCase):
         self.assertEqual((out, done), (missing, []))
 
 
+@unittest.skipUnless(pymupdf, 'pymupdf is not installed')
+class RulesPaintedAsImages(unittest.TestCase):
+    """Shor's Figure 5.1: a gnuplot `picture` that Ghostscript painted as
+    one-pixel images stretched over each \\rule, with no vector drawing."""
+
+    def test_the_rules_are_the_drawing_and_the_axis_title_comes_along(self):
+        doc = pymupdf.open()
+        page = doc.new_page(width=612, height=792)
+        dot = pymupdf.Pixmap(pymupdf.csGRAY, pymupdf.IRect(0, 0, 1, 1), False)
+        dot.clear_with(0)
+        for rect in [(190, 150, 470, 151), (190, 300, 470, 301),
+                     (190, 150, 191, 300), (469, 150, 470, 300),
+                     (300, 200, 301, 300)]:
+            page.insert_image(pymupdf.Rect(rect), pixmap=dot)
+        page.insert_text((170, 305), '0.0', fontsize=8)
+        page.insert_text((138, 230), 'P', fontsize=9)
+        page.insert_text((118, 380), 'Figure 5.1: The probability.', fontsize=10)
+        try:
+            self.assertEqual(page.get_drawings(), [])
+            pno, clip = dfig.locate(doc, '5.1')
+        finally:
+            doc.close()
+        self.assertEqual(pno, 0)
+        self.assertLess(clip.y0, 150)
+        self.assertLess(clip.x0, 138)              # the "P" beside the axis
+        self.assertLess(clip.y1, 370)              # not the caption
+
+
 if __name__ == '__main__':
     unittest.main()

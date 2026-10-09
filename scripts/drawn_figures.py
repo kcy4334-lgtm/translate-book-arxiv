@@ -99,9 +99,19 @@ def _caption_block(page, number):
 def _drawing_rects(page):
     # A rule is a drawing with no height, and an axis tick one with no width;
     # both belong to a plot, so either extent is enough.
-    return [path['rect'] for path in page.get_drawings()
-            if path.get('rect') is not None
-            and (path['rect'].width > 1 or path['rect'].height > 1)]
+    rects = [path['rect'] for path in page.get_drawings()
+             if path.get('rect') is not None
+             and (path['rect'].width > 1 or path['rect'].height > 1)]
+    # Ghostscript paints a TeX \rule as a one-pixel image stretched over the
+    # rule. Shor's Figure 5.1, a gnuplot `picture`, is nothing but such
+    # rules: no vector drawing at all, so the figure was never found.
+    import pymupdf
+    for info in page.get_image_info():
+        if info.get('width') == 1 and info.get('height') == 1:
+            r = pymupdf.Rect(info['bbox'])
+            if r.width > 1 or r.height > 1:
+                rects.append(r)
+    return rects
 
 
 def locate(doc, number):
@@ -144,14 +154,14 @@ def locate(doc, number):
                 if (side == 'above' and r.y1 >= region.y0 - _JOIN_GAP) or \
                         (side == 'below' and r.y0 <= region.y1 + _JOIN_GAP):
                     region |= r
-            region = _with_labels(page, region, cap)
+            region = _with_labels(page, region, cap, (x0, x1))
             region = (region + (-4, -4, 4, 4)) & page.rect
             if region.width > 20 and region.height > 20:
                 return pno, region
     return None
 
 
-def _with_labels(page, region, cap):
+def _with_labels(page, region, cap, columns):
     """Grow the region over the small text blocks that belong to it."""
     import pymupdf
     column = cap.width
@@ -166,7 +176,12 @@ def _with_labels(page, region, cap):
                 continue
             near = (grown + (-_JOIN_GAP / 2, -_JOIN_GAP / 2,
                              _JOIN_GAP / 2, _JOIN_GAP / 2))
-            if b.intersects(near):
+            # An axis title stands farther off, level with the plot: Shor's
+            # "P" sits 20pt left of its tick labels.
+            beside = (grown.y0 <= (b.y0 + b.y1) / 2 <= grown.y1
+                      and b.x0 >= columns[0] and b.x1 <= columns[1]
+                      and b.intersects(grown + (-2 * _JOIN_GAP, 0, 2 * _JOIN_GAP, 0)))
+            if b.intersects(near) or beside:
                 grown |= b
         if grown == before:
             break
