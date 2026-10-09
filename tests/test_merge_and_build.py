@@ -2183,6 +2183,16 @@ class TableHeaderPromotionTests(unittest.TestCase):
                          + "1 & 2 & 3" + BS + BS)
         self.assertEqual(merge_and_build.header_row_count(latex), 2)
 
+    def test_a_line_break_inside_a_cell_is_not_a_row(self):
+        # PaLM's translation table: `\makecell[c]{Prior \\SOTA}` in the
+        # second header row made Word repeat nine rows.
+        latex = self.tab(BS + "toprule" + NL + "& 0-shot & 1-shot" + BS + BS + NL
+                         + "Src & " + BS + "makecell[c]{Prior " + BS + BS
+                         + "SOTA} & " + BS + "makecell[c]{PaLM " + BS + BS
+                         + "540B}" + BS + BS + NL + BS + "midrule" + NL
+                         + "en & 1 & 2" + BS + BS)
+        self.assertEqual(merge_and_build.header_row_count(latex), 2)
+
     def test_no_midrule_means_no_header(self):
         latex = self.tab(BS + "toprule" + NL + "1 & 2 & 3" + BS + BS)
         self.assertEqual(merge_and_build.header_row_count(latex), 0)

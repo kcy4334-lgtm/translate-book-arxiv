@@ -15,6 +15,7 @@ import subprocess
 import tempfile
 
 import arxiv_backend
+import latex_rows
 
 from build_common import (
     _CAPTION_CMD_RE, _COMMENT_LINE_RE, _balanced_group, _brace_group,
@@ -776,7 +777,6 @@ def grid_tables_to_pipe(md_text):
 
 
 _HEADER_END_RE = re.compile(r'\\(?:midrule|hline)\b')
-_ROW_BREAK_RE = re.compile(r'\\\\')
 _TR_RE = re.compile(r'<tr[^>]*>.*?</tr>', re.DOTALL)
 
 
@@ -796,8 +796,11 @@ def header_row_count(latex):
     end = _first_body_rule(body)
     if end is None:
         return 0
-    rows = len(_ROW_BREAK_RE.findall(body[:end]))
-    total = len(_ROW_BREAK_RE.findall(body))
+    # Breaks that end a row. `\makecell[c]{Prior \\SOTA}` holds one that
+    # does not: PaLM's two-deck translation header counted nine rows, and
+    # Word was told to repeat all nine.
+    rows = len(latex_rows.split_rows(body[:end])) - 1
+    total = len(latex_rows.split_rows(body)) - 1
     return rows if 0 < rows < total else 0
 
 
@@ -815,7 +818,7 @@ def _first_body_rule(body):
     header's end would say the table has no header at all.
     """
     for m in _HEADER_END_RE.finditer(body):
-        if _ROW_BREAK_RE.search(body[:m.start()]):
+        if len(latex_rows.split_rows(body[:m.start()])) > 1:
             return m.start()
     return None
 
@@ -848,7 +851,7 @@ def body_rule_rows(latex):
     after = after[_HEADER_END_RE.match(after).end():] \
         if _HEADER_END_RE.match(after) else after
     marked = {}
-    for index, piece in enumerate(_ROW_BREAK_RE.split(after)[:-1]):
+    for index, piece in enumerate(latex_rows.split_rows(after)[:-1]):
         if not index:
             continue
         if _HEADER_END_RE.search(piece):
@@ -901,7 +904,7 @@ def shaded_body_rows(latex):
     after = body[end:]
     after = after[_HEADER_END_RE.match(after).end():] \
         if _HEADER_END_RE.match(after) else after
-    pieces = _ROW_BREAK_RE.split(after)[:-1]
+    pieces = latex_rows.split_rows(after)[:-1]
     return ({i for i, piece in enumerate(pieces) if _ROWCOLOR_RE.search(piece)},
             len(pieces))
 
