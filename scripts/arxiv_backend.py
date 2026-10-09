@@ -18,12 +18,14 @@ and return (ok, metadata_dict). Everything downstream (chunking, manifest,
 translation, merge) is unchanged.
 """
 
+import json
 import os
 import re
 import shutil
 import subprocess
 import sys
 import tarfile
+import tempfile
 import urllib.error
 import urllib.request
 
@@ -2042,6 +2044,74 @@ def restore_table_floats(md):
 _BIB_READ_ERROR_RE = re.compile(r"Error reading bibliography file '([^']+)'")
 
 
+# Where the paper's `\bibliography{...}` stood. pandoc reads the command and
+# leaves nothing in its place, then appends the reference list after the last
+# block, so 2609.11801's references came after its appendix while the paper
+# prints them before it. A word pandoc keeps as an ordinary paragraph marks
+# the spot; the list is moved there in pandoc's tree and the word removed.
+_BIB_ANCHOR = 'TBREFERENCELISTANCHOR'
+_BIBLIOGRAPHY_CMD_RE = re.compile(r'\\bibliography\s*\{[^{}]*\}')
+
+
+def _anchor_bibliography(tex):
+    for m in _BIBLIOGRAPHY_CMD_RE.finditer(tex):
+        line_start = tex.rfind('\n', 0, m.start()) + 1
+        if re.search(r'(?<!\\)%', tex[line_start:m.start()]):
+            continue
+        return tex[:m.end()] + '\n\n%s\n\n' % _BIB_ANCHOR + tex[m.end():], True
+    return tex, False
+
+
+def _is_anchor(block):
+    return (block.get('t') == 'Para' and len(block.get('c', [])) == 1
+            and block['c'][0].get('t') == 'Str'
+            and block['c'][0].get('c') == _BIB_ANCHOR)
+
+
+def _move_refs_to_anchor(tree):
+    """Put the `refs` Div where the anchor paragraph is. True if moved."""
+    blocks = tree.get('blocks', [])
+    refs = [i for i, b in enumerate(blocks)
+            if b.get('t') == 'Div' and b['c'][0][0] == 'refs']
+    anchors = [i for i, b in enumerate(blocks) if _is_anchor(b)]
+    if len(refs) != 1 or len(anchors) != 1 or refs[0] < anchors[0]:
+        return False
+    div = blocks.pop(refs[0])
+    blocks[anchors[0]] = div
+    return True
+
+
+def _drop_anchor(tree):
+    tree['blocks'] = [b for b in tree.get('blocks', []) if not _is_anchor(b)]
+
+
+def _full_author_csl(pypandoc):
+    r"""pandoc's own default style, listing every author in the reference list.
+
+    The default (Chicago author-date) cuts a reference to three names and
+    "et al." from seven authors on. The papers this reads print them all --
+    natbib's plainnat, the style of 2609.11801, names every author -- and a
+    reader of the translation had 44 entries shortened that the original
+    gives in full. In-text citations keep the default's "et al.". Returns a
+    temporary file's path, or None to fall back to the default.
+    """
+    try:
+        exe = pypandoc.get_pandoc_path()
+        style = subprocess.run([exe, '--print-default-data-file', 'default.csl'],
+                               capture_output=True, timeout=30).stdout.decode('utf-8')
+    except Exception:          # no style to adjust: the default one still works
+        return None
+    patched, n = re.subn(
+        r'(<bibliography\b[^>]*?)\s+et-al-min="\d+"\s+et-al-use-first="\d+"',
+        r'\1', style, count=1)
+    if not n:
+        return None
+    fd, path = tempfile.mkstemp(suffix='.csl', prefix='translate_book_')
+    with os.fdopen(fd, 'w', encoding='utf-8', newline='\n') as f:
+        f.write(patched)
+    return path
+
+
 def latex_to_markdown(flat_tex, tex_dir, root, bib_files=None):
     """Convert flattened LaTeX to markdown via pandoc (through pypandoc)."""
     try:
@@ -2066,10 +2136,31 @@ def latex_to_markdown(flat_tex, tex_dir, root, bib_files=None):
         print(f"Protected {protected} `table` float(s) from pandoc's grid-table "
               f"writer, which cannot express a \\multicolumn span")
 
+    csl = None
     try:
-        out = restore_table_floats(pypandoc.convert_text(
-            tex, _WRITER, format=_READER, extra_args=extra
-        ))
+        if bib_files:
+            csl = _full_author_csl(pypandoc)
+            if csl:
+                extra.append(f'--csl={csl}')
+            tex, anchored = _anchor_bibliography(tex)
+            # Two passes, so the reference list can be moved in pandoc's own
+            # document tree before the markdown writer flattens it: the writer
+            # runs with -native_divs, which leaves nothing to find it by.
+            tree = json.loads(pypandoc.convert_text(
+                tex, 'json', format=_READER, extra_args=extra))
+            if anchored and _move_refs_to_anchor(tree):
+                print("Bibliography: the reference list stays where the paper "
+                      "put it, ahead of the appendix")
+            _drop_anchor(tree)
+            # `-citations`: in one pass the writer prints what citeproc
+            # rendered; reading the tree back in a second pass it would
+            # print every citation as its `[@key]` instead.
+            md = pypandoc.convert_text(json.dumps(tree), _WRITER + '-citations',
+                                       format='json', extra_args=['--wrap=none'])
+        else:
+            md = pypandoc.convert_text(tex, _WRITER, format=_READER,
+                                       extra_args=extra)
+        out = restore_table_floats(md)
         # pandoc emits CRLF here; normalize before any newline-sensitive
         # processing or writing. See normalize_newlines().
         return normalize_newlines(out)
@@ -2093,6 +2184,12 @@ def latex_to_markdown(flat_tex, tex_dir, root, bib_files=None):
                   f"the equations and the citations of a paper whose own "
                   f"bibliography will not parse.")
         return None
+    finally:
+        if csl:
+            try:
+                os.remove(csl)
+            except OSError:
+                pass
 
 
 # --- post-processing --------------------------------------------------------
