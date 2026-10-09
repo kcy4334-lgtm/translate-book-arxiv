@@ -50,6 +50,8 @@ _FIG_IMAGE_RE = re.compile(
 # An extracted image followed on the same line by another one.
 _SHARED_IMAGE_LINE_RE = re.compile(
     r'(?m)^(!\[[^\]]*\]\(images/fig\d+[^)]*\)(?:\{[^}]*\})?)[ \t]+(?=!\[)')
+_IMAGE_LINE_BREAK_RE = re.compile(
+    r'(?m)^([ \t]*!\[[^\]]*\]\(images/fig\d+[^)]*\)(?:\{[^}]*\})?)\\[ \t]*$')
 
 # How wide to draw one panel of a multi-panel float, by panel count.
 #
@@ -731,6 +733,10 @@ def format_figure_blocks(md_text, lang_cfg=None, temp_dir=None):
     split = 1
     while split:                   # one panel per pass: the pattern is anchored
         md_text, split = _SHARED_IMAGE_LINE_RE.subn('\\1\n\n', md_text)
+    # A `\\` between two stacked panels arrives as a hard line break after
+    # the first, `![](a)\`, and the line is no longer an image alone: Neural
+    # ODE's Figure 10 printed six bare plots and no number.
+    md_text = _IMAGE_LINE_BREAK_RE.sub(r'\1', md_text)
     matches = list(_FIG_IMAGE_RE.finditer(md_text))
     if not matches:
         return md_text, 0

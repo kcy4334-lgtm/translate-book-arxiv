@@ -80,6 +80,18 @@ class Stranded(unittest.TestCase):
         self.assertEqual([(g['float'], g['letter']) for g in got],
                          [(1, 'a'), (1, 'b'), (2, None), (3, None)])
 
+    def test_stacked_panels_with_a_line_break_are_figures(self):
+        # Neural ODE's Figure 10: `\includegraphics{a}\\ \includegraphics{b}`.
+        self.make('\\begin{figure}\\includegraphics{a.png}\\\\'
+                  '\\includegraphics{b.png}\\caption{Spirals.}\\end{figure}\n',
+                  ['fig0001_a.png', 'fig0002_b.png'])
+        md = ('![image](images/fig0001_a.png)\\\n\n![image](images/fig0002_b.png)'
+              '\n\n나선.\n\nNext.\n')
+        out, n = mb.format_figure_blocks(md, KO, self.temp)
+        self.assertEqual(n, 2)
+        self.assertIn('**그림 1 (Fig. 1)**', out)
+        self.assertNotIn('.png)\\', out)
+
     def test_a_caption_on_top(self):
         self.make('\\begin{figure}\\caption{Above.}\\begin{tabular}{c}'
                   '\\includegraphics{a.png}\\end{tabular}\\end{figure}\n',
