@@ -168,12 +168,12 @@ class TitlePage(unittest.TestCase):
 
     def test_the_names_carry_their_marks(self):
         self.assertEqual(mb.marked_byline(self.BLOCK),
-                         'Ann Lee<sup>1,*</sup>, Bo Kim<sup>2</sup>')
+                         'Ann&nbsp;Lee<sup>1,*</sup>, Bo&nbsp;Kim<sup>2</sup>')
 
     def test_marks_with_nothing_to_point_at_are_left_off(self):
         block = {'authors': [('Ann Lee', ['1'])], 'affiliations': [],
                  'notes': []}
-        self.assertEqual(mb.marked_byline(block), 'Ann Lee')
+        self.assertEqual(mb.marked_byline(block), 'Ann&nbsp;Lee')
 
     def test_affiliations_and_notes_are_on_the_page(self):
         page = mb.build_title_page('A Title', 'arXiv:1', self.BLOCK)

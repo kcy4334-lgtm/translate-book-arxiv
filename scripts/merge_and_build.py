@@ -1110,8 +1110,9 @@ def marked_byline(block):
     off: a paper that puts its institutions in the body (`\\institute`) has
     no list here for a number to refer to."""
     show = bool(block.get('affiliations') or block.get('notes'))
+    # A name does not break across lines: "Nicholas / M. Boffi".
     return ', '.join(
-        _html_lib.escape(name)
+        _html_lib.escape(name).replace(' ', '&nbsp;')
         + ('<sup>%s</sup>' % _html_lib.escape(','.join(marks))
            if show and marks else '')
         for name, marks in block['authors'])
