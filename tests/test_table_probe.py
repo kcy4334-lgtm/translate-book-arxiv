@@ -61,6 +61,16 @@ class PrintedNumbers(unittest.TestCase):
         self.assertNotIn('3', nums)
         self.assertIn('48.0', nums)
 
+    def test_a_span_whose_format_holds_braces_is_not_a_value(self):
+        r"""2609.11801's table 6 writes `\multicolumn{7}{@{}l}{\emph{Training}}`;
+        the flat pattern missed the `@{}` and the 7 was reported missing on
+        every run."""
+        nums = tp.printed_numbers(r'\multicolumn{7}{@{}l}{\emph{Training}}\\ x & 0.5')
+        self.assertNotIn('7', nums)
+        self.assertIn('0.5', nums)
+        self.assertNotIn('2', tp.printed_numbers(
+            r'\begin{tabular}{@{}l p{2cm}@{}} a & 9'))
+
     def test_a_real_value_survives(self):
         self.assertEqual(tp.printed_numbers('a & 46.6 & 47.6')['46.6'], 1)
 

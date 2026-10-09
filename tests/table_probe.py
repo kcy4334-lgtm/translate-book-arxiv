@@ -163,6 +163,13 @@ def source_rows(body):
 _CELL_DECOR_RE = re.compile(
     r'\\(?:row|cell|column)color\s*(?:\[[^\]]*\])?\s*\{[^{}]*\}')
 
+# A brace group that may hold one more level of braces. A column format
+# often does: `\multicolumn{7}{@{}l}{...}`, `\begin{tabular}{@{}l p{2cm}@{}}`.
+# With a flat `\{[^{}]*\}` the format never matched, the command's numbers
+# stayed in the cell, and 2609.11801's table 6 was reported missing a value
+# 7 on every run: the span of its `\multicolumn{7}{@{}l}{\emph{Training}}`.
+_GROUP = r'\{(?:[^{}]|\{[^{}]*\})*\}'
+
 # `\multicolumn` and `\multirow` put a span and a format in front of the text.
 # The generic rule below strips the command and then unwraps every brace, so
 # `\multicolumn{3}{c|}{}` -- an empty spanning cell -- came out as `3 c|` and
@@ -171,8 +178,8 @@ _CELL_DECOR_RE = re.compile(
 # Only the leading arguments go; the last brace group is the visible text and
 # is what tells `\multirow{8}{*}{\textit{Large}}` from a continuation row.
 _SPAN_ARGS_RE = re.compile(
-    r'\\multicolumn\s*\{[^{}]*\}\s*\{[^{}]*\}'
-    r'|\\multirow\s*\{[^{}]*\}\s*(?:\[[^\]]*\])?\s*\{[^{}]*\}')
+    r'\\multicolumn\s*\{[^{}]*\}\s*' + _GROUP +
+    r'|\\multirow\s*\{[^{}]*\}\s*(?:\[[^\]]*\])?\s*' + _GROUP)
 
 
 def _blank_first_cell(row):
@@ -243,7 +250,7 @@ _ARG_NUM_RE = re.compile(
     # table 6 was reported as missing six values it never had.
     r'\\cite[a-zA-Z]*\s*(?:\[[^\]]*\])*\s*\{[^{}]*\}'
     r'|\\(?:ref|autoref|eqref|cref|Cref|label)\s*\{[^{}]*\}'
-    r'|\\(?:multicolumn|multirow)\s*\{[^{}]*\}\s*(?:\[[^\]]*\])?\s*\{[^{}]*\}'
+    r'|\\(?:multicolumn|multirow)\s*\{[^{}]*\}\s*(?:\[[^\]]*\])?\s*' + _GROUP +
     r'|\\(?:cmidrule|cline)\s*(?:\([lr]{1,2}\))?\s*\{[^{}]*\}'
     r'|\\rotatebox\s*(?:\[[^\]]*\])?\s*\{[^{}]*\}'
     r'|\\(?:resizebox|scalebox)\s*\{[^{}]*\}\s*\{[^{}]*\}'
@@ -257,7 +264,7 @@ _ARG_NUM_RE = re.compile(
     # nobody had lost.
     r'|\\ding\s*\{[^{}]*\}'
     r'|\\setlength\s*\{[^{}]*\}\s*\{[^{}]*\}'
-    r'|\\begin\{[^{}]*\}\s*(?:\[[^\]]*\])?\s*\{[^{}]*\}'
+    r'|\\begin\{[^{}]*\}\s*(?:\[[^\]]*\])?\s*' + _GROUP +
     r'|\\[a-zA-Z]+\s*\{\s*[-\d.]+\s*(?:em|ex|pt|cm|mm|in|bp)\s*\}'
     # The same length in an optional argument: `\addlinespace[2pt]`. Seven of
     # those in AlphaQ's table 1 read as seven values the page had lost.
