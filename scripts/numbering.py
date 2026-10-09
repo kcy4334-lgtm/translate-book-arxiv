@@ -221,6 +221,9 @@ _MINIPAGE_SPAN_RE = re.compile(
     r'\\begin\{minipage\}.*?\\end\{minipage\}', re.DOTALL)
 
 
+_CAPTIONOF_KIND_RE = re.compile(r'\\captionof\s*\{(figure|table)\}')
+
+
 def float_units(tex):
     """One entry per figure/table number the paper actually issues.
 
@@ -266,7 +269,7 @@ def float_units(tex):
         # `build_label_index`, the class table, `flat_equation_numbers` and
         # `read_pdf_section_prefixes` -- which is why a lint now refuses a
         # section walk that cannot see it.
-        walker = re.compile(r'\\(?:sub)*section(\*?)\s*\{'
+        walker = re.compile(r'\\(?:sub)*section(\*?)\s*(?:\[[^\]]*\]\s*)?\{'
                             r'|\\(appendix(?![a-zA-Z])'
                             r'|begin\s*\{append(?:ix|ices)\})')
         for m in walker.finditer(tex):
@@ -328,23 +331,31 @@ def float_units(tex):
             bounds.append(cut)
         bounds.append(len(body))
         for index in range(max(1, len(captions))):
+            # `\captionof{table}` steps the TABLE counter wherever it stands.
+            # DDPM sets its first two tables side by side in minipages inside
+            # a `figure`; counted as figures, every later figure was two too
+            # high and the tables printed as "그림 3" and "그림 4".
+            this = kind
             if captions:
-                counters[kind] += 1
+                declared = _CAPTIONOF_KIND_RE.match(body, captions[index].start())
+                if declared:
+                    this = declared.group(1)
+                counters[this] += 1
             region = tex[base + bounds[index]:base + bounds[index + 1]]
             if not captions:
                 number = None                 # a float that numbers nothing
-            elif kind in scoped:
-                number = _counter_label(kind, counters[kind], parents,
+            elif this in scoped:
+                number = _counter_label(this, counters[this], parents,
                                         section_head)
-            elif prefixes[kind]:
+            elif prefixes[this]:
                 # The paper declared the prefix itself: `A\arabic{figure}`.
-                number = '%s%d' % (prefixes[kind], counters[kind])
-            elif float_styles.get(kind) == 'Roman':
-                number = roman_numeral(counters[kind])
+                number = '%s%d' % (prefixes[this], counters[this])
+            elif float_styles.get(this) == 'Roman':
+                number = roman_numeral(counters[this])
             else:
-                number = counters[kind]
+                number = counters[this]
             units.append({
-                'kind': kind,
+                'kind': this,
                 'number': number,
                 'start': base + bounds[index],
                 'stop': base + bounds[index + 1],
@@ -1228,7 +1239,7 @@ def _label_token_re(theorem_envs):
         # so its appendix sections numbered 11 and 11.5 where the paper
         # prints A and A.5, and every `\ref` into them followed.
         r'\\(appendix(?![a-zA-Z])|begin\s*\{append(?:ix|ices)\})'
-        r'|\\((?:sub)*)section(\*?)\s*\{'
+        r'|\\((?:sub)*)section(\*?)\s*(?:\[[^\]]*\]\s*)?\{'
         r'|\\begin\{(' + alt + r')(\*?)\}'
         r'|\\begin\{(?:SC|wrap|sideways|long|floating)?(figure|table)\*?\}'
         r'|\\begin\{(tabular|lstlisting|listing|minted|verbatim'
@@ -2000,7 +2011,7 @@ def flat_equation_numbers(temp_dir):
     # issued 8.1 to 8.9 for equations 2609.04930 prints as A.1 and B.1. The
     # fourth reader of the same fact, after `build_label_index`,
     # `float_units` and the class table (K180, K185).
-    token = re.compile(r'\\(?:sub)*section(\*?)\s*\{'
+    token = re.compile(r'\\(?:sub)*section(\*?)\s*(?:\[[^\]]*\]\s*)?\{'
                        r'|\\begin\{(' + '|'.join(_NUMBERED_MATH_ENVS) +
                        r')\}'
                        r'|\\(appendix(?![a-zA-Z])'

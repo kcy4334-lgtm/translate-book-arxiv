@@ -1128,7 +1128,7 @@ _HEADING_LINE_RE = re.compile(r'^(#{1,6}) +(.+?)[ \t]*$', re.MULTILINE)
 # argument nests braces, so it has to be read with a balanced scan. A plain
 # `\{([^}]*)\}` stops at the inner `}` and yields a title that is both
 # truncated and unbalanced.
-_HEADING_CMD_RE = re.compile(r'\\((?:sub)*)(section|paragraph)(\*?)\s*\{')
+_HEADING_CMD_RE = re.compile(r'\\((?:sub)*)(section|paragraph)(\*?)\s*(?:\[[^\]]*\]\s*)?\{')
 
 # Wrappers whose argument IS the text. \texorpdfstring{tex}{pdf} keeps the
 # first; the second exists only because the PDF bookmark cannot take math.
@@ -1653,7 +1653,7 @@ def theorem_declarations(temp_dir):
 
     names = sorted(set(envs) | set(starred), key=lambda n: (-len(n), n))
     scan = re.compile(
-        r'\\((?:sub)*)section(\*?)\s*\{'
+        r'\\((?:sub)*)section(\*?)\s*(?:\[[^\]]*\]\s*)?\{'
         r'|\\begin\{(' + '|'.join(re.escape(n) for n in names) + r')\}')
 
     section_head = ''
