@@ -8,9 +8,17 @@ immediately if any step fails, do not attempt to recover automatically.
 
 ```bash
 git push origin main
-git tag v$1 && git push --tags
-python tools/build_plugin_branch.py && git push origin claude-plugin
+git tag v$1 && git push origin v$1
+python tools/build_plugin_branch.py --ref v$1 && git push origin claude-plugin
 ```
+
+The new tag alone, not `--tags`: that pushes every local tag, including one
+made for a version that was never published.
+
+If the demo book was rebuilt for this release, attach it to the new GitHub
+release as `looped-flows_ko.pdf` straight after the tag is pushed. The README
+links to `releases/download/v$1/looped-flows_ko.pdf`, and until the file is
+there the link is dead.
 
 The third line refreshes the branch Anthropic's plugin directory follows. It
 builds from the tag the second line made, and the directory publishes the new

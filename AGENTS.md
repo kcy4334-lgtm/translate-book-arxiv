@@ -201,7 +201,7 @@ table; it says which of these documents to open for the change you are making.
 - Subagent instructions in SKILL.md must be platform-neutral (work on Codex, OpenClaw, Codex)
 - Checked-in baseline inputs live under `tests/baselines/<book-id>/`; generated full-pipeline outputs live under `tests/.artifacts/`
 - There is ONE README. Upstream keeps a Chinese one; this fork dropped it rather than carry a translation nobody here can review; it would go stale on the first edit, and a stale translation is worse than none
-- Releases follow `.claude/commands/release.md`: `git push origin main`, then `git tag vX.Y.Z && git push --tags`. Do not skip the git tag; it's the only version anchor in the repo. ClawHub publishing is upstream's, not this fork's
+- Releases follow `.claude/commands/release.md`, and only that file spells out the commands. The git tag is the only version anchor in the repo. ClawHub publishing is upstream's, not this fork's
 
 ## Do not
 

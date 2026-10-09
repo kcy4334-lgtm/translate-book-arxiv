@@ -2,9 +2,9 @@
 
 An agent skill for Claude Code, Codex and OpenClaw that turns an arXiv paper into a translated, printable book. It reads the paper's **LaTeX source**, so equations, figures, tables and the paper's own numbering carry over. PDF, DOCX and EPUB books work too, through Calibre.
 
-[<img src="assets/demo/03-table.png" alt="Left: Table 1 on page 7 of arXiv:2609.11801. Right: the same table on page 12 of the Korean book built from its LaTeX source, every number and every plus-minus sign unchanged.">](assets/demo/03-table.png)
+[<img src="assets/demo/03-table.png" alt="Left: Table 1 on page 7 of arXiv:2609.11801. Right: the same table on page 13 of the Korean book built from its LaTeX source, every number and every plus-minus sign unchanged.">](assets/demo/03-table.png)
 
-<sub>Left: page 7 of arXiv:2609.11801, *Thinking with Looped Flows* (CC BY 4.0). Right: page 12 of the Korean book this skill built from its LaTeX source. Every number in Table 1, and every `±`, is the paper's. **The whole book, 29 pages: [`looped-flows_ko.pdf`](https://github.com/kcy4334-lgtm/translate-book-arxiv/releases/download/v0.4.2/looped-flows_ko.pdf).** More pages, with source and licence: [assets/demo](assets/demo/README.md).</sub>
+<sub>Left: page 7 of arXiv:2609.11801, *Thinking with Looped Flows* (CC BY 4.0). Right: page 13 of the Korean book this skill built from its LaTeX source. Every number in Table 1, and every `±`, is the paper's. **The whole book, 31 pages: [`looped-flows_ko.pdf`](https://github.com/kcy4334-lgtm/translate-book-arxiv/releases/download/v0.5.0/looped-flows_ko.pdf).** More pages, with source and licence: [assets/demo](assets/demo/README.md).</sub>
 
 ```bash
 npx skills add kcy4334-lgtm/translate-book-arxiv -a claude-code -g
@@ -357,17 +357,17 @@ Versions are git tags on `main`. The tag is the only version anchor; no file hol
 ```bash
 python -m unittest discover -s tests -p "test_*.py"    # green first
 git push origin main
-git tag vX.Y.Z && git push --tags
-python tools/build_plugin_branch.py && git push origin claude-plugin
+git tag vX.Y.Z && git push origin vX.Y.Z
+python tools/build_plugin_branch.py --ref vX.Y.Z && git push origin claude-plugin
 ```
 
-`/release` in `.claude/commands/release.md` runs the last three lines and stops at the first failure. A tag already on the remote is not moved without asking, because someone may have fetched it.
+`/release` in `.claude/commands/release.md` runs the last three lines and stops at the first failure. Only the new tag is pushed, so a local tag for a version that was never published stays local. A tag already on the remote is not moved without asking, because someone may have fetched it. If the demo book was rebuilt, it is attached to the release as `looped-flows_ko.pdf`, which the link at the top of this page points to.
 
 The last line refreshes the `claude-plugin` branch, which Anthropic's plugin directory follows instead of `main`. The directory refuses any file over 5 MiB and holds binaries for review, while `main` keeps the test books the suite needs, so the branch is built from the tag with only the files the skill runs on plus `.claude-plugin/plugin.json`. The directory also holds a plugin whose `allowed-tools` lets it run any Python, so the branch's `SKILL.md` allows only the scripts it names, by their `${CLAUDE_PLUGIN_ROOT}` path; `main` keeps `{baseDir}` and `Bash(python *)` for the runtimes that do not fill in that variable. Both copies pre-approve file writes only under the folder the user works in (`Edit(./**)`, which Claude Code applies to Write as well), so writing anywhere else still asks.
 
 This fork is not published on ClawHub. The upstream project publishes there as `translate-book`, and that name is theirs.
 
-A translated book is attached to a release only when the paper's licence allows it. `looped-flows_ko.pdf` on v0.4.2 comes from a CC BY 4.0 paper. A paper under arXiv's default licence does not allow redistributing a translation, and arXiv states which licence applies in the `<license>` field of its OAI-PMH record (the Atom API has no licence field).
+A translated book is attached to a release only when the paper's licence allows it. `looped-flows_ko.pdf` on v0.5.0 comes from a CC BY 4.0 paper. A paper under arXiv's default licence does not allow redistributing a translation, and arXiv states which licence applies in the `<license>` field of its OAI-PMH record (the Atom API has no licence field).
 
 ### Contributing
 
