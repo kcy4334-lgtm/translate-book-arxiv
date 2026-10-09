@@ -652,6 +652,9 @@ _TEXTCOLOR_HEAD_RE = re.compile(
 _COLOR_SWITCH_RE = re.compile(r'\\color\s*(?:\[[^\]]*\])?\s*\{[^{}]*\}\s*')
 # `\text{\rm(exact)}`: an old font switch inside text it cannot read.
 _TEXT_RM_RE = re.compile(r'(\\text\s*\{)\s*\\(?:rm|normalfont)\b\s*')
+# `\verb|np.random.pareto|`: verbatim is a text-mode command. In a formula
+# texmath reads `\texttt`, with an underscore escaped so it stays one.
+_VERB_IN_MATH_RE = re.compile(r'\\verb\*?([^A-Za-z\s])(.*?)\1')
 
 
 def drop_math_colour(md_text):
@@ -673,6 +676,10 @@ def drop_math_colour(md_text):
         span, n = _COLOR_SWITCH_RE.subn('', span)
         count[0] += n
         span, n = _TEXT_RM_RE.subn(r'\1', span)
+        count[0] += n
+        span, n = _VERB_IN_MATH_RE.subn(
+            lambda v: '\\texttt{%s}' % re.sub(r'(?<!\\)([_%&#$])', r'\\\1',
+                                              v.group(2)), span)
         count[0] += n
         out, cursor = [], 0
         for head in _TEXTCOLOR_HEAD_RE.finditer(span):

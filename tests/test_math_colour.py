@@ -37,6 +37,15 @@ class MathColour(unittest.TestCase):
             '$$x_{' + BS + 'smash[t]{a}} && ' + BS + 'text{' + BS + 'rm(exact)}$$')
         self.assertEqual(out, '$$x_{{a}} && ' + BS + 'text{(exact)}$$')
 
+    def test_verb_in_a_formula_becomes_texttt(self):
+        """GPT-3: `$$\\verb|np.random.pareto|(\\alpha) > 1 - \\verb|document_score|$$`."""
+        out, _n = mb.drop_math_colour(
+            '$$' + BS + 'verb|np.random.pareto|(' + BS + 'alpha) > 1 - '
+            + BS + 'verb|document_score|$$')
+        self.assertEqual(out, '$$' + BS + 'texttt{np.random.pareto}(' + BS
+                         + 'alpha) > 1 - ' + BS + 'texttt{document' + BS
+                         + '_score}$$')
+
     def test_text_outside_math_is_left_alone(self):
         text = 'a ' + BS + 'textcolor{red}{word} in prose'
         self.assertEqual(mb.drop_math_colour(text), (text, 0))
