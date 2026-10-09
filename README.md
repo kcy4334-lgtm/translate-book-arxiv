@@ -304,7 +304,6 @@ A temp dir belongs to one run. After changing the title, author, language, templ
 | `scripts/pdf_text.py` | Reads a PDF in reading order and scores how many of the paper's sentences survived |
 | `scripts/algorithm_float.py` | Turns `algorithm` floats into Markdown lists |
 | `scripts/latex_rows.py` | Finds the `\\` that really ends a table row |
-| `scripts/grid_table.py` | Grid tables for layouts pandoc cannot write; not wired into the pipeline |
 | `scripts/math_guard.py` | Replaces formulas and citations with placeholders (`⟦M0042⟧`) during translation and restores them |
 | `scripts/sidecar_edit.py` | Reads and writes a chunk's formula sidecar file without breaking it |
 | `scripts/manifest.py` | Chunk hashes and merge validation |

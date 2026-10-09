@@ -76,16 +76,6 @@ def open_pdf(path):
     return pymupdf.open(path)
 
 
-def page_texts(doc):
-    """Each page's text, in the order the PDF declares its blocks.
-
-    Not `sort=True`. Sorting by geometry reorders a figure's axis labels
-    and panel letters into the prose around it, which reads worse than the
-    problem it was meant to fix.
-    """
-    return [page.get_text('text') for page in doc]
-
-
 def sentences_of(text):
     """The sentences worth using as evidence that an order survived."""
     out = []
@@ -652,13 +642,6 @@ def render_blocks(records, images_by_page=None, images_dir='images'):
         'dropped_figure_text': dropped['figure_text'],
     }
     return '\n\n'.join(x for x in out if x) + '\n', report
-
-
-def to_markdown(doc, images_by_page=None, images_dir='images'):
-    """The whole document as markdown, pages in order, figures in place."""
-    markdown, _report = render_blocks(page_records(doc), images_by_page,
-                                      images_dir)
-    return markdown
 
 
 def convert(pdf_path, out_md, images_dir):
