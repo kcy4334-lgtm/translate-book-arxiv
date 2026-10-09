@@ -2844,6 +2844,76 @@ _BIB_ANCHOR = 'TBREFERENCELISTANCHOR'
 _BIBLIOGRAPHY_CMD_RE = re.compile(r'\\bibliography\s*\{[^{}]*\}')
 
 
+_LONGTABLE_RE = re.compile(
+    r'\\begin\{longtable\*?\}\s*(?:\[[^\]]*\])?\s*\{')
+_LONGTABLE_END_RE = re.compile(r'\\end\{longtable\*?\}')
+_LT_MARK_RE = re.compile(r'\\(endfirsthead|endhead|endfoot|endlastfoot)(?![a-zA-Z])')
+_LT_CAPTION_RE = re.compile(r'\\caption\*?\s*(?:\[[^\]]*\])?\s*\{')
+
+
+def longtables_as_floats(tex):
+    r"""Each `longtable` as a `table` float holding a `tabular`. Returns (tex, n).
+
+    A longtable is a numbered table that may break across pages, which a book
+    page does not need. pandoc reads it into a grid table, and PaLM's
+    datasheet, with a list in five of its cells, came out a 50,000-character
+    grid that the chunker cut into four tables, every later table compared
+    against the wrong one. As a float it takes the path every other table
+    takes: kept as LaTeX, translated cell by cell, rendered with its lists.
+
+    The heads and feet a longtable repeats on each page are dropped; the first
+    head and the last foot stay. The caption and label move to the float,
+    above the table when the paper writes them before the first row.
+    """
+    out, cursor, count = [], 0, 0
+    for m in _LONGTABLE_RE.finditer(tex):
+        if m.start() < cursor:
+            continue
+        spec_end = _balanced_brace(tex, m.end() - 1)
+        end = _LONGTABLE_END_RE.search(tex, max(spec_end, 0))
+        if spec_end < 0 or not end:
+            continue
+        spec = tex[m.end():spec_end - 1]
+        body = tex[spec_end:end.start()]
+        parts, at, kinds = [], 0, []
+        for mark in _LT_MARK_RE.finditer(body):
+            parts.append(body[at:mark.start()])
+            kinds.append(mark.group(1))
+            at = mark.end()
+        parts.append(body[at:])
+        if kinds:
+            # Each part ends at the mark that follows it; the rows come last.
+            ended = dict(zip(kinds, parts))
+            head = ended.get('endfirsthead', ended.get('endhead', ''))
+            body = head + parts[-1] + ended.get('endlastfoot', '')
+        caption, label, above = '', '', False
+        c = _LT_CAPTION_RE.search(body)
+        if c:
+            close = _balanced_brace(body, c.end() - 1)
+            if close > 0:
+                caption = body[c.start():close]
+                above = not re.search(r'(?<!\\)&|\\\\', body[:c.start()])
+                tail = re.match(r'\s*(\\label\s*\{[^{}]*\})?\s*(\\\\)?', body[close:])
+                label = tail.group(1) or ''
+                body = body[:c.start()] + body[close + tail.end():]
+        if not label:
+            lm = re.search(r'\\label\s*\{[^{}]*\}', body)
+            if lm:
+                label = lm.group(0)
+                body = body[:lm.start()] + body[lm.end():]
+        head = caption + label
+        table = ('\\begin{table}\n\\centering\n%s\\begin{tabular}{%s}%s'
+                 '\\end{tabular}\n%s\\end{table}'
+                 % (head + '\n' if above and head else '', spec, body,
+                    head + '\n' if head and not above else ''))
+        out.append(tex[cursor:m.start()])
+        out.append(table)
+        cursor = end.end()
+        count += 1
+    out.append(tex[cursor:])
+    return ''.join(out), count
+
+
 _REFS_END_RE = re.compile(
     r'\\end\s*\{thebibliography\}|\\bibliography\s*\{[^{}]*\}'
     r'|\\printbibliography(?:\[[^\]]*\])?')
@@ -3677,6 +3747,10 @@ def build(input_file, temp_dir, arxiv_id, allow_network=True):
     if tagged:
         print(f"Rewrote {tagged} starred display(s) the paper numbers by hand "
               f"(\\addtocounter + \\tag) as ordinary numbered ones")
+    flat, longs = longtables_as_floats(flat)
+    if longs:
+        print(f"Set {longs} longtable(s) as table floats, so they take the "
+              f"raw-table path and keep the lists inside their cells")
     flat, moved = floats_out_of_references(flat)
     if moved:
         print(f"Moved {moved} float(s) from between the reference list and the "
