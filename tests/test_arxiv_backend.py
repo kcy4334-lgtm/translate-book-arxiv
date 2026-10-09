@@ -252,6 +252,23 @@ if __name__ == "__main__":
     unittest.main()
 
 
+class NociteTests(unittest.TestCase):
+    """ViT cites Touvron et al. only in Table 2's caption; a table passes
+    through as raw LaTeX, citeproc never saw it, and the list lacked it."""
+
+    def test_every_cited_key_is_declared_before_the_end(self):
+        tex = ('\\begin{document}Body \\cite{a, b}.\n'
+               '\\begin{table*}\\caption{From \\citep[see][]{t}.}\\end{table*}\n'
+               '% \\cite{commented}\n\\end{document}')
+        out = arxiv_backend.nocite_every_cited_key(tex)
+        self.assertIn('\\nocite{a,b,t}\n\\end{document}', out)
+        self.assertNotIn('commented}', out.split('\\nocite')[1])
+
+    def test_no_citation_no_change(self):
+        tex = '\\begin{document}Plain.\\end{document}'
+        self.assertEqual(arxiv_backend.nocite_every_cited_key(tex), tex)
+
+
 class AddmarginTests(unittest.TestCase):
     """PaLM's worked examples sit in scrextend's `addmargin`."""
 

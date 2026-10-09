@@ -2480,6 +2480,35 @@ _PROTECTED_TABLE_ENV = 'tbfloatprotected'
 _UNSTARRED_TABLE_RE = re.compile(r'\\(begin|end)\{table\}')
 
 
+_CITE_KEYS_RE = re.compile(
+    r'\\(?:no)?cite[a-zA-Z]*\*?\s*(?:\[[^\]]*\]\s*){0,2}\{([^{}]+)\}')
+
+
+def nocite_every_cited_key(tex):
+    r"""`\nocite` every key the document cites, so citeproc lists them all.
+
+    LaTeX lists every cited work. citeproc lists only the citations pandoc
+    read, and a table float passes through as raw LaTeX: Touvron et al.
+    (2020), cited only in ViT's Table 2 caption, was missing from its
+    reference list. Declaring the cited keys is exactly LaTeX's own rule,
+    so a key cited nowhere is still not listed.
+    """
+    keys = []
+    for m in _CITE_KEYS_RE.finditer(tex):
+        if _in_latex_comment(tex, m.start()):
+            continue                   # LaTeX does not list that one either
+        for key in m.group(1).split(','):
+            key = key.strip()
+            if key and key != '*' and key not in keys:
+                keys.append(key)
+    if not keys:
+        return tex
+    line = '\n\\nocite{%s}\n' % ','.join(keys)
+    # Before `\end{document}`: pandoc reads nothing after it.
+    end = tex.rfind('\\end{document}')
+    return tex[:end] + line + tex[end:] if end >= 0 else tex + line
+
+
 def protect_table_floats(tex):
     """Give `table` the same passthrough `table*` already gets. (tex, n)."""
     tex, n = _UNSTARRED_TABLE_RE.subn(
@@ -2599,6 +2628,7 @@ def latex_to_markdown(flat_tex, tex_dir, root, bib_files=None):
             csl = _full_author_csl(pypandoc)
             if csl:
                 extra.append(f'--csl={csl}')
+            tex = nocite_every_cited_key(tex)
             tex, anchored = _anchor_bibliography(tex)
             # Two passes, so the reference list can be moved in pandoc's own
             # document tree before the markdown writer flattens it: the writer
