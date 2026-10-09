@@ -117,6 +117,21 @@ class TheRunBookRunsOnlyItsOwnScripts(unittest.TestCase):
         shell = [t for t in allowed(self.skill) if t.startswith("Bash(")]
         self.assertEqual(sorted(shell), ["Bash(python *)", "Bash(python3 *)"])
 
+    def test_writes_are_pre_approved_only_under_the_working_folder(self):
+        """The directory warned on v0.4.8 that a bare `Write, Edit` lets the
+        skill write anywhere without asking (ALLOWED_TOOLS_UNSCOPED_WRITE).
+        Claude Code checks writes against `Edit(path)` rules only, for Write
+        too, and ignores a `Write(path)` rule with a startup warning. Measured
+        on 2026-10-09 with a test plugin run through `claude -p`: under
+        `Edit(./**)` the Write and Edit tools, and a sub-agent's Write, went
+        through in the working folder and its subfolders, and a write outside
+        it was refused; with no rule every one of them was refused."""
+        tools = allowed(self.skill)
+        self.assertNotIn("Write", tools)
+        self.assertNotIn("Edit", tools)
+        self.assertEqual([t for t in tools if t.startswith(("Write(", "Edit("))],
+                         ["Edit(./**)"])
+
     def test_no_command_is_piped_through_echo(self):
         self.assertNotRegex(self.skill, r"(?m)^\s*echo ")
         self.assertNotRegex(self.skill, r"\|\s*python")

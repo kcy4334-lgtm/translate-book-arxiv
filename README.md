@@ -76,7 +76,7 @@ This page was written for the repository, with made-up results, so it can be sho
 - **Resumable**: SHA-256 hashes in a manifest keep stale outputs out of the merge, and a changed glossary re-translates only the chunks that used the changed terms
 - **Print-ready PDF**: headless Chromium against a real `@page` box (A4, 18/18/22/18 mm, 11.5 pt), page numbers stamped afterwards because Chrome has no margin boxes. `scripts/layout.py` holds the page geometry and fonts
 - **Output**: HTML with a floating TOC, DOCX, EPUB and PDF, with an optional EPUB cover, working folder and export name
-- **Tests**: 2,293, standard library only, run in CI
+- **Tests**: 2,294, standard library only, run in CI
 
 ## Growing the skill
 
@@ -360,7 +360,7 @@ python tools/build_plugin_branch.py && git push origin claude-plugin
 
 `/release` in `.claude/commands/release.md` runs the last three lines and stops at the first failure. A tag already on the remote is not moved without asking, because someone may have fetched it.
 
-The last line refreshes the `claude-plugin` branch, which Anthropic's plugin directory follows instead of `main`. The directory refuses any file over 5 MiB and holds binaries for review, while `main` keeps the test books the suite needs, so the branch is built from the tag with only the files the skill runs on plus `.claude-plugin/plugin.json`. The directory also holds a plugin whose `allowed-tools` lets it run any Python, so the branch's `SKILL.md` allows only the scripts it names, by their `${CLAUDE_PLUGIN_ROOT}` path; `main` keeps `{baseDir}` and `Bash(python *)` for the runtimes that do not fill in that variable.
+The last line refreshes the `claude-plugin` branch, which Anthropic's plugin directory follows instead of `main`. The directory refuses any file over 5 MiB and holds binaries for review, while `main` keeps the test books the suite needs, so the branch is built from the tag with only the files the skill runs on plus `.claude-plugin/plugin.json`. The directory also holds a plugin whose `allowed-tools` lets it run any Python, so the branch's `SKILL.md` allows only the scripts it names, by their `${CLAUDE_PLUGIN_ROOT}` path; `main` keeps `{baseDir}` and `Bash(python *)` for the runtimes that do not fill in that variable. Both copies pre-approve file writes only under the folder the user works in (`Edit(./**)`, which Claude Code applies to Write as well), so writing anywhere else still asks.
 
 This fork is not published on ClawHub. The upstream project publishes there as `translate-book`, and that name is theirs.
 
