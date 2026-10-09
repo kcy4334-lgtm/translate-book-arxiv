@@ -62,6 +62,18 @@ class HeadingMath(unittest.TestCase):
                                                 MACROS),
                          r'Sets {a} and $\{b\}$')
 
+    def test_a_cited_label_keeps_its_braces(self):
+        # randmat: `cited_titles` puts the number into `{s: rows}`.
+        self.assertEqual(mb.clean_heading_title(r'For Section \ref{s: rows}',
+                                                MACROS),
+                         'For Section {s: rows}')
+
+    def test_a_footnote_is_not_part_of_the_title(self):
+        # Planck's "Conclusions" carried its note into the gloss.
+        self.assertEqual(mb.clean_heading_title(
+            r'Conclusions\footnote{As in the abstract, 68\,\% limits.}', MACROS),
+            'Conclusions')
+
 
 class GlossMathShorthand(unittest.TestCase):
     r"""VAE's appendix heading kept `\qPhi` in its original-title bracket,

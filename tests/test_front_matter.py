@@ -42,6 +42,19 @@ class TheAffiliationSurvives(unittest.TestCase):
                      '2920 Chemin de la tour'):
             self.assertIn(line, got)
 
+    def test_institutes_split_by_and_become_paragraphs(self):
+        # Planck: the `\and` left behind stopped pandoc at "unexpected \and".
+        got, n = ab.unwrap_front_matter(
+            '\\institute{\\small\nAPC, Paris\n\\and\nAalto University\n'
+            '\\and African Institute}')
+        self.assertEqual(n, 1)
+        self.assertNotIn('\\and', got)
+        self.assertIn('APC, Paris\n\nAalto University\n\nAfrican Institute', got)
+
+    def test_an_and_in_a_word_is_left(self):
+        got, _ = ab.unwrap_front_matter('\\institute{A \\andrew B}')
+        self.assertIn('\\andrew', got)
+
     def test_email_keeps_the_address(self):
         got, n = ab.unwrap_front_matter(r'\email{maynardj@dms.umontreal.ca}')
         self.assertEqual((got, n), ('maynardj@dms.umontreal.ca', 1))

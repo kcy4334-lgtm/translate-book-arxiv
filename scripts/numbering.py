@@ -230,19 +230,19 @@ _FLOAT_CONTENT_RE = re.compile(
     r'\\includegraphics|\\begin\s*\{(?:tabular|tabularx|tabu|tikzpicture'
     r'|algorithmic|lstlisting|verbatim)\*?\}')
 
-_LABEL_AFTER_CAPTION_RE = re.compile(r'\s*\\label\s*\{[^}]*\}')
-
-
 def _after_caption(body, caption, limit):
-    """Index just past `caption`'s argument and any \\label that follows it."""
+    """Where the content after `caption` starts, or `limit` if none does.
+
+    Everything between -- the label, a `\\vspace`, a `\\bigskip` -- stays
+    with the caption. Cut just past the label instead, ResNet's Table 7
+    lost `tab:detection_voc` to Table 8, because a `\\vspace` stood between
+    its caption and its label.
+    """
     end = _balanced_group(body, caption.end() - 1)
     if end < 0 or end > limit:
         return limit
-    m = _LABEL_AFTER_CAPTION_RE.match(body, end)
-    while m and m.end() <= limit:
-        end = m.end()
-        m = _LABEL_AFTER_CAPTION_RE.match(body, end)
-    return end
+    content = _FLOAT_CONTENT_RE.search(body, end, limit)
+    return content.start() if content else limit
 
 
 def float_units(tex):

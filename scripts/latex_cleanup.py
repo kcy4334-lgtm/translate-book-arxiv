@@ -1210,6 +1210,12 @@ def read_simple_macros(tex):
     return out
 
 
+_HEADING_REF_RE = re.compile(
+    r'\\(?:ref|eqref|cref|Cref|autoref|pageref)\s*\{([^{}]*)\}')
+_HEADING_NOTE_RE = re.compile(
+    r'\\footnote(?:mark|text)?\s*(?:\[[^\]]*\])?\s*\{')
+
+
 def clean_heading_title(raw, macros=None):
     """Reduce a LaTeX section title to the text a reader would see."""
     text = raw
@@ -1271,10 +1277,25 @@ def clean_heading_title(raw, macros=None):
     # delimiters left behind.
     # A bare group and a control space print nothing of their own: PaLM's
     # `\paragraph{{PaLM}\ 540B}` was glossed "PaLM 540B ({PaLM} 540B)".
+    # A cited label keeps its braces, `{s: introduction}`: that is the form
+    # `cited_titles` puts the label's number into (randmat's "For Section 2").
     def strip_outside_math(chunk):
+        chunk = _HEADING_REF_RE.sub('\x00\\1\x01', chunk)
         chunk = re.sub(r'\\[A-Za-z]+\s*', '', chunk.replace('\\ ', ' '))
         chunk = re.sub(r'(?<!\\)[{}]', '', chunk)
-        return chunk.replace('\\{', '{').replace('\\}', '}')
+        chunk = chunk.replace('\\{', '{').replace('\\}', '}')
+        return chunk.replace('\x00', '{').replace('\x01', '}')
+
+    # A footnote on a heading is not part of its title. Planck's
+    # "Conclusions" carried its whole note into the original-title gloss.
+    while True:
+        note = _HEADING_NOTE_RE.search(text)
+        if not note:
+            break
+        close = _balanced_group(text, note.end() - 1)
+        if close < 0:
+            break
+        text = text[:note.start()] + text[close:]
 
     pieces, cursor = [], 0
     for span in re.finditer(r'\$[^$\n]+\$', text):

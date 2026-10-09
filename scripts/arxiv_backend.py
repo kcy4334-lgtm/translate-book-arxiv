@@ -1880,6 +1880,9 @@ def _brace_end(text, open_at):
     return -1
 
 
+_AND_RE = re.compile(r'\s*\\and(?![A-Za-z])\s*')
+
+
 def _rewrite_braced_command(tex, name, keep_body):
     """`\\name[opt]{body}` -> body, or nothing. Returns (text, count)."""
     # The optional argument has to be consumed with the command: `\address[a]`
@@ -1909,6 +1912,11 @@ def _rewrite_braced_command(tex, name, keep_body):
             at = m.end()
             continue
         body = tex[m.end() + 1:close - 1] if keep_body else ''
+        # `\and` separates the entries of an author block, and pandoc reads
+        # it nowhere else: Planck's `\institute{A \and B ...}`, unwrapped,
+        # stopped the whole conversion at "unexpected \and". Out of the
+        # block, each entry is its own paragraph.
+        body = _AND_RE.sub('\n\n', body)
         tex = tex[:m.start()] + body + tex[close:]
         at = m.start() + len(body)
         count += 1
@@ -2568,7 +2576,6 @@ _STACKED_CAPTION_RE = re.compile(r'\\caption\s*(?:\[[^\]]*\])?\s*\{')
 _STACK_NESTING_RE = re.compile(
     r'\\begin\{(?:minipage|subfigure|subtable|tabular)|\\subfloat|\\subfigure'
     r'|\\captionof')
-_LABEL_AFTER_RE = re.compile(r'\s*\\label\{[^}]*\}')
 
 
 def split_stacked_captions(tex):
@@ -2588,21 +2595,31 @@ def split_stacked_captions(tex):
         if len(caps) < 2 or _STACK_NESTING_RE.search(body):
             return m.group(0)
         pieces, start = [], 0
-        for cap in caps:
+        for index, cap in enumerate(caps):
             # Each piece shows its own content above its own caption.
             if '\\includegraphics' not in body[start:cap.start()]:
                 return m.group(0)
             end = _balanced_brace(body, cap.end() - 1)
             if end < 0:
                 return m.group(0)
-            label = _LABEL_AFTER_RE.match(body, end)
-            while label:
-                end = label.end()
-                label = _LABEL_AFTER_RE.match(body, end)
-            pieces.append(body[start:end].strip())
+            # The label, a `\vspace`, the `\bigskip` between: all of it up to
+            # the next image stays with this caption.
+            if index + 1 < len(caps):
+                end = body.find('\\includegraphics', end, caps[index + 1].start())
+                if end < 0:
+                    return m.group(0)
+            else:
+                if '\\includegraphics' in body[end:]:
+                    return m.group(0)
+                end = len(body)
+            piece = body[start:end]
+            # A piece has to stand as LaTeX on its own: a `center` around
+            # both images cannot be cut in two.
+            if len(re.findall(r'\\begin\s*\{', piece)) \
+                    != len(re.findall(r'\\end\s*\{', piece)):
+                return m.group(0)
+            pieces.append(piece.strip())
             start = end
-        if '\\includegraphics' in body[start:]:
-            return m.group(0)
         count += 1
         return '\n\n'.join('\\begin{%s}\n%s\n\\end{%s}' % (env, p, env)
                            for p in pieces)

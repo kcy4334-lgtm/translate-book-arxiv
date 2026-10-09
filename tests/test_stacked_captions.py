@@ -64,6 +64,31 @@ class Units(unittest.TestCase):
         self.assertEqual(units[0]['labels'], ['fig:one'])
         self.assertEqual(units[1]['labels'], ['fig:two'])
 
+    def test_a_label_after_a_vspace_stays_with_its_caption(self):
+        # ResNet's Tables 7 and 8 share a float; `\vspace` stands between
+        # each caption and its label.
+        tex = ('\\begin{table}\\begin{tabular}{c}a\\end{tabular}\n'
+               '\\caption{VOC.}\n\\vspace{-.5em}\n\\label{tab:voc}\n'
+               '\\begin{tabular}{c}b\\end{tabular}\n'
+               '\\caption{COCO.}\n\\vspace{-.5em}\n\\label{tab:coco}\n'
+               '\\end{table}')
+        units = numbering.float_units(tex)
+        self.assertEqual([u['labels'] for u in units],
+                         [['tab:voc'], ['tab:coco']])
+
+    def test_a_split_figure_keeps_a_label_after_spacing(self):
+        tex = PALM.replace('\\caption{First {example}.}\n',
+                           '\\caption{First {example}.}\n\\vspace{-1em}\n')
+        out, n = arxiv_backend.split_stacked_captions(tex)
+        self.assertEqual(n, 1)
+        first = out.split('\\end{figure*}')[0]
+        self.assertIn('\\label{fig:one}', first)
+
+    def test_a_center_around_both_images_is_left(self):
+        tex = PALM.replace('\\centering\n', '\\begin{center}\n').replace(
+            '\\label{fig:two}\n', '\\label{fig:two}\n\\end{center}\n')
+        self.assertEqual(arxiv_backend.split_stacked_captions(tex), (tex, 0))
+
     def test_caption_above_content_still_cuts_at_the_caption(self):
         tex = ('\\begin{figure}\\caption{One.}\\includegraphics{a}'
                '\\caption{Two.}\\includegraphics{b}\\end{figure}')
