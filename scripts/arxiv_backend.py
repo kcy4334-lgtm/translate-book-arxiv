@@ -1579,7 +1579,10 @@ def unwrap_raised_graphics(tex):
     return ''.join(out), count
 
 
-_SUBFLOAT_CMD_RE = re.compile(r'\\subfloat\b[ \t]*')
+# The old subfigure package's command is the same shape, `\subfigure[]{...}`:
+# higgs_atlas's Figure 5 lost both plots to it. Not `\begin{subfigure}`, the
+# subcaption environment, which pandoc reads.
+_SUBFLOAT_CMD_RE = re.compile(r'\\(subfloat|subfigure)\b(?=[ \t]*[\[{])[ \t]*')
 
 
 def _in_comment(tex, pos):
@@ -1651,11 +1654,12 @@ def unwrap_subfloat(tex):
         m = _SUBFLOAT_CMD_RE.search(tex)
         if not m:
             break
+        keep = '\\KEEP' + m.group(1).upper()
         if _in_comment(tex, m.start()):
             # Unwrapping lifts the body onto its own line, out from behind the
             # `%` that was hiding it. SINQ has a commented-out panel that came
             # back as a figure the paper does not print.
-            tex = tex[:m.start()] + '\\KEEPSUBFLOAT' + tex[m.end():]
+            tex = tex[:m.start()] + keep + tex[m.end():]
             continue
         pos = m.end()
         # subfig takes \subfloat[list entry][caption]{body}: up to two.
@@ -1670,11 +1674,12 @@ def unwrap_subfloat(tex):
         if end < 0:
             # Unexpected shape: leave it alone rather than guess, and rename it
             # so the scan can move past it.
-            tex = tex[:m.start()] + '\\KEEPSUBFLOAT' + tex[m.end():]
+            tex = tex[:m.start()] + keep + tex[m.end():]
             continue
         tex = tex[:m.start()] + '\n\n' + tex[pos + 1:end - 1] + '\n\n' + tex[end:]
         count += 1
-    return tex.replace('\\KEEPSUBFLOAT', '\\subfloat'), count
+    return (tex.replace('\\KEEPSUBFLOAT', '\\subfloat')
+            .replace('\\KEEPSUBFIGURE', '\\subfigure')), count
 
 
 _GRAPHIC_OPT_RE = re.compile(

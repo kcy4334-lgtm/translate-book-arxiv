@@ -654,6 +654,17 @@ class FigureSurvivalTests(unittest.TestCase):
         self.assertEqual(n, 2)
         self.assertIn(NL + NL, out)
 
+    def test_the_subfigure_package_command_too(self):
+        # higgs_atlas's Figure 5; the subcaption environment is left to pandoc.
+        tex = (BS + "subfigure[]{" + BS + "includegraphics{a.eps} }" + NL
+               + BS + "subfigure[]{" + BS + "includegraphics{b.eps}}" + NL
+               + BS + "begin{subfigure}{0.5" + BS + "linewidth}y"
+               + BS + "end{subfigure}")
+        out, n = arxiv_backend.unwrap_subfloat(tex)
+        self.assertEqual(n, 2)
+        self.assertNotIn(BS + "subfigure[", out)
+        self.assertIn(BS + "begin{subfigure}", out)
+
     def test_sidecap_float_becomes_a_figure(self):
         tex = (BS + "begin{SCfigure}[50][t]" + NL
                + BS + "includegraphics{x.pdf}" + NL + BS + "end{SCfigure}")

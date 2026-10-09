@@ -1048,9 +1048,11 @@ def build_float_numbers(temp_dir):
 
 
 _SUBENV_TAG_RE = re.compile(r'\\(begin|end)\{(?:subfigure|subtable)\}')
-_SUBFLOAT_RE = re.compile(r'\\subfloat\s*(?:\[[^\]]*\])?\s*\{')
+# The old subfigure package's `\subfigure[..]{..}` command too (higgs_atlas);
+# not the subcaption environment, which `_SUBENV_TAG_RE` reads.
+_SUBFLOAT_RE = re.compile(r'\\(?:subfloat|subfigure)\s*(?:\[[^\]]*\])?\s*\{')
 # `\subfloat[Title]{...}` is lettered; `\subfloat{...}` is not.
-_SUBFLOAT_CAPTIONED_RE = re.compile(r'\\subfloat\s*\[[^\]]*\]\s*\{')
+_SUBFLOAT_CAPTIONED_RE = re.compile(r'\\(?:subfloat|subfigure)\s*\[[^\]]*\]\s*\{')
 _PANEL_CAPTION_RE = re.compile(r'\\caption(?![A-Za-z])')
 _SUBREF_RE = re.compile(r'\\subref\s*\{([^{}]+)\}')
 
