@@ -1381,8 +1381,11 @@ def resolve_fragment_citations(tex, labels):
     return _FRAGMENT_CITE_RE.sub(sub, tex), count[0]
 
 
+# `\shortstack` too, which pandoc does not drop but worse: its `\\` ends the
+# table row, so GPT-3's `\shortstack{Quantity \\ (tokens)}` header split into
+# four rows with "Quantity" gone.
 _CELL_WRAPPER_HEAD_RE = re.compile(
-    r'\\(?:makecell|thead)\s*(?:\[[^\]\n]*\])?\s*(?=\{)')
+    r'\\(?:makecell|thead|shortstack)\s*(?:\[[^\]\n]*\])?\s*(?=\{)')
 # The row break INSIDE such a cell. It separates two lines of one cell, not
 # two table rows, so it becomes a space rather than a break.
 _CELL_ROW_BREAK_RE = re.compile(r'\s*\\\\\s*')

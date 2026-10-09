@@ -29,6 +29,13 @@ class CellWrappersKeepTheirText(unittest.TestCase):
         self.assertEqual(got, '| a b | y |')
         self.assertEqual(n, 1)
 
+    def test_shortstack_keeps_its_row(self):
+        # GPT-3's header: the `\\` inside split the row and lost "Quantity".
+        got, n = mb.unwrap_table_cell_wrappers(
+            r'Dataset & \shortstack{Quantity \\ (tokens)} \\')
+        self.assertEqual(got, r'Dataset & Quantity (tokens) \\')
+        self.assertEqual(n, 1)
+
     def test_the_optional_argument_is_consumed(self):
         # `\makecell[l]{...}` dropped its cell exactly as the bare form did,
         # so the alignment option must not be left behind either.
