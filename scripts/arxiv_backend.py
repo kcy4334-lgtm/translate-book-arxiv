@@ -2027,6 +2027,55 @@ _STARRED_DISPLAY_RE = re.compile(
     r'(.*?)\\end\{\1\*\}', re.DOTALL)
 
 
+# What llncs.cls defines itself, so a paper never declares it: name -> title.
+_LLNCS_THEOREMS = {
+    'theorem': 'Theorem', 'lemma': 'Lemma', 'corollary': 'Corollary',
+    'proposition': 'Proposition', 'definition': 'Definition',
+    'example': 'Example', 'exercise': 'Exercise', 'note': 'Note',
+    'problem': 'Problem', 'property': 'Property', 'question': 'Question',
+    'solution': 'Solution', 'remark': 'Remark', 'conjecture': 'Conjecture',
+    'claim': 'Claim', 'case': 'Case'}
+
+
+def declare_class_theorems(tex):
+    r"""Declare the theorem-likes llncs defines in the class. (tex, n).
+
+    pandoc reads a `\begin{lemma}` only when the document says
+    `\newtheorem{lemma}`, and an LNCS paper never does: the class has them.
+    AdamX's lemmas, theorem, remark and proposition reached the book as raw
+    LaTeX, which the HTML writer drops, and the build refused it. The
+    declarations follow the class options: each its own counter by default,
+    one shared counter under `envcountsame`, per section under
+    `envcountsect`. Its `credits` block, the acknowledgement, comes out of
+    its wrapper with `\ackname` spelled out.
+    """
+    cls = re.search(r'\\documentclass\s*(\[[^\]]*\])?\s*\{llncs\}', tex)
+    if not cls:
+        return tex, 0
+    options = cls.group(1) or ''
+    declared = set(re.findall(
+        r'\\(?:sp)?newtheorem\*?\s*\{([^{}]+)\}', tex))
+    used = [env for env in _LLNCS_THEOREMS
+            if env not in declared and re.search(
+                r'\\begin\{%s\}' % env, tex[cls.end():])]
+    lines = []
+    for env in used:
+        if 'envcountsame' in options and env != 'theorem':
+            lines.append('\\newtheorem{%s}[theorem]{%s}' % (env, _LLNCS_THEOREMS[env]))
+        elif 'envcountsect' in options:
+            lines.append('\\newtheorem{%s}{%s}[section]' % (env, _LLNCS_THEOREMS[env]))
+        else:
+            lines.append('\\newtheorem{%s}{%s}' % (env, _LLNCS_THEOREMS[env]))
+    if 'envcountsame' in options and lines and 'theorem' not in used \
+            and 'theorem' not in declared:
+        lines.insert(0, '\\newtheorem{theorem}{Theorem}')
+    tex = re.sub(r'\\(?:begin|end)\{credits\}', '', tex)
+    tex = re.sub(r'\\ackname\b', 'Acknowledgements', tex)
+    if lines:
+        tex = tex[:cls.end()] + '\n' + '\n'.join(lines) + tex[cls.end():]
+    return tex, len(lines)
+
+
 def number_manually_tagged_rows(tex):
     r"""A starred display numbered by hand becomes an ordinary numbered one.
 
@@ -3004,6 +3053,10 @@ def build(input_file, temp_dir, arxiv_id, allow_network=True):
     # Reported, not swallowed. A refusal leaves the name printing verbatim in
     # the book, and the silent version of that is how it went unnoticed until
     # a reader found `\ie` in the middle of a Korean sentence (K110).
+    flat, declared = declare_class_theorems(flat)
+    if declared:
+        print(f"Declared {declared} theorem-like environment(s) the document "
+              f"class defines; pandoc reads only declared ones")
     flat, tagged = number_manually_tagged_rows(flat)
     if tagged:
         print(f"Rewrote {tagged} starred display(s) the paper numbers by hand "

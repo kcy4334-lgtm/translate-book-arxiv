@@ -264,6 +264,39 @@ class TildeTests(unittest.TestCase):
         self.assertNotIn('texttildelow', out)
 
 
+class LlncsTheoremTests(unittest.TestCase):
+    r"""llncs defines lemma, theorem, remark... in the class; AdamX never
+    declares them, pandoc kept them as raw LaTeX and the build refused."""
+
+    DOC = ('\\documentclass[runningheads]{llncs}\n\\newtheorem{assumption}{Assumption}\n'
+           '\\begin{document}\n\\begin{lemma}A\\end{lemma}\\begin{remark}B\\end{remark}\n'
+           '\\begin{credits}\\subsubsection{\\ackname} Thanks.\\end{credits}\n'
+           '\\end{document}')
+
+    def test_the_used_ones_are_declared_with_their_own_counters(self):
+        out, n = arxiv_backend.declare_class_theorems(self.DOC)
+        self.assertEqual(n, 2)
+        self.assertIn('\\newtheorem{lemma}{Lemma}', out)
+        self.assertIn('\\newtheorem{remark}{Remark}', out)
+        self.assertNotIn('{theorem}{Theorem}', out)
+        self.assertNotIn('newtheorem{assumption}{Assumption}\n\\newtheorem', out)
+
+    def test_credits_lose_their_wrapper(self):
+        out, _n = arxiv_backend.declare_class_theorems(self.DOC)
+        self.assertNotIn('credits', out)
+        self.assertIn('\\subsubsection{Acknowledgements} Thanks.', out)
+
+    def test_envcountsame_shares_the_theorem_counter(self):
+        doc = self.DOC.replace('[runningheads]', '[envcountsame]')
+        out, _n = arxiv_backend.declare_class_theorems(doc)
+        self.assertIn('\\newtheorem{lemma}[theorem]{Lemma}', out)
+        self.assertIn('\\newtheorem{theorem}{Theorem}', out)
+
+    def test_another_class_is_left_alone(self):
+        doc = self.DOC.replace('{llncs}', '{article}')
+        self.assertEqual(arxiv_backend.declare_class_theorems(doc), (doc, 0))
+
+
 class SubfigureCaptionTests(unittest.TestCase):
     r"""pandoc writes a subfigure's caption as a plain paragraph, which was
     taken for the figure's caption: VAE's figure 4 printed panel (b)'s label
