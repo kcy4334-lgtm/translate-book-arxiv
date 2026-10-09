@@ -49,8 +49,10 @@ class TheAuditStepsUseIt(unittest.TestCase):
             skill = f.read()
         for step in ('#### 7.5b.', 'Tell it to **render both pages'):
             at = skill.index(step)
-            self.assertIn('python {baseDir}/scripts/render_pages.py',
-                          skill[at:at + 900], step)
+            # `{baseDir}` here, `${CLAUDE_PLUGIN_ROOT}` in the plugin's copy.
+            self.assertRegex(skill[at:at + 900],
+                             r'python (?:\{baseDir\}|\$\{CLAUDE_PLUGIN_ROOT\})'
+                             r'/scripts/render_pages\.py', step)
         self.assertNotRegex(skill, r'get_pixmap\(')
 
 

@@ -54,8 +54,9 @@ class TheRunBookCleansUpLast(unittest.TestCase):
             self.skill = f.read()
 
     def test_the_build_command_does_not_clean_up(self):
-        builds = re.findall(r'(?m)^python \{baseDir\}/scripts/merge_and_build\.py .*$',
-                            self.skill)
+        # `{baseDir}` here, `${CLAUDE_PLUGIN_ROOT}` in the plugin's copy.
+        builds = re.findall(r'(?m)^python (?:\{baseDir\}|\$\{CLAUDE_PLUGIN_ROOT\})'
+                            r'/scripts/merge_and_build\.py .*$', self.skill)
         self.assertTrue(builds)
         for line in builds:
             self.assertNotRegex(line, r'--cleanup(?!-only)')
