@@ -1387,7 +1387,10 @@ _TEX_NOISE = (
     # keeps `flushleft` and `flushright` raw, and the HTML writer drops them
     # whole: higgs_atlas's author list -- 3,000 names and their institutes --
     # vanished from the book and the build stopped on it.
-    (re.compile(r'\\(?:begin|end)\{(?:flushleft|flushright)\}'), ''),
+    # elsarticle's `frontmatter` the same way: it holds higgs_atlas's title,
+    # author and abstract, the title page still showed the title (it comes
+    # from the metadata), and the abstract was gone without a word.
+    (re.compile(r'\\(?:begin|end)\{(?:flushleft|flushright|frontmatter)\}'), ''),
     # `\rowcolor` is deliberately NOT in here. The damage described above is
     # `\cellcolor`'s: it sits inside a row, between two `&`, where it overruns
     # a simple table's ruler. `\rowcolor` sits in front of the first cell, and

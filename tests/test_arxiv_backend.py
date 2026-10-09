@@ -292,6 +292,13 @@ class AlignmentEnvironmentTests(unittest.TestCase):
         self.assertIn('G.~Aad', out)
         self.assertIn('Right', out)
 
+    def test_elsarticle_frontmatter_is_unwrapped(self):
+        out = arxiv_backend.sanitize_tex(
+            '\\begin{frontmatter}\n\\title{T}\n\\section*{Abstract}\nA search.'
+            '\n\\end{frontmatter}')
+        self.assertNotIn('frontmatter', out)
+        self.assertIn('\\section*{Abstract}\nA search.', out)
+
 
 class TextSuperscriptTests(unittest.TestCase):
     """higgs_atlas: 3,023 `$^{\\rm 48}$` marks made one 730 KB paragraph of
