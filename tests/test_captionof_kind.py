@@ -48,5 +48,36 @@ class CaptionofKind(unittest.TestCase):
                          [('figure', 1), ('table', 1)])
 
 
+class NestedSubfigures(unittest.TestCase):
+    r"""Neural ODE's Figure 5: two captioned panels, each a row of inner
+    subfigures with `\caption*` headers. The first inner `\end{subfigure}`
+    closed the panel and the panel captions numbered two extra figures."""
+
+    TEX = (r'\begin{figure}'
+           r'\begin{subfigure}{0.49\linewidth}'
+           r'\begin{subfigure}{0.1\linewidth}\caption*{5\%}\end{subfigure}'
+           r'\begin{subfigure}{0.1\linewidth}\includegraphics{a}\end{subfigure}'
+           r'\caption{Two Circles}\label{fig:2circles}\end{subfigure}'
+           r'\begin{subfigure}{0.49\linewidth}'
+           r'\begin{subfigure}{0.1\linewidth}\includegraphics{b}\end{subfigure}'
+           r'\caption{Two Moons}\label{fig:2moons}\end{subfigure}'
+           r'\caption{Visualizing the transformation.}\label{fig:cnf_mle}'
+           r'\end{figure}'
+           r'\begin{figure}\caption{Computation graph.}\label{fig:next}\end{figure}')
+
+    def test_one_figure_two_panels(self):
+        got = [(u['kind'], u['number'], u['labels'])
+               for u in numbering.float_units(self.TEX)]
+        self.assertEqual(got, [
+            ('figure', 1, ['fig:2circles', 'fig:2moons', 'fig:cnf_mle']),
+            ('figure', 2, ['fig:next'])])
+
+    def test_the_outer_panels_take_the_letters(self):
+        spans = numbering._panel_spans(self.TEX)
+        self.assertEqual(len(spans), 2)
+        self.assertIn('Two Circles', spans[0][2])
+        self.assertIn('Two Moons', spans[1][2])
+
+
 if __name__ == '__main__':
     unittest.main()

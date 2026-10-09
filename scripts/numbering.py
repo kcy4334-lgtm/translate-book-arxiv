@@ -940,8 +940,7 @@ def build_float_numbers(temp_dir):
     return numbers
 
 
-_SUBENV_RE = re.compile(
-    r'\\begin\{(subfigure|subtable)\}(.*?)\\end\{\1\}', re.DOTALL)
+_SUBENV_TAG_RE = re.compile(r'\\(begin|end)\{(?:subfigure|subtable)\}')
 _SUBFLOAT_RE = re.compile(r'\\subfloat\s*(?:\[[^\]]*\])?\s*\{')
 # `\subfloat[Title]{...}` is lettered; `\subfloat{...}` is not.
 _SUBFLOAT_CAPTIONED_RE = re.compile(r'\\subfloat\s*\[[^\]]*\]\s*\{')
@@ -983,8 +982,20 @@ def _panel_spans(body):
     float's own \\caption and \\label.
     """
     spans = []
-    for m in _SUBENV_RE.finditer(body):
-        spans.append((m.start(), m.end(), m.group(2)))
+    # Outermost only, matched by depth. Neural ODE's two panels each hold a
+    # row of subfigures of their own; the first inner `\end{subfigure}` closed
+    # the panel, its `\caption{Two Moons}` fell outside every panel, and the
+    # figure counted three captions -- every later figure two too high.
+    depth, start = 0, 0
+    for m in _SUBENV_TAG_RE.finditer(body):
+        if m.group(1) == 'begin':
+            if depth == 0:
+                start, opened = m.start(), m.end()
+            depth += 1
+        elif depth:
+            depth -= 1
+            if depth == 0:
+                spans.append((start, m.end(), body[opened:m.start()]))
     for m in _SUBFLOAT_RE.finditer(body):
         close = _balanced_group(body, m.end() - 1)
         if close > 0:
