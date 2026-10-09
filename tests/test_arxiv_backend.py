@@ -252,6 +252,18 @@ if __name__ == "__main__":
     unittest.main()
 
 
+class TildeTests(unittest.TestCase):
+    r"""Sentence-BERT's "(\texttildelow 65 hours)" printed as "( hours)":
+    pandoc kept the unknown command and the number after it as raw LaTeX."""
+
+    def test_texttildelow_becomes_a_command_pandoc_reads(self):
+        out = arxiv_backend.sanitize_tex(r"about (\texttildelow 65 hours) and "
+                                         r"\texttildelow{}5 s")
+        self.assertIn(r"(\textasciitilde{}65 hours)", out)
+        self.assertIn(r"\textasciitilde{}5 s", out)
+        self.assertNotIn('texttildelow', out)
+
+
 class CaptionedMinipageTests(unittest.TestCase):
     r"""ViT's figures 3 and 4 are two captioned minipages in one figure;
     pandoc kept only the second caption and printed both images as one."""

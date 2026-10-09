@@ -250,7 +250,18 @@ def extract_latex_title(tex):
 
 
 _AUTHOR_SEP_RE = re.compile(
-    r'\\(?:and|AND|And)\b|\\quad\b|\\qquad\b|\\hspace\*?\s*\{[^{}]*\}|,')
+    r'\\(?:and|AND|And)\b|\\quad\b|\\qquad\b|\\hspace\*?\s*\{[^{}]*\}')
+# Names within one line of an entry. Split per LINE, not over the whole
+# block: a comma in the affiliation line below the names made
+# "Technische Universität Darmstadt" an author, and Sentence-BERT's whole
+# list was refused for it. The word `and` joins two names as often as
+# `\and` does: "Nils Reimers and Iryna Gurevych".
+_AUTHOR_NAME_SEP_RE = re.compile(r',|\s+and\s+')
+# Spacing and marks that carry no name, gone before anything is split: the
+# comma in ViT's `$^{*,\dagger}$` cut a mark in half, and `\vspace{1mm}`
+# left "1mm" behind as a name with a digit in it.
+_AUTHOR_SPACING_RE = re.compile(
+    r'\$[^$]*\$|\\vspace\*?\s*\{[^{}]*\}|\\centerline\b')
 # Inside one author entry the NAME is the first line; `\\` starts the
 # affiliation and the e-mail. Gluing the lines together produced
 # "Ashish Vaswani Google Brain avaswani@google.com" as a person.
@@ -264,6 +275,34 @@ _NOT_A_PERSON_RE = re.compile(
     r'|Corporation|Inc\b|Ltd\b|LLC\b|GmbH|Google|Microsoft|Meta\b|OpenAI'
     r'|DeepMind|Huawei|Amazon|Apple\b|Berkeley|Stanford|MIT\b|CMU\b)',
     re.IGNORECASE)
+# Words that end a line of names further down the block. Not refused on the
+# first line, where "The Planck team" is the author the paper names.
+_NOT_A_NAME_LINE_RE = re.compile(r'\b(?:Team|Group|Labs|AI)\b')
+# Lower-case words a family name may start with.
+_NAME_PARTICLES = {'van', 'von', 'der', 'den', 'de', 'del', 'della', 'da',
+                   'di', 'du', 'la', 'le', 'bin', 'al', 'el', 'dos', 'das',
+                   'ter', 'zu'}
+
+
+def _bare_author(part):
+    """One name fragment with its markup and stray marks gone."""
+    return ' '.join(_AUTHOR_MARKUP_RE.sub(' ', part).split()).strip(' .,;*†‡§:')
+
+
+def _reads_as_a_name(part):
+    """Does this fragment, alone, read as a person's name?
+
+    Only used to decide whether a LATER line of an author block is still
+    names. Strict on purpose: a line that fails ends the list there.
+    """
+    bare = _bare_author(part)
+    words = bare.split()
+    if not 2 <= len(words) <= 6 or _NOT_A_PERSON_RE.search(bare) \
+            or _NOT_A_NAME_LINE_RE.search(bare):
+        return False
+    if re.search(r'[\d@\\:()]', bare):
+        return False
+    return all(w[0].isupper() or w.lower() in _NAME_PARTICLES for w in words)
 # A note that carries its own argument, removed FIRST so that a comma inside
 # `\thanks{Room 2D-149, Murray Hill}` cannot split one author into two.
 # Longest name first. Alternation is ordered, so `footnote` in front of
@@ -306,11 +345,24 @@ def extract_latex_authors(tex):
         block = _balanced_arg(tex, tex.index('{', m.end() - 1)) or ''
         block = re.sub(r'(?m)^\s*%.*$', '', block)     # a commented-out author
         block = _AUTHOR_NOTE_RE.sub(' ', block)
+        block = _AUTHOR_SPACING_RE.sub(' ', block)
         names = []
         for entry in _AUTHOR_SEP_RE.split(block):
-            # The name is the first line of the entry; the rest is where they
-            # work and how to reach them.
-            names.append(_AUTHOR_LINE_RE.split(entry)[0])
+            # The names come first in the entry; then where they work and
+            # how to reach them. The first line is always names (and is
+            # refused below if it is not). A later line is names only if
+            # every part of it reads as one: ViT sets twelve names over
+            # three centred lines and CafeQ seven over two, and stopping
+            # after the first line printed four of each -- a list missing
+            # someone, which is as wrong as a false name. The first line
+            # that is anything else -- an affiliation, an address, a note
+            # on equal contribution -- ends the names.
+            for index, line in enumerate(_AUTHOR_LINE_RE.split(entry)):
+                parts = _AUTHOR_NAME_SEP_RE.split(line)
+                if index and not all(_reads_as_a_name(p) for p in parts
+                                     if _bare_author(p)):
+                    break
+                names.extend(parts)
     out = []
     for name in names:
         name = ' '.join(_AUTHOR_MARKUP_RE.sub(' ', name).split())
@@ -1000,6 +1052,11 @@ _TEX_NOISE = (
     (re.compile(r'\\(?:hfill|vfill|hrulefill|dotfill)(?![a-zA-Z])'), ''),
     # \hbox{4-bit} exists to stop a line break; the words are the content.
     (re.compile(r'\\(?:hbox|mbox)\s*\{([^{}]*)\}'), r'\1'),
+    # textcomp's `\texttildelow` is not a command pandoc knows. It kept it as
+    # raw LaTeX together with the NUMBER after it, and the HTML writer drops
+    # raw LaTeX: Sentence-BERT's "(~65 hours)" printed as "( hours)", the
+    # figure its whole argument rests on. `\textasciitilde{}` it reads.
+    (re.compile(r'\\texttildelow(?![A-Za-z])\s*(?:\{\})?'), r'\\textasciitilde{}'),
 )
 
 _TABLE_NOTE_RE = re.compile(r'\\tnote\s*\{([^{}]*)\}')

@@ -10,10 +10,13 @@ page, which is worse than none (K121's lesson). It recovers names from the
 simple forms and REFUSES everything else, and refusing costs nothing: the page
 keeps saying what it says today.
 
-Measured over the corpus, it accepts maynard, shor, unet, SINQ and planck, and
-refuses gan (a name glued to its affiliation), gpt3 ("OpenAI" as the 32nd
-author), spectre (271 fragments), attention, bert, ddpm, resnet, AlphaQ and
-DeeR-VLA.
+Names are read line by line: the first line of an entry is names, and a later
+line is names only if every part of it reads as one, so an affiliation, an
+address or a note ends the list. Measured over the corpus, every list it gives
+names only people on the paper's first page, and gives all of them; it still
+refuses attention, adam, AlphaQ, VLA-Adapter, DeeR-VLA and 2609.11801. Splitting the whole block on commas,
+as it once did, refused Sentence-BERT for a comma in its affiliation and
+CafeQ, ViT, BERT, GAN and ResNet for marks and spacing.
 """
 import os
 import sys
@@ -69,6 +72,48 @@ class SimpleFormsAreRead(unittest.TestCase):
     def test_a_duplicate_name_appears_once(self):
         self.assertEqual(ab.extract_latex_authors(r'\author{A Bee \and A Bee}'),
                          'A Bee')
+
+
+class BlocksOverSeveralLines(unittest.TestCase):
+    """Names over several lines, and affiliations with commas in them."""
+
+    def test_a_comma_in_the_affiliation_does_not_make_an_author(self):
+        # Sentence-BERT: refused whole for "Technische Universität Darmstadt".
+        self.assertEqual(
+            ab.extract_latex_authors(
+                '\\author{Nils Reimers and Iryna Gurevych \\\\\n'
+                'Ubiquitous Knowledge Processing Lab (UKP-TUDA)\\\\\n'
+                'Department of Computer Science, Technische Universit\\"at '
+                'Darmstadt\\\\\n\\url{www.ukp.tu-darmstadt.de}}'),
+            'Nils Reimers; Iryna Gurevych')
+
+    def test_names_over_centred_lines_with_marks(self):
+        # ViT: `$^{*,\dagger}$` and `\vspace{1mm}` refused the whole list.
+        block = ('\\author{\n'
+                 '\\centerline{Alexey Dosovitskiy$^{*,\\dagger}$, Lucas Beyer$^{*}$,}'
+                 ' \\vspace{1mm}\\\\\n'
+                 '\\centerline{\\textbf{Xiaohua Zhai$^{*}$, Thomas Unterthiner}}'
+                 ' \\vspace{0.5mm} \\\\\n'
+                 '\\centerline{$^*$equal technical contribution, $^\\dagger$equal '
+                 'advising}  \\vspace{0.7mm} \\\\\n'
+                 '\\centerline{Google Research, Brain Team} \\\\\n}')
+        self.assertEqual(ab.extract_latex_authors(block),
+                         'Alexey Dosovitskiy; Lucas Beyer; Xiaohua Zhai; '
+                         'Thomas Unterthiner')
+
+    def test_a_second_line_of_names_is_read(self):
+        # CafeQ: seven names over two lines; four were kept.
+        self.assertEqual(
+            ab.extract_latex_authors(
+                '\\author{Ziteng Sun$^\\dag$, Adrian Benton$^\\dag$ \\\\ '
+                'Vikas Singh$^\\circ$, Ananda Theertha Suresh$^\\dag$ \\\\ '
+                '$^\\dag$ Google: \\{zitengsun\\}@google.com}'),
+            'Ziteng Sun; Adrian Benton; Vikas Singh; Ananda Theertha Suresh')
+
+    def test_an_affiliation_with_no_keyword_still_ends_the_names(self):
+        self.assertEqual(
+            ab.extract_latex_authors('\\author{Ann Lee, Bo Ki \\\\ Brain Team}'),
+            'Ann Lee; Bo Ki')
 
 
 class AnythingUncertainIsRefused(unittest.TestCase):
