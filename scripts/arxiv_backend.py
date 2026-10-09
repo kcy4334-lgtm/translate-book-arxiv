@@ -2113,7 +2113,12 @@ def declare_class_theorems(tex):
             and 'theorem' not in declared:
         lines.insert(0, '\\newtheorem{theorem}{Theorem}')
     tex = re.sub(r'\\(?:begin|end)\{credits\}', '', tex)
-    tex = re.sub(r'\\ackname\b', 'Acknowledgements', tex)
+    # Uses only. `\renewcommand{\ackname}{Thanks}` spelled out became
+    # `\renewcommand{Acknowledgements}{Thanks}`, which pandoc cannot read.
+    tex = re.sub(r'\\ackname\b',
+                 lambda m: m.group(0) if _DEFINES_RE.search(
+                     tex[max(0, m.start() - 40):m.start()])
+                 else 'Acknowledgements', tex)
     if lines:
         tex = tex[:cls.end()] + '\n' + '\n'.join(lines) + tex[cls.end():]
     return tex, len(lines)

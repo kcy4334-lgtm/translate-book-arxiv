@@ -312,6 +312,14 @@ class LlncsTheoremTests(unittest.TestCase):
         self.assertNotIn('credits', out)
         self.assertIn('\\subsubsection{Acknowledgements} Thanks.', out)
 
+    def test_a_redefinition_of_ackname_is_left_a_definition(self):
+        doc = self.DOC.replace(
+            '\\begin{document}',
+            '\\renewcommand{\\ackname}{Thanks}\n\\begin{document}')
+        out, _n = arxiv_backend.declare_class_theorems(doc)
+        self.assertIn('\\renewcommand{\\ackname}{Thanks}', out)
+        self.assertIn('\\subsubsection{Acknowledgements}', out)
+
     def test_envcountsame_shares_the_theorem_counter(self):
         doc = self.DOC.replace('[runningheads]', '[envcountsame]')
         out, _n = arxiv_backend.declare_class_theorems(doc)
