@@ -74,6 +74,15 @@ class BareFloatLabels(unittest.TestCase):
         self.assertEqual(got, '앞서 표 1 에서')
         self.assertEqual(n, 1)
 
+    def test_the_word_in_front_is_absorbed(self):
+        # SBERT: the translator kept `Table`, and the page read `Table 표 1`.
+        for text in ('결과는 Table (table-mixtral)에 있다',
+                     '결과는 Table~(table-mixtral)에 있다',
+                     '결과는 표 (table-mixtral)에 있다'):
+            got, n = self.resolve(text)
+            self.assertEqual(got, '결과는 표 2에 있다', text)
+            self.assertEqual(n, 1)
+
     def test_no_flat_tex_is_not_an_error(self):
         empty = tempfile.mkdtemp(prefix='tb-bare-none-')
         try:
@@ -83,6 +92,35 @@ class BareFloatLabels(unittest.TestCase):
                 (text, 0))
         finally:
             shutil.rmtree(empty, ignore_errors=True)
+
+
+class SynonymInFront(unittest.TestCase):
+    """`ref_words`: a target-language word that is not the printed label."""
+
+    def setUp(self):
+        self.temp = tempfile.mkdtemp(prefix='tb-refwords-')
+        with open(os.path.join(self.temp, 'flat.tex'), 'w',
+                  encoding='utf-8') as fh:
+            fh.write(r'\section{Intro}' '\n' r'\section{Model}\label{sec:model}'
+                     '\n' r'\section{Ablation}\label{sec_ablation}' '\n')
+
+    def tearDown(self):
+        shutil.rmtree(self.temp, ignore_errors=True)
+
+    def resolve(self, text):
+        from layout import get_lang_config
+        return mb.resolve_references(text, self.temp,
+                                     get_lang_config('ko'))[0]
+
+    def test_a_prefixed_section_reference(self):
+        self.assertEqual(self.resolve('섹션 (sec:model)에서는'), '2절에서는')
+
+    def test_an_unprefixed_section_reference(self):
+        # SBERT: `섹션 (sec_ablation_study)` printed `섹션 6절`.
+        self.assertEqual(self.resolve('섹션 (sec_ablation)에서는'), '3절에서는')
+
+    def test_the_word_alone_is_left(self):
+        self.assertEqual(self.resolve('이 섹션에서는'), '이 섹션에서는')
 
 
 if __name__ == '__main__':

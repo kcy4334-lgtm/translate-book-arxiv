@@ -69,6 +69,7 @@ LANG_CONFIG = {
         'theorem_words': ('定理', '引理', '推论', '命题', '定义', '注', '例',
                           '事实', '观察', '猜想', '断言'),
         'ref_formats': {'section': '第{number}{label}'},
+        'ref_words': (),
         'particle_agreement': False,
         'references_label': '参考文献',
         'toc_label': '目录',
@@ -89,6 +90,7 @@ LANG_CONFIG = {
                           'Corollary', 'Definition', 'Theorem', 'Example',
                           'Lemma', 'Remark', 'Claim', 'Fact'),
         'ref_formats': {},
+        'ref_words': (),
         'particle_agreement': False,
         'references_label': 'References',
         'toc_label': 'Contents',
@@ -126,6 +128,7 @@ LANG_CONFIG = {
         'theorem_words': ('定理', '補題', '系', '命題', '定義', '注意', '例',
                           '事実', '観察', '予想', '主張'),
         'ref_formats': {'section': '第{number}{label}'},
+        'ref_words': (),
         'particle_agreement': False,
         'references_label': '参考文献',
         'toc_label': '目次',
@@ -142,6 +145,10 @@ LANG_CONFIG = {
         'equation_label': '식',
         'section_label': '절',
         'ref_formats': {'section': '{number}{label}'},
+        # Words a translator writes in front of a reference that are not
+        # the label this prints: SBERT read "섹션 3절" when 섹션 stood
+        # before (sec_x). Absorbed with the placeholder, like the label.
+        'ref_words': ('섹션',),
         # Korean chooses a particle by the sound of the syllable before it, so
         # substituting a number into a finished sentence can leave the wrong
         # one standing: "그림 1를" instead of "그림 1을".
@@ -178,6 +185,7 @@ LANG_CONFIG = {
                           'Corollaire', 'Définition', 'Théorème', 'Exemple',
                           'Lemme', 'Remarque', 'Fait'),
         'ref_formats': {},
+        'ref_words': (),
         'particle_agreement': False,
         'references_label': 'Références',
         'toc_label': 'Table des matières',
@@ -198,6 +206,7 @@ LANG_CONFIG = {
                           'Korollar', 'Definition', 'Beispiel', 'Bemerkung',
                           'Lemma', 'Folgerung', 'Satz', 'Fakt'),
         'ref_formats': {},
+        'ref_words': (),
         'particle_agreement': False,
         'references_label': 'Literatur',
         'toc_label': 'Inhaltsverzeichnis',
@@ -218,6 +227,7 @@ LANG_CONFIG = {
                           'Corolario', 'Definición', 'Teorema', 'Ejemplo',
                           'Lema', 'Nota', 'Hecho'),
         'ref_formats': {},
+        'ref_words': (),
         'particle_agreement': False,
         'references_label': 'Referencias',
         'toc_label': 'Índice',
@@ -241,6 +251,7 @@ DEFAULT_LANG_CONFIG = {
                       'Definition', 'Theorem', 'Example', 'Lemma', 'Remark',
                       'Claim', 'Fact'),
     'ref_formats': {},
+    'ref_words': (),
     'references_label': 'References',
     'font_family': "Georgia, 'Times New Roman', Times, serif",
     'font_family_ebook': 'Georgia, "Times New Roman", Times, serif',

@@ -15,7 +15,7 @@ class LangConfigTests(unittest.TestCase):
         keys = {"lang_attr", "font_family", "font_family_ebook", "toc_label",
                 "pdf_font", "figure_label", "table_label", "equation_label",
                 "section_label", "appendix_label", "algorithm_label",
-                "theorem_label", "theorem_words", "ref_formats",
+                "theorem_label", "theorem_words", "ref_formats", "ref_words",
                 "references_label", "particle_agreement"}
         for code, cfg in layout.LANG_CONFIG.items():
             self.assertEqual(set(cfg), keys, f"{code} has the wrong keys")

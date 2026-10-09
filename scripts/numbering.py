@@ -1661,7 +1661,9 @@ def resolve_references(md_text, temp_dir, lang_cfg=None):
     lead_affix, trail_affix = template_affixes(formats, words)
     if lang_cfg.get('particle_agreement') is True:
         trail_affix = []
-    xref_re = _xref_regex(list(words.values()) + lead_affix, trail_affix)
+    ref_words = list(lang_cfg.get('ref_words') or ())
+    xref_re = _xref_regex(list(words.values()) + lead_affix + ref_words,
+                          trail_affix)
     if floats or index:
         md_text = xref_re.sub(xref_sub, md_text)
     else:
@@ -1669,12 +1671,13 @@ def resolve_references(md_text, temp_dir, lang_cfg=None):
 
     md_text, keyed = resolve_unprefixed_references(
         md_text, index, words, formats,
-        lead_words=lang_cfg.get('theorem_words')
-        or _DEFAULT_LANG_CONFIG.get('theorem_words'))
+        lead_words=list(lang_cfg.get('theorem_words')
+                        or _DEFAULT_LANG_CONFIG.get('theorem_words'))
+        + ref_words)
     stats['xrefs'] += keyed
 
     md_text, bare = resolve_bare_float_labels(md_text, temp_dir, words,
-                                              formats)
+                                              formats, ref_words)
     stats['xrefs'] += bare
     md_text, stats['doubled'] = drop_doubled_labels(md_text, words, formats,
                                                     lang_cfg)
@@ -1715,7 +1718,8 @@ _KO_PARTICLES = ('으로', '에서는', '에서', '에는', '에', '의', '을',
                  '는', '과', '와', '이', '가', '로', '도', '만', '부터', '까지')
 
 
-def resolve_bare_float_labels(md_text, temp_dir, words, formats):
+def resolve_bare_float_labels(md_text, temp_dir, words, formats,
+                              ref_words=()):
     r"""`(table-mixtral)` -> `표 9`. Returns (text, count).
 
     A cross-reference is recognised by its prefix -- `(tab:x)`, `(fig:y)`.
@@ -1728,6 +1732,10 @@ def resolve_bare_float_labels(md_text, temp_dir, words, formats):
     labelled `HT-SR`, which is also how it introduces the acronym. And only
     where a space precedes the bracket, which a gloss never has:
     `Self-Regularization(HT-SR)` has none, `그리고 (table-mixtral)에서` does.
+
+    The word in front is absorbed, as `_xref_regex` does for prefixed keys:
+    SBERT's translator kept `Table (table_stsb)` and the page read `Table 표
+    1`. `drop_doubled_labels` only collapses the same word twice.
     """
     known = {}
     for unit in read_float_units(temp_dir):
@@ -1739,7 +1747,12 @@ def resolve_bare_float_labels(md_text, temp_dir, words, formats):
             known.setdefault(label, (slot, unit['number']))
     if not known:
         return md_text, 0
-    pattern = re.compile(r'(?<=\s)\((%s)\)' % '|'.join(
+    leads = sorted({w for w in (words['figure'], words['table'],
+                                *ref_words) if w},
+                   key=len, reverse=True)
+    native = (r'(?:(?<!\w)(?:%s)[ \t ~]*)?'
+              % '|'.join(re.escape(w) for w in leads))
+    pattern = re.compile(_XREF_LEAD + native + r'(?<=[\s~])\((%s)\)' % '|'.join(
         sorted((re.escape(k) for k in known), key=len, reverse=True)))
 
     def sub(m):
