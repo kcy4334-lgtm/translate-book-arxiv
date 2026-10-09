@@ -379,12 +379,22 @@ def read_float_units(temp_dir):
         return []
 
 
+def _file_stem(name):
+    """`fig0003_random_walk_hyp.png` -> `randomwalkhyp`, as `_graphic_stem` keys."""
+    name = _TRIMMED_NAME_RE.sub(r'\1', os.path.basename(name))
+    body = re.sub(r'^fig\d+_', '', name).rsplit('.', 1)[0]
+    return re.sub(r'[^0-9a-z]', '', body.lower())
+
+
 def figure_panels(temp_dir):
     """{image filename: its FIRST panel record}; see figure_panel_occurrences."""
     occurrences = figure_panel_occurrences(temp_dir)
     if occurrences is None:
         return None
-    return {name: infos[0] for name, infos in occurrences.items()}
+    images_dir = os.path.join(temp_dir, 'images')
+    return {name: occurrences[_file_stem(name)][0]
+            for name in sorted(os.listdir(images_dir))
+            if _file_stem(name) in occurrences}
 
 
 def assign_panels(refs, occurrences):
@@ -430,32 +440,63 @@ def figure_panel_occurrences(temp_dir):
     except OSError:
         return None
 
-    by_stem = {}
-    for name in files:
-        # extracted as fig0003_random_walk_hyp.png
-        body = re.sub(r'^fig\d+_', '', name).rsplit('.', 1)[0]
-        by_stem.setdefault(re.sub(r'[^0-9a-z]', '', body.lower()), name)
+    # Keyed by the graphic's stem, not the extracted file: one graphic can be
+    # extracted twice, once per spelling of its reference -- Neural ODE writes
+    # `plots/pred_legend.pdf` in Figure 8 and `plots/pred_legend` in Figure
+    # 10 -- and keyed by file the second copy matched no figure and printed
+    # as "그림 84", the number in its file name.
+    stems = {_file_stem(name) for name in files}
 
     out = {}
     for unit in float_units(tex):
         if unit['kind'] != 'figure':
             continue
-        resolved = []
-        for options, graphic in _GRAPHIC_RE.findall(tex[unit['start']:unit['stop']]):
-            name = by_stem.get(_graphic_stem(graphic, options))
+        region = tex[unit['start']:unit['stop']]
+        resolved, where = [], {}
+        for m in _GRAPHIC_RE.finditer(region):
+            options, graphic = m.group(1), m.group(2)
+            stem = _graphic_stem(graphic, options)
             # The same graphic can be included twice in one float
             # (an overlay, a repeated panel); it is still one panel. In two
             # floats it is two figures (assign_panels).
-            if name and name not in resolved:
-                resolved.append(name)
+            if stem in stems and stem not in resolved:
+                resolved.append(stem)
+                where[stem] = m.start()
+        letters = _panel_letters(region, resolved, where)
         for index, name in enumerate(resolved):
             out.setdefault(name, []).append(
                 {'float': unit['number'],
-                 'letter': chr(ord('a') + index) if len(resolved) > 1 else None,
+                 'letter': letters[index],
                  'panels': len(resolved),
                  'caption': (unit['number'] is not None
                              and index == len(resolved) - 1)})
     return out or None
+
+
+def _panel_letters(region, resolved, where):
+    """The letter each image prints under, or None.
+
+    By image when the float has no subfigure environments, as before. With
+    them, by the captioned subfigure an image stands in, printed once under
+    its last image: Neural ODE's Figure 10 has three panels of two plots
+    each, "(a) 30 time points", and lettering every image ran to (f).
+    """
+    if len(resolved) < 2:
+        return [None] * len(resolved)
+    spans = [s for s in _panel_spans(region) if _panel_is_lettered(s[2])]
+    if not spans:
+        return [chr(ord('a') + i) for i in range(len(resolved))]
+    owner = []
+    for stem in resolved:
+        at = where[stem]
+        owner.append(next((i for i, (s, e, _t) in enumerate(spans)
+                           if s <= at < e), None))
+    letters = []
+    for i, panel in enumerate(owner):
+        last = all(owner[j] != panel for j in range(i + 1, len(owner)))
+        letters.append(chr(ord('a') + panel) if panel is not None and last
+                       else None)
+    return letters
 
 
 _MD_IMAGE_REF_RE = re.compile(r'!\[[^\]]*\]\(([^)\s]+)\)')
@@ -671,7 +712,10 @@ _CAPTION_MATH_SPLIT_RE = re.compile(r'((?<!\\)\$[^$]+\$)')
 def _figure_caption_md(label, body):
     r"""`**label** body`, safe to sit inside an image's alt text."""
     body = (body or '').strip()
-    caption = f'**{label}** {body}'.strip() if body else f'**{label}**'
+    if not label:
+        caption = body
+    else:
+        caption = f'**{label}** {body}'.strip() if body else f'**{label}**'
     # Square brackets would close the alt-text span early, so they are
     # written as entities, which pandoc prints as plain brackets. Not as `\[`:
     # the reader runs with tex_math_single_backslash, and ResNet's caption
@@ -695,9 +739,7 @@ def _panel_for(panels, path):
     which is the extraction order: ViT's figure 10 printed as figures 11, 12
     and 13, and each of those numbers then appeared twice in the book.
     """
-    name = os.path.basename(path)
-    return ((panels or {}).get(name)
-            or (panels or {}).get(_TRIMMED_NAME_RE.sub(r'\1', name)))
+    return (panels or {}).get(_file_stem(path))
 
 
 def _last_of_float(infos, n):
@@ -833,6 +875,11 @@ def format_figure_blocks(md_text, lang_cfg=None, temp_dir=None):
         # The label is bold so the print sheet can pick it out with
         # `figcaption strong`; the caption keeps whatever markdown it had.
         grouped = bool(panel and panel['panels'] > 1)
+        if grouped and not letter:
+            # A panel's other images print no letter; its letter goes under
+            # its last one (`_panel_letters`). Without this they took the
+            # whole figure's number, once per image.
+            label = ''
         if grouped and caption_md:
             # The float's caption belongs under the whole float, not under
             # whichever panel happened to carry it in the source. SINQ's

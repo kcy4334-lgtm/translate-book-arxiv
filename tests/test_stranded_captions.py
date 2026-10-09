@@ -31,7 +31,8 @@ class Stranded(unittest.TestCase):
             open(os.path.join(self.temp, 'images', name), 'wb').close()
 
     def tearDown(self):
-        shutil.rmtree(self.temp, ignore_errors=True)
+        if hasattr(self, 'temp'):
+            shutil.rmtree(self.temp, ignore_errors=True)
 
     def test_a_caption_after_a_panel_table(self):
         self.make('\\begin{figure}\\begin{tabular}{cc}\\includegraphics{fig1.pdf} &'
@@ -91,6 +92,26 @@ class Stranded(unittest.TestCase):
         self.assertEqual(n, 2)
         self.assertIn('**그림 1 (Fig. 1)**', out)
         self.assertNotIn('.png)\\', out)
+
+    def test_a_panel_of_two_images_takes_one_letter(self):
+        # Neural ODE's Figure 10: three subfigures of two plots, (a)-(c).
+        import numbering
+        region = ('\\begin{subfigure}{.3\\linewidth}\\includegraphics{a1}\\\\'
+                  '\\includegraphics{a2}\\caption{30 points}\\end{subfigure}'
+                  '\\begin{subfigure}{.3\\linewidth}\\includegraphics{b1}'
+                  '\\includegraphics{b2}\\caption{50 points}\\end{subfigure}'
+                  '\\includegraphics{legend}\\caption{Spirals.}')
+        resolved = ['a1', 'a2', 'b1', 'b2', 'legend']
+        where = {s: region.index('{%s}' % s) for s in resolved}
+        self.assertEqual(numbering._panel_letters(region, resolved, where),
+                         [None, 'a', None, 'b', None])
+
+    def test_without_subfigures_every_image_is_lettered(self):
+        import numbering
+        region = '\\includegraphics{x}\\includegraphics{y}\\caption{Two.}'
+        where = {'x': region.index('{x}'), 'y': region.index('{y}')}
+        self.assertEqual(numbering._panel_letters(region, ['x', 'y'], where),
+                         ['a', 'b'])
 
     def test_a_caption_on_top(self):
         self.make('\\begin{figure}\\caption{Above.}\\begin{tabular}{c}'
