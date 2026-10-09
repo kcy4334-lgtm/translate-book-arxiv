@@ -60,14 +60,18 @@ _CAPTION_RE = re.compile(r'\\caption\s*(?:\[[^\]]*\])?\s*\{')
 
 
 def _balanced(text, open_at):
-    depth = 0
-    for i in range(open_at, len(text)):
+    depth, i = 0, open_at
+    while i < len(text):
+        if text[i] == '\\':
+            i += 2                  # an escaped brace is a character
+            continue
         if text[i] == '{':
             depth += 1
         elif text[i] == '}':
             depth -= 1
             if depth == 0:
                 return i + 1
+        i += 1
     return -1
 
 

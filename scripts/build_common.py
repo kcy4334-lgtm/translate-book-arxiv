@@ -378,26 +378,29 @@ def _in_latex_comment(text, pos):
 
 
 def _balanced_group(text, open_at):
-    """Index just past the `{...}` group that starts at open_at, or -1."""
-    depth = 0
-    for i in range(open_at, len(text)):
-        if text[i] == '{':
+    r"""Index just past the `{...}` group that starts at open_at, or -1.
+
+    An escaped brace is a character, not a group: `\left\{ ... \right.`
+    opens nothing, and counting its `\{` ran a caption or a title on past
+    its own end. `\\` is one token, so the brace after it does count.
+    """
+    depth, i = 0, open_at
+    while i < len(text):
+        ch = text[i]
+        if ch == '\\':
+            i += 2
+            continue
+        if ch == '{':
             depth += 1
-        elif text[i] == '}':
+        elif ch == '}':
             depth -= 1
             if depth == 0:
                 return i + 1
+        i += 1
     return -1
 
 
 def _brace_group(text, start):
     """(content, index after the group) for the `{...}` at `text[start]`."""
-    depth = 0
-    for i in range(start, len(text)):
-        if text[i] == '{':
-            depth += 1
-        elif text[i] == '}':
-            depth -= 1
-            if depth == 0:
-                return text[start + 1:i], i + 1
-    return None, start
+    end = _balanced_group(text, start)
+    return (text[start + 1:end - 1], end) if end > 0 else (None, start)

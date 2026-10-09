@@ -101,14 +101,18 @@ def colspec_columns(spec):
 
 def _matching_brace(text, start):
     r"""Index of the `}` closing the `{` at `start`, or -1."""
-    depth = 0
-    for i in range(start, len(text)):
+    depth, i = 0, start
+    while i < len(text):
+        if text[i] == '\\':
+            i += 2                  # an escaped brace is a character
+            continue
         if text[i] == '{':
             depth += 1
         elif text[i] == '}':
             depth -= 1
             if depth == 0:
                 return i
+        i += 1
     return -1
 
 

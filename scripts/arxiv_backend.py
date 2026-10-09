@@ -129,16 +129,10 @@ _TITLE_DROP_CMDS = ('thanks', 'footnote', 'IEEEmembership', 'inst',
 
 
 def _balanced_arg(text, brace_at):
-    """Contents of the {...} group opening at brace_at, or None."""
-    depth = 0
-    for i in range(brace_at, len(text)):
-        if text[i] == '{':
-            depth += 1
-        elif text[i] == '}':
-            depth -= 1
-            if depth == 0:
-                return text[brace_at + 1:i]
-    return None
+    """Contents of the {...} group opening at brace_at, or None. Escaped
+    braces are characters (`build_common._balanced_group`)."""
+    end = _balanced_brace(text, brace_at)
+    return text[brace_at + 1:end - 1] if end > 0 else None
 
 
 def clean_latex_title(raw):
