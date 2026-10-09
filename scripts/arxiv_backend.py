@@ -1892,6 +1892,97 @@ def unwrap_algorithm_figures(tex):
     return _FIGURE_ENV_RE.sub(repl, tex), count
 
 
+_ENUM_LABEL_RE = re.compile(r'\\begin\{enumerate\}\s*\[')
+_ENUM_COUNTERS = {
+    'arabic': lambda n: str(n),
+    'alph': lambda n: 'abcdefghijklmnopqrstuvwxyz'[n - 1],
+    'Alph': lambda n: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'[n - 1],
+    'roman': lambda n: ['i', 'ii', 'iii', 'iv', 'v', 'vi', 'vii', 'viii',
+                        'ix', 'x', 'xi', 'xii'][n - 1],
+    'Roman': lambda n: ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII',
+                        'IX', 'X', 'XI', 'XII'][n - 1],
+}
+
+
+def _label_option(options):
+    """The value of `label=` in an enumitem option list, braces balanced."""
+    m = re.search(r'(?:^|,)\s*label\s*=\s*', options)
+    if not m:
+        return None
+    i, depth, out = m.end(), 0, []
+    while i < len(options):
+        c = options[i]
+        if c == '{':
+            depth += 1
+        elif c == '}':
+            depth -= 1
+        elif c == ',' and depth == 0:
+            break
+        out.append(c)
+        i += 1
+    return ''.join(out).strip()
+
+
+def relabel_enumerate(tex):
+    r"""A numbered list with its own label prints that label.
+
+    pandoc ignores enumitem's `label=`: `\begin{enumerate}[label={\bf
+    Q\arabic*}.]` became a plain 1., 2., 3. list, so 2609.11801's three
+    research questions lost the "Q1", "Q2", "Q3" its later section titles
+    refer back to, and `label=(\alph*)` prints 1., 2. as well. Each item
+    becomes a paragraph opening with the label the paper prints, set the way
+    the paper sets it. A plain `\arabic*.` is left to pandoc. Returns (tex, n).
+    """
+    count = 0
+    out, pos = [], 0
+    for m in _ENUM_LABEL_RE.finditer(tex):
+        if m.start() < pos:
+            continue
+        close = tex.find(']', m.end())
+        # The option list may hold braces with `]` inside; find the real end.
+        depth, i = 0, m.end()
+        while i < len(tex):
+            if tex[i] == '{':
+                depth += 1
+            elif tex[i] == '}':
+                depth -= 1
+            elif tex[i] == ']' and depth == 0:
+                close = i
+                break
+            i += 1
+        label = _label_option(tex[m.end():close])
+        end = tex.find('\\end{enumerate}', close)
+        if not label or end == -1:
+            continue
+        body = tex[close + 1:end]
+        if '\\begin{enumerate}' in body or '\\begin{itemize}' in body:
+            continue
+        counter = re.search(r'\\(arabic|alph|Alph|roman|Roman)\*', label)
+        if not counter:
+            continue
+        if re.sub(r'\s', '', label) in ('\\arabic*.', '{\\arabic*.}'):
+            continue                      # 1., 2., 3. is what pandoc prints
+        items = re.split(r'\\item\b\s*', body)
+        if len(items) < 2 or len(items) > 13:
+            continue
+        paragraphs = []
+        for n, item in enumerate(items[1:], 1):
+            text = re.sub(r'\\vspace\*?\{[^{}]*\}', '', item).strip()
+            # The label as the paper wrote it, number put in: `{\bf Q1}.`
+            # keeps exactly the bold the original prints.
+            mark = re.sub(r'\\(arabic|alph|Alph|roman|Roman)\*',
+                          lambda c: _ENUM_COUNTERS[c.group(1)](n), label)
+            # No `\noindent` in front: pandoc took the `{\bf Q1}` after it as
+            # the command's argument and dropped both.
+            paragraphs.append('%s %s' % (mark, text))
+        out.append(tex[pos:m.start()])
+        out.append('\n\n' + '\n\n'.join(paragraphs) + '\n\n')
+        pos = end + len('\\end{enumerate}')
+        count += 1
+    out.append(tex[pos:])
+    return ''.join(out), count
+
+
 _FOOTNOTE_PIECE_RE = re.compile(r'\\footnote(mark|text)\b\s*(?:\[[^\]]*\])?')
 
 
@@ -1950,6 +2041,10 @@ def sanitize_tex(tex):
     if panels:
         print(f"Unwrapped {panels} \\subfloat panel(s) so pandoc can see the "
               f"figures inside them")
+    tex, lists = relabel_enumerate(tex)
+    if lists:
+        print(f"Kept the printed labels of {lists} numbered list(s) whose "
+              f"label carries words (Q1, Q2, ...); pandoc numbers them 1, 2, ...")
     tex, notes = keep_unmarked_footnotetext(tex)
     if notes:
         print(f"Kept {notes} \\footnotetext with no \\footnotemark as text; "

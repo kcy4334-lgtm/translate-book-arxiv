@@ -753,7 +753,13 @@
             table.cols-many th, table.cols-many td { padding: 2pt 3pt; }
             /* Measurements and short numeric cells should never split. */
             table.cols-many td, table.cols-wide td { white-space: nowrap; }
-            thead th { border-bottom: 0.5pt solid #000; font-weight: 700; }
+            /* Header cells print at the body weight, as booktabs tables do in
+               the papers. A header the paper sets in bold carries its own
+               \textbf, which arrives as <strong> and stays bold; making every
+               <th> bold printed 2609.11801's "Method  # Params  Sudoku-Extreme"
+               heavier than the original does. */
+            th { font-weight: 400; }
+            thead th { border-bottom: 0.5pt solid #000; }
             /* A spanning header cell is a column GROUP -- "Qwen3-1.7B" over
                three columns. The source underlines it with \cmidrule, which
                pandoc cannot carry, so without this the reader cannot tell

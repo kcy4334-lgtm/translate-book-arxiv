@@ -170,6 +170,37 @@ class UnmarkedFootnoteTextTests(unittest.TestCase):
         self.assertEqual(arxiv_backend.keep_unmarked_footnotetext(tex), (tex, 0))
 
 
+class ListLabelTests(unittest.TestCase):
+    """pandoc ignores enumitem's `label=`; 2609.11801's Q1-Q3 printed 1-3."""
+
+    def test_a_worded_label_is_kept_with_its_own_bold(self):
+        tex = (BS + "begin{enumerate}[label={" + BS + "bf Q" + BS + "arabic*}.,"
+               "leftmargin=*]\n" + BS + "item First?\n" + BS + "vspace{-0.2em}\n"
+               + BS + "item Second?\n" + BS + "end{enumerate}")
+        out, n = arxiv_backend.relabel_enumerate(tex)
+        self.assertEqual(n, 1)
+        self.assertIn("{" + BS + "bf Q1}. First?", out)
+        self.assertIn("{" + BS + "bf Q2}. Second?", out)
+        self.assertNotIn("enumerate", out)
+        self.assertNotIn("vspace", out)
+
+    def test_letters_and_numerals_are_counted(self):
+        tex = (BS + "begin{enumerate}[label=(" + BS + "roman*)]\n" + BS + "item a\n"
+               + BS + "item b\n" + BS + "item c\n" + BS + "end{enumerate}")
+        out, _ = arxiv_backend.relabel_enumerate(tex)
+        self.assertIn("(iii) c", out)
+
+    def test_the_plain_label_and_nested_lists_are_left_to_pandoc(self):
+        for tex in (BS + "begin{enumerate}[label=" + BS + "arabic*.]\n" + BS
+                    + "item a\n" + BS + "end{enumerate}",
+                    BS + "begin{enumerate}[leftmargin=*]\n" + BS + "item a\n"
+                    + BS + "end{enumerate}",
+                    BS + "begin{enumerate}[label=(" + BS + "alph*)]\n" + BS
+                    + "item a\n" + BS + "begin{itemize}\n" + BS + "item b\n"
+                    + BS + "end{itemize}\n" + BS + "end{enumerate}"):
+            self.assertEqual(arxiv_backend.relabel_enumerate(tex), (tex, 0), tex)
+
+
 class AbstractCommandTests(unittest.TestCase):
     r"""Some classes take the abstract as `\abstract{...}` and print it from
     `\maketitle` (muxlab.cls; A&A's aa.cls with traditabstract). pandoc reads
