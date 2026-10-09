@@ -502,6 +502,30 @@ def _clean_colspec(spec):
         elif ch in 'XY':
             out.append('l')                # tabularx stretch columns
             i += 1
+        elif ch == '*' and i + 1 < len(spec) and spec[i + 1] == '{':
+            # `*{3}{c}` is three columns. Counted once, a 12-column table
+            # was given a preamble of 10.
+            count, j = _brace_group(spec, i + 1)
+            if j < len(spec) and spec[j] == '{':
+                inner, i = _brace_group(spec, j)
+                times = int(count) if count.strip().isdigit() else 1
+                out.append(_clean_colspec(inner) * times)
+            else:
+                i = j
+        elif ch == 'S':
+            # siunitx's number column, with its options. Dropped, PaLM's
+            # `ll SS|SSSS` became `ll|`: six columns gone, and pandoc
+            # gave the table up.
+            i += 1
+            if i < len(spec) and spec[i] == '[':
+                close = spec.find(']', i)
+                i = close + 1 if close > 0 else len(spec)
+            out.append('r')
+        elif ch.isalpha() and ch.isupper():
+            # A column type the paper declared itself (`\newcolumntype{C}`).
+            # Its definition is not here; a column it certainly is.
+            out.append({'L': 'l', 'R': 'r'}.get(ch, 'c'))
+            i += 1
         elif ch == '|':
             out.append('|')
             i += 1

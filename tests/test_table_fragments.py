@@ -191,6 +191,19 @@ class ColumnSpecsPandocCannotRead(unittest.TestCase):
     def test_array_package_cell_prefixes_go(self):
         self.assertEqual(mb._clean_colspec(r'>{\bfseries}l<{\quad}c'), 'lc')
 
+    def test_siunitx_columns_are_columns(self):
+        """PaLM's `ll SS|SSSS` came out `ll|`, and pandoc gave the table up."""
+        self.assertEqual(mb._clean_colspec('ll SS|SSSS'), 'llrr|rrrr')
+        self.assertEqual(mb._clean_colspec('lS[table-format=2.1]'), 'lr')
+
+    def test_a_repeated_group_counts_every_column(self):
+        self.assertEqual(mb._clean_colspec('l*{3}{c}r'), 'lcccr')
+        self.assertEqual(mb._clean_colspec('l|*{2}{c|}'), 'l|c|c|')
+
+    def test_a_papers_own_column_type_is_a_column(self):
+        """ViT declares `\\newcolumntype{C}`."""
+        self.assertEqual(mb._clean_colspec('p{10pt}CCC|L'), 'lccc|l')
+
     def test_tabularx_stretch_columns_read_left(self):
         self.assertEqual(mb._clean_colspec('lXX'), 'lll')
 
