@@ -1122,6 +1122,35 @@ def unwrap_resizebox(tex):
     return tex.replace('\\KEEPBOX', '\\resizebox'), count
 
 
+_RAISEBOX_RE = re.compile(
+    r'\\raisebox\s*\{[^{}]*\}\s*(?:\[[^\]]*\]\s*){0,2}(?=\{)')
+
+
+def unwrap_raised_graphics(tex):
+    r"""`\raisebox{-0.15in}{\includegraphics{x}}` -> the graphic. (text, count).
+
+    The shift only lines a panel up with its neighbours. pandoc keeps the
+    wrapper as raw LaTeX, so the graphic inside is never resolved to an image
+    and the panel is gone: ViT's figure 7 printed one of its three panels.
+    Only a box holding a graphic is unwrapped; one round a table's coloured
+    dot or a symbol is left to whatever handles that.
+    """
+    out, cursor, count = [], 0, 0
+    for m in _RAISEBOX_RE.finditer(tex):
+        if m.start() < cursor:
+            continue
+        close = _balanced_brace(tex, m.end())
+        body = tex[m.end() + 1:close - 1] if close > 0 else ''
+        if '\\includegraphics' not in body:
+            continue
+        out.append(tex[cursor:m.start()])
+        out.append(body)
+        cursor = close
+        count += 1
+    out.append(tex[cursor:])
+    return ''.join(out), count
+
+
 _SUBFLOAT_CMD_RE = re.compile(r'\\subfloat\b[ \t]*')
 
 
@@ -2037,6 +2066,10 @@ def sanitize_tex(tex):
     if boxes:
         print(f"Unwrapped {boxes} \\resizebox/\\scalebox wrapper(s) so pandoc can "
               f"read the enclosing float and keep its caption")
+    tex, raised = unwrap_raised_graphics(tex)
+    if raised:
+        print(f"Unwrapped {raised} \\raisebox wrapper(s) round a graphic so the "
+              f"panel is extracted")
     tex, panels = unwrap_subfloat(tex)
     if panels:
         print(f"Unwrapped {panels} \\subfloat panel(s) so pandoc can see the "

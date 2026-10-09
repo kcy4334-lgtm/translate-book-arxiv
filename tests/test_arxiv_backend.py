@@ -252,6 +252,24 @@ if __name__ == "__main__":
     unittest.main()
 
 
+class RaisedGraphicTests(unittest.TestCase):
+    r"""ViT's figure 7 sets two of its three panels as
+    `\raisebox{-0.15in}{\includegraphics..}`; pandoc kept the box as raw
+    LaTeX and those two panels never became images."""
+
+    def test_a_raised_graphic_is_unwrapped(self):
+        text = (r"\raisebox{-0.15in}{\includegraphics[height=1.5in]{a.pdf}}"
+                r" \hfill \raisebox{1pt}[0pt][0pt]{\includegraphics{b.pdf}}")
+        out, n = arxiv_backend.unwrap_raised_graphics(text)
+        self.assertEqual(n, 2)
+        self.assertEqual(out, r"\includegraphics[height=1.5in]{a.pdf}"
+                              r" \hfill \includegraphics{b.pdf}")
+
+    def test_a_raised_symbol_is_left_alone(self):
+        text = r"& \raisebox{0.5pt}{\tikz\fill[natural] (0,0) circle (.5ex);} DTD"
+        self.assertEqual(arxiv_backend.unwrap_raised_graphics(text), (text, 0))
+
+
 class ResizeboxTests(unittest.TestCase):
     r"""`\begin{table}` + `\caption` + `\resizebox{..}{..}{\begin{tabular}...}`
     loses its caption: pandoc understands `table`, cannot parse `\resizebox`,
