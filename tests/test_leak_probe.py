@@ -49,6 +49,10 @@ class NotationThePaperPrints(unittest.TestCase):
         found = lp.candidates('it takes ~65 hours, or ~0.01 s')
         self.assertEqual(dict(found), {})
 
+    def test_a_share_under_a_bound_is_prose(self):
+        # PaLM's language table: "Perl <0.1%".
+        self.assertEqual(dict(lp.candidates('Perl <0.1% Ruby >=2.5')), {})
+
     def test_a_leaked_tie_is_still_flagged(self):
         self.assertIn('section~', lp.candidates('see section~ above'))
 
@@ -77,6 +81,11 @@ class LeaksThatReachedAPage(unittest.TestCase):
 
     def test_a_citation_key(self):
         self.assertTrue(self.flagged('앞서 [@knuth1984] 참조'))
+
+    def test_a_cref_key_pandoc_printed(self):
+        # PaLM's table captions, fourteen times.
+        self.assertIn('[fig:contd_training_results]', self.flagged(
+            'corresponding to [fig:contd_training_results]. Average'))
 
     def test_a_fenced_div(self):
         self.assertIn(':::', self.flagged('본문\n:::\n다음'))

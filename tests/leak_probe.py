@@ -55,6 +55,11 @@ SHAPES = (
     ('cross-reference label', re.compile(
         r'\((?:tab|fig|eq|sec|alg|app|thm|lem|def|prop|table|figure)'
         r'[:.\-][A-Za-z0-9_:.\-]+\)')),
+    # What pandoc prints for a `\cref` it could not resolve: PaLM's table
+    # captions said "corresponding to [fig:contd_training_results]".
+    ('cross-reference key', re.compile(
+        r'\[(?:tab|fig|eq|sec|alg|app|thm|lem|def|prop|table|figure)'
+        r'[:.\-][A-Za-z0-9_:.\-]+\]')),
     ('citation key', re.compile(r'\[@[A-Za-z0-9_:.\-]+\]')),
     ('fence', re.compile(r'(?<![:\w]):{3,}(?![:\w])')),
     ('unresolved reference', re.compile(r'\?\?')),
@@ -123,6 +128,10 @@ def candidates(text, source=''):
             # "~65 hours" is "about 65": Sentence-BERT's `\texttildelow`.
             # A tie that leaked sits after a word, not before a number.
             if re.match(r'~[\d.]+[%A-Za-z가-힣]*$', token):
+                continue
+            # "<0.1%" is "under 0.1%": PaLM's language shares. A tag that
+            # leaked opens with a letter, `!` or `/`, never a digit.
+            if re.match(r'[<>]=?[\d.]+%?$', token):
                 continue
             found[token] += 1
     for _label, pattern in SHAPES:
