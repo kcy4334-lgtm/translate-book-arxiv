@@ -465,6 +465,77 @@ class TheOneConditionalThisModuleKnows(unittest.TestCase):
         self.assertIsNone(pm.resolve('z', d)[0])
 
 
+class AFormulaInsideTheBody(unittest.TestCase):
+    r"""ATLAS's `\TopSFonejet` is `\ensuremath{1.11 \pm 0.05}`. Refused over
+    `\pm`, a command of the formula and texmath's to read, it printed as its
+    own name; 51 such refusals in higgs_atlas."""
+
+    def test_ensuremath_content_is_not_a_leftover(self):
+        d = defs_of(r'\def\TopSFonejet{\ensuremath{1.11 \pm  0.05}}')
+        self.assertEqual(pm.resolve('TopSFonejet', d)[0],
+                         r'\ensuremath{1.11 \pm  0.05}')
+
+    def test_dollar_math_content_is_not_a_leftover(self):
+        d = defs_of(r'\newcommand\bkgexp{71.2~$\pm$~X.X~}')
+        self.assertEqual(pm.resolve('bkgexp', d)[0], r'71.2~$\pm$~X.X~')
+
+    def test_a_command_outside_the_formula_still_refuses(self):
+        d = defs_of(r'\newcommand\z{\fbox{$\pm$}}')
+        self.assertIsNone(pm.resolve('z', d)[0])
+
+
+class PackageMacrosInsideFormulas(unittest.TestCase):
+    r"""`expand_in_source` rewrites prose only, and pandoc never reads a
+    `.sty`: higgs_atlas's `$8\TeV$`, `$\pt$`, `$\mH$` reached the HTML as TeX,
+    182 spans. `math_definitions` hands pandoc a definition of each."""
+
+    STY = (r'\def\TeV{\ifmmode {\mathrm{\ Te\kern -0.1em V}}\else' '\n'
+           r'   \textrm{Te\kern -0.1em V}\fi}%' '\n'
+           r'\let\tev=\TeV' '\n'
+           r'\def\pt{\ensuremath{p_{\mathrm{T}}}}' '\n'
+           r'\let\etaa=\eta' '\n'
+           r'\def\eta{\ensuremath{\etaa}}' '\n'
+           r'\def\unused{X}' '\n')
+    DOC = ('\\documentclass{article}\n\\newcommand{\\own}{O}\n'
+           '\\begin{document}\nAt $8\\tev$ and $\\pt>20$, $\\eta$, $\\own$.\n'
+           '\\end{document}\n')
+
+    def run_it(self):
+        return pm.math_definitions(self.DOC, [('flat.tex', self.DOC),
+                                              ('atlasphysics.sty', self.STY)])
+
+    def test_the_math_branch_is_defined_without_its_kerning(self):
+        tex, names = self.run_it()
+        self.assertIn('\\newcommand{\\TeV}{{\\mathrm{\\ TeV}}}', tex)
+        self.assertIn('\\newcommand{\\tev}{\\TeV}', tex)
+        self.assertIn('\\newcommand{\\pt}{\\ensuremath{p_{\\mathrm{T}}}}', tex)
+        self.assertLess(tex.index('\\newcommand{\\TeV}'),
+                        tex.index('\\begin{document}'))
+        self.assertEqual(names, ['TeV', 'pt', 'tev'])
+
+    def test_a_builtin_wrapped_through_let_is_left_alone(self):
+        # Defined both ways they call each other; pandoc grew to 160 GB.
+        tex, names = self.run_it()
+        self.assertNotIn('eta', names)
+        self.assertNotIn('etaa', names)
+
+    def test_unused_and_own_names_are_not_defined(self):
+        tex, names = self.run_it()
+        self.assertNotIn('unused', names)
+        self.assertNotIn('own', names)
+
+    def test_a_cycle_is_dropped(self):
+        sty = r'\def\a{\b}' '\n' r'\def\b{\a}' '\n'
+        doc = '\\begin{document}$\\a$\\end{document}'
+        tex, names = pm.math_definitions(doc, [('flat.tex', doc), ('x.sty', sty)])
+        self.assertEqual((tex, names), (doc, []))
+
+    def test_the_true_branch_of_ifmmode(self):
+        self.assertEqual(pm._resolve_ifmmode(r'\ifmmode A\else B\fi', math=True),
+                         ' A')
+        self.assertEqual(pm._resolve_ifmmode(r'\ifmmode A\fi', math=True), ' A')
+
+
 class ADisplayCanBeOpenedByAMacro(unittest.TestCase):
     r"""planck defines `\be` as `\begin{equation}` and uses it 16 times,
     `\beglet` as `\begin{subequations}` 19 times. `_MATH_SPAN_RE` looks for

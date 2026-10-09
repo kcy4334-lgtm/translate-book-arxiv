@@ -3642,9 +3642,13 @@ def build(input_file, temp_dir, arxiv_id, allow_network=True):
     # at the reader. resnet's finished book had `\ie` mid-sentence five times.
     # Done here rather than inside latex_to_markdown so flat.tex, the markdown
     # and everything downstream that re-reads flat.tex agree on one source.
+    sources = paper_macros.shipped_sources(flat, work_dir)
     flat, macro_report = paper_macros.expand_in_source(
-        flat, paper_macros.shipped_sources(flat, work_dir),
-        paper_text=read_pdf_text(input_file))
+        flat, sources, paper_text=read_pdf_text(input_file))
+    flat, math_defined = paper_macros.math_definitions(flat, sources)
+    if math_defined:
+        print(f"Defined {len(math_defined)} package macro(s) the formulas use "
+              f"for pandoc: " + ', '.join('\\' + n for n in math_defined[:8]))
     for name, source in sorted(macro_report.get('decided', {}).items()):
         print(f"\\{name} has competing definitions; the printed paper picks "
               f"the one in {source}")

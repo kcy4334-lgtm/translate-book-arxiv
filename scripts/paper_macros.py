@@ -94,8 +94,11 @@ def _is_spacing_only(body):
 _IF_RE = re.compile(r'\\(if[a-zA-Z@]*|else|fi)(?![a-zA-Z@])')
 
 
-def _resolve_ifmmode(body):
+def _resolve_ifmmode(body, math=False):
     r"""`\ifmmode A\else B\fi` -> `B`; `\ifmmode A\fi` -> nothing.
+
+    With `math`, the other branch: `math_definitions` writes definitions
+    only for calls inside formulas, where the condition is true.
 
     Sound here and nowhere else. This module rewrites ONLY outside maths — the
     protected spans are the whole point of it — so at every site it touches the
@@ -131,7 +134,11 @@ def _resolve_ifmmode(body):
                     break
         if end is None:
             break                                   # unbalanced; refused below
-        taken = body[else_at.end():end.start()] if else_at else ''
+        if math:
+            taken = body[start + len('\\ifmmode'):
+                         (else_at or end).start()]
+        else:
+            taken = body[else_at.end():end.start()] if else_at else ''
         body = body[:start] + taken + body[end.end():]
     return body
 
@@ -578,6 +585,24 @@ def _unwrap_unresolved(body, defs):
     return body, suffix
 
 
+_INLINE_MATH_RE = re.compile(
+    r'(?<!\\)\$(?:\\.|[^$\\])*\$|(?<!\\)\\\(.*?(?<!\\)\\\)', re.DOTALL)
+
+
+def _without_math(body):
+    r"""The body with its `$...$`, `\(...\)` and `\ensuremath{...}` emptied."""
+    body = _INLINE_MATH_RE.sub('$$', body)
+    for _ in range(MAX_DEPTH):
+        m = re.search(r'\\ensuremath\s*\{', body)
+        if not m:
+            break
+        close = _group_end(body, m.end() - 1)
+        if close < 0:
+            break
+        body = body[:m.start()] + '\\ensuremath{}' + body[close:]
+    return body
+
+
 def resolve(name, defs, seen=None, depth=0):
     r"""Reduce one macro to pandoc-readable LaTeX, or None with a reason.
 
@@ -700,7 +725,12 @@ def resolve(name, defs, seen=None, depth=0):
     # refused for its layout, it hid the `\appendix` from the section
     # numbering, and a paper whose appendix prints A, B, D came out G, H, J
     # with fifteen cross-references disagreeing with the printed paper.
-    leftovers = [n for n in re.findall(r'\\([A-Za-z@]+)(?![A-Za-z])', body)
+    # A command inside the body's own formula is texmath's to read, as it is
+    # for every formula in the paper: ATLAS's `\TopSFonejet` is
+    # `\ensuremath{1.11 \pm 0.05}`, and refusing it over `\pm` left the name
+    # standing in the book eight times over.
+    leftovers = [n for n in re.findall(r'\\([A-Za-z@]+)(?![A-Za-z])',
+                                       _without_math(body))
                  if n not in _NEVER_EXPAND]
     if leftovers:
         return None, ('unresolved command(s): %s'
@@ -1118,3 +1148,115 @@ def expand_in_source(tex, sources, paper_text=None):
         i = end
 
     return prefix + ''.join(out), report
+
+
+# `\let\tev=\TeV`: an alias, which `read_definitions` does not read.
+_LET_RE = re.compile(r'\\let\s*\\([A-Za-z]+)\s*=?\s*\\([A-Za-z]+)(?![A-Za-z])')
+
+
+def _math_spans(tex, defs):
+    """(start, end) of every formula in `tex`, paired as `_protected_spans` does."""
+    clean = strip_comments(tex)
+    definitions = []
+    for rx in (_NEWCOMMAND_RE, _DECLARE_RE, _DEF_RE):
+        for m in rx.finditer(clean):
+            close = _group_end(clean, m.end())
+            if close > 0:
+                definitions.append((m.start(), close))
+    spans = [(m.start(), m.end())
+             for m in _MATH_SPAN_RE.finditer(_blank(clean, definitions))]
+    spans.extend(_alias_math_spans(tex, defs))
+    return spans
+
+
+def _cyclic_names(out):
+    """Names in `out` ({name: (arity, body)}) that reach themselves."""
+    calls = {n: set(re.findall(r'\\([A-Za-z]+)', b)) & set(out)
+             for n, (_a, b) in out.items()}
+    found = set()
+    for start in calls:
+        stack, seen = list(calls[start]), set()
+        while stack:
+            n = stack.pop()
+            if n == start:
+                found.add(start)
+                break
+            if n not in seen:
+                seen.add(n)
+                stack.extend(calls.get(n, ()))
+    return found
+
+
+def math_definitions(tex, sources):
+    r"""Define, for pandoc, the package macros the formulas use. Returns (tex, names).
+
+    pandoc reads the `\newcommand`s in the document and applies them inside
+    maths; a package's are never seen, because `\usepackage` is not inlined.
+    `expand_in_source` rewrites prose only, so a formula calling one kept the
+    bare name: higgs_atlas's `$8\TeV$`, `$\pt$` and `$\mH=125\,\gev$` reached
+    the HTML as TeX, 182 of them. Each such name gets a `\newcommand` in the
+    preamble, from its definition read with `\ifmmode` true (this is a
+    formula) and its kerning dropped, and a `\let` alias becomes a definition
+    of its target. A body still carrying machinery, an optional argument or a
+    name with `@` is left alone, as is any name the document defines itself.
+    """
+    own = read_definitions([s for s in sources if s[0] == 'flat.tex'])
+    shipped = [s for s in sources if s[0] != 'flat.tex']
+    defs = read_definitions(shipped)
+    lets = {}
+    for _label, text in shipped:
+        for m in _LET_RE.finditer(strip_comments(text)):
+            lets.setdefault(m.group(1), m.group(2))
+    if not defs and not lets:
+        return tex, []
+    body_at = 0
+    begin = re.search(r'\\begin\s*\{\s*document\s*\}', tex)
+    if begin:
+        body_at = begin.end()
+    used = set()
+    for start, end in _math_spans(tex, own):
+        if end > body_at:
+            used.update(re.findall(r'\\([A-Za-z]+)', tex[start:end]))
+    out = {}
+    todo = sorted(used)
+    while todo:
+        name = todo.pop()
+        if name in out or name in own:
+            continue
+        if name in lets:
+            out[name] = (0, '\\' + lets[name])
+            todo.append(lets[name])
+            continue
+        entries = defs.get(name)
+        if not entries:
+            continue
+        d = entries[0] if len(entries) == 1 else settle_by_declaration(entries)
+        if d is None or d.optional:
+            continue
+        body = _GLUE_RE.sub('', _resolve_ifmmode(d.body, math=True))
+        if _MACHINERY_RE.search(body) or '@' in body:
+            continue
+        called = re.findall(r'\\([A-Za-z]+)', body)
+        # `\let\etaa=\eta` and then `\def\eta{\ensuremath{\etaa}}`: the alias
+        # holds the builtin, so this is the builtin wrapped. Written out as
+        # two `\newcommand`s they call each other, and pandoc expanded them
+        # until it held 160 GB.
+        if any(lets.get(n) == name for n in called):
+            continue
+        out[name] = (d.arity, ' '.join(body.split()))
+        todo.extend(n for n in called if n in defs or n in lets)
+    # Any cycle left the same way is dropped whole; a name pandoc does not
+    # know prints, a loop never finishes.
+    for _ in range(len(out)):
+        cyclic = _cyclic_names(out)
+        if not cyclic:
+            break
+        for name in cyclic:
+            out.pop(name, None)
+    if not out:
+        return tex, []
+    lines = ['\\newcommand{\\%s}%s{%s}' % (n, '[%d]' % a if a else '', b)
+             for n, (a, b) in sorted(out.items())]
+    block = '\n'.join(lines) + '\n'
+    at = begin.start() if begin else 0
+    return tex[:at] + block + tex[at:], sorted(out)
