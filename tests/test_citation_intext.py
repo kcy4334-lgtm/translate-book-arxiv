@@ -60,10 +60,23 @@ class BareCitationTests(unittest.TestCase):
 class ShapeTests(unittest.TestCase):
     r"""`\citep{A, B}` can arrive split; it is still one citation."""
 
-    def test_adjacent_citations_merge_into_one_group(self):
+    def test_a_citet_of_two_keys_prints_as_natbib_does(self):
+        r"""`\citet{adepu, ashkboos}`: CafeQ's PDF reads "earlier works of
+        Adepu et al. (2024); Ashkboos et al. (2024b)". pandoc writes it
+        `@a [@b]`; merged into one parenthesis, it read like a `\citep`."""
         out = resolve('works of @adepu2024framequant [@ashkboos2024quarot], we')
         self.assertEqual(
-            out, 'works of (Adepu et al. 2024; Ashkboos et al. 2024b), we')
+            out, 'works of Adepu et al. (2024); Ashkboos et al. (2024b), we')
+
+    def test_the_same_inside_parentheses_drops_the_inner_brackets(self):
+        out = resolve('(예: @adepu2024framequant [@ashkboos2024quarot; @kim2025zero])')
+        self.assertEqual(out, '(예: Adepu et al. 2024; Ashkboos et al. 2024b; '
+                              'Kim et al. 2025b)')
+
+    def test_the_latex_is_split_per_key_before_pandoc(self):
+        out = ab.sanitize_tex('and \\citet{kol, djo} perform \\citep{a,b}')
+        self.assertIn('\\citet{kol}; \\citet{djo}', out)
+        self.assertIn('\\citep{a,b}', out)
 
     def test_a_citation_inside_parentheses_drops_the_inner_brackets(self):
         # `(예: Dettmers & Zettlemoyer (2023))` nests brackets for no reason.

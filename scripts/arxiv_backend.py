@@ -721,12 +721,15 @@ _CITE_TOKEN_RE = re.compile(r'(?<!\\)\[@([^\]\n]{1,400})\]')
 # Ends on an alphanumeric so sentence punctuation is not eaten.
 _BARE_CITE_RE = re.compile(
     r'(?<![\[\w@\\.])@([A-Za-z][A-Za-z0-9_:.\-]{1,120}[A-Za-z0-9])')
-# `Adepu et al. (2024) (Ashkboos et al. 2024b)` -- one citation that arrived
-# split. The second half must itself carry a year, so an ordinary
-# parenthetical aside after a date is never swallowed.
-_ADJACENT_CITE_RE = re.compile(
-    r'([A-Z][A-Za-z.&\\ ]{1,40}?)[ ]*\(((?:19|20)\d{2}[a-z]?)\)'
-    r'[ ]*\(([^()\n]{3,140}?(?:19|20)\d{2}[a-z]?)\)')
+# `\citet{a, b, c}`: pandoc writes the first key bare and the rest bracketed,
+# `@a [@b; @c]`. It is one author-in-text list, which natbib prints
+# "A (2024); B (2024b)". Resolved as two separate citations and then glued,
+# CafeQ read "(Adepu et al. 2024; Ashkboos et al. 2024b)", ViT read
+# "Kolesnikov et al. (2020; Djolonga et al. 2020)" and Sentence-BERT nested
+# one citation inside another.
+_CITET_LIST_RE = re.compile(
+    r'(?<![\[\w@\\.])@([A-Za-z][A-Za-z0-9_:.\-]{1,120}[A-Za-z0-9])'
+    r'[ ]\[((?:@[^\]\s;]+;[ ]*)*@[^\]\s;]+)\]')
 
 
 def _inside_parens(text, pos):
@@ -801,6 +804,30 @@ def resolve_citation_keys(text, citation_map):
         return text
 
     resolved = [0]
+    resolved_bare = [0]
+
+    def in_text(label, enclosed):
+        # Author-in-text form: the name carries the sentence, the year is
+        # parenthesised -- `Adepu et al. (2024)`, not `(Adepu et al. 2024)`.
+        # But inside a parenthesis the sentence is not carrying anything, and
+        # `(예: Dettmers & Zettlemoyer (2023))` nests brackets for no reason,
+        # so there the plain label is what a copy editor would leave.
+        if enclosed:
+            return label
+        year = re.match(r'^(.*?)[\s,]+((?:19|20)\d{2}[a-z]?)$', label)
+        return f'{year.group(1)} ({year.group(2)})' if year else label
+
+    def handle_list(m):
+        keys = [m.group(1)] + [k.strip().lstrip('@')
+                               for k in m.group(2).split(';')]
+        labels = [citation_map.get(k) for k in keys]
+        if not all(labels):
+            return m.group(0)
+        resolved_bare[0] += 1
+        enclosed = _inside_parens(text, m.start())
+        return '; '.join(in_text(label, enclosed) for label in labels)
+
+    text = _CITET_LIST_RE.sub(handle_list, text)
 
     def handle(m):
         keys = [k.strip().lstrip('@') for k in m.group(1).split(';')]
@@ -826,30 +853,14 @@ def resolve_citation_keys(text, citation_map):
         if not label:
             return m.group(0)
         resolved_bare[0] += 1
-        # Author-in-text form: the name carries the sentence, the year is
-        # parenthesised -- `Adepu et al. (2024)`, not `(Adepu et al. 2024)`.
-        # But inside a parenthesis the sentence is not carrying anything, and
-        # `(예: Dettmers & Zettlemoyer (2023))` nests brackets for no reason,
-        # so there the plain label is what a copy editor would leave.
-        if _inside_parens(out_text[0], m.start()):
-            return label
-        year = re.match(r'^(.*?)[\s,]+((?:19|20)\d{2}[a-z]?)$', label)
-        return f'{year.group(1)} ({year.group(2)})' if year else label
+        return in_text(label, _inside_parens(out_text[0], m.start()))
 
-    resolved_bare = [0]
     out_text = [out]
     out = _BARE_CITE_RE.sub(handle_bare, out)
 
-    # `\citep{A, B}` can reach us split into an in-text `@A` and a bracketed
-    # `[@B]`, which resolves to two parentheses back to back:
-    # `Adepu et al. (2024) (Ashkboos et al. 2024b)`. They are one citation.
-    out, merged = _ADJACENT_CITE_RE.subn(
-        lambda m: '(%s %s; %s)' % (m.group(1), m.group(2), m.group(3)), out)
-
     if resolved[0] or resolved_bare[0]:
         print(f"Resolved {resolved[0]} citation group(s) and "
-              f"{resolved_bare[0]} in-text citation(s) from .bbl labels"
-              + (f"; merged {merged} adjacent pair(s)" if merged else ""))
+              f"{resolved_bare[0]} in-text citation(s) from .bbl labels")
     return out
 
 
@@ -1066,6 +1077,14 @@ _TEX_NOISE = (
     (re.compile(r'\\(?:hfill|vfill|hrulefill|dotfill)(?![a-zA-Z])'), ''),
     # \hbox{4-bit} exists to stop a line break; the words are the content.
     (re.compile(r'\\(?:hbox|mbox)\s*\{([^{}]*)\}'), r'\1'),
+    # `\citet{a, b}` is natbib's "A (2020); B (2020)", one author-in-text
+    # citation per key. pandoc writes it `@a [@b]`, which citeproc reads as
+    # one citation with the second as a note: ViT printed "Kolesnikov et al.
+    # (2020; Djolonga et al. 2020)". Spelled out per key, both the citeproc
+    # and the `.bbl` path print it as the paper does. Only without notes.
+    (re.compile(r'\\(citet|citeauthor|Citet)\s*\{([^{}]*,[^{}]*)\}'),
+     lambda m: '; '.join('\\%s{%s}' % (m.group(1), key.strip())
+                         for key in m.group(2).split(',') if key.strip())),
     # textcomp's `\texttildelow` is not a command pandoc knows. It kept it as
     # raw LaTeX together with the NUMBER after it, and the HTML writer drops
     # raw LaTeX: Sentence-BERT's "(~65 hours)" printed as "( hours)", the
