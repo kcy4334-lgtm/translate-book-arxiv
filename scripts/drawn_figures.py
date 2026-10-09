@@ -21,7 +21,7 @@ left exactly as before, so the build still reports it.
 import os
 import re
 
-from build_common import strip_tex_comments
+from build_common import _balanced_group, strip_tex_comments
 from numbering import float_units
 
 DRAWN_ENVS = ('tikzpicture', 'pgfpicture', 'pspicture', 'picture')
@@ -246,4 +246,29 @@ def _swap_drawing(figure, name):
             placed = True
         cursor = e
     out.append(figure[cursor:])
-    return ''.join(out)
+    return _without_drawing_setup(''.join(out))
+
+
+# What a drawing sets up before it starts, and what is left meaningless once
+# the drawing is gone. gnuplot's LaTeX terminal writes all three above every
+# `picture`; left behind, Shor's `\sbox{\plotpoint}{\rule..}` reached pandoc
+# as raw LaTeX on the image's line, and the figure lost its caption.
+_UNITLENGTH_RE = re.compile(r'\\setlength\s*\{?\\unitlength\}?\s*\{[^{}]*\}%?')
+_NEWSAVEBOX_RE = re.compile(
+    r'\\ifx\s*\\(\w+)\s*\\undefined\s*\\newsavebox\s*\{\\\1\}\s*\\fi%?')
+_SBOX_RE = re.compile(r'\\sbox\s*\{\\\w+\}\s*\{')
+
+
+def _without_drawing_setup(figure):
+    figure = _UNITLENGTH_RE.sub('', figure)
+    figure = _NEWSAVEBOX_RE.sub('', figure)
+    while True:
+        m = _SBOX_RE.search(figure)
+        if not m:
+            return figure
+        end = _balanced_group(figure, m.end() - 1)
+        if end < 0:
+            return figure
+        if figure[end:end + 1] == '%':
+            end += 1
+        figure = figure[:m.start()] + figure[end:]

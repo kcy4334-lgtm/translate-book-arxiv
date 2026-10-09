@@ -46,6 +46,22 @@ class FindingThem(unittest.TestCase):
         self.assertNotIn('tikzpicture', out)
         self.assertIn('\\caption{Drawn.}\\label{fig:drawn}', out)
 
+    def test_gnuplot_setup_goes_with_the_drawing(self):
+        # Shor's Figure 5.1, as gnuplot's LaTeX terminal writes it.
+        figure = ('\\begin{figure}\n\\begin{center}\n'
+                  '\\setlength{\\unitlength}{0.240900pt}\n'
+                  '\\ifx\\plotpoint\\undefined\\newsavebox{\\plotpoint}\\fi\n'
+                  '\\sbox{\\plotpoint}{\\rule[-0.175pt]{0.350pt}{0.350pt}}%\n'
+                  '\\begin{picture}(1500,900)(0,0)\n'
+                  '\\sbox{\\plotpoint}{\\rule[-0.175pt]{0.350pt}{0.350pt}}%\n'
+                  '\\put(242,158){\\makebox(0,0)[r]{0.00}}\n\\end{picture}\n'
+                  '\\end{center}\n\\caption{Plot.}\\label{p}\n\\end{figure}')
+        out = dfig._swap_drawing(figure, 'tb_drawn_figure_5_1.png')
+        self.assertEqual(out, '\\begin{figure}\n\\begin{center}\n\n\n\n'
+                         '\\includegraphics[width=\\linewidth]'
+                         '{tb_drawn_figure_5_1.png}\n\\end{center}\n'
+                         '\\caption{Plot.}\\label{p}\n\\end{figure}')
+
 
 @unittest.skipUnless(pymupdf, 'pymupdf is not installed')
 class CroppingThem(unittest.TestCase):

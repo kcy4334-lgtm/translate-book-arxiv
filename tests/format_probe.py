@@ -192,6 +192,14 @@ def check_table_headers(body):
     return len(tables), sum(1 for t in tables if _THEAD_RE.search(t))
 
 
+_FLOAT_NUMBER = r"[0-9A-Z]+(?:\.[0-9]+)*"
+
+
+def _float_number(text):
+    """`3` -> 3; `3.1`, `A1` and `IV` stay as printed."""
+    return int(text) if text.isdigit() else text
+
+
 def check_caption_numbers(temp_dir, body, lang):
     """Numbered table captions in the book, against captions in flat.tex.
 
@@ -222,17 +230,19 @@ def check_caption_numbers(temp_dir, body, lang):
     # numbers every table the paper prints.
     want = [u for u in mb.float_units(mb.strip_tex_comments(_read(flat)))
             if u["kind"] == "table" and u["number"]]
-    badge = re.compile(r"%s\s*(\d+)\s*\(\s*Table\s*(\d+)\s*\)"
-                       % re.escape(label))
+    # A section-scoped counter prints `표 3.1`, an appendix `표 A1`. Read as
+    # digits only, Shor's two tables were "2 in the source, 0 in the book".
+    badge = re.compile(r"%s\s*(%s)\s*\(\s*Table\s*(%s)\s*\)"
+                       % (re.escape(label), _FLOAT_NUMBER, _FLOAT_NUMBER))
     found, untranslated, disagree = [], [], []
     for m in badge.finditer(body):
-        here, original = int(m.group(1)), int(m.group(2))
+        here, original = _float_number(m.group(1)), _float_number(m.group(2))
         found.append(here)
         if here != original:
-            disagree.append("%s %d is labelled Table %d" % (label, here, original))
+            disagree.append("%s %s is labelled Table %s" % (label, here, original))
         text = _caption_text(body, m.end())
         if len(text) >= 16 and not _in_target_script(text, lang):
-            untranslated.append("%s %d: %s" % (label, here, text[:56]))
+            untranslated.append("%s %s: %s" % (label, here, text[:56]))
     return len(want), found, untranslated, disagree
 
 
@@ -572,7 +582,8 @@ def probe(temp_dir, strict=False, lang=None):
             if len(seen) != want:
                 fails.append("the source has %d numbered table caption(s), "
                              "the book shows %d" % (want, len(seen)))
-            elif sorted(seen) != list(range(1, want + 1)):
+            elif all(isinstance(n, int) for n in seen) \
+                    and sorted(seen) != list(range(1, want + 1)):
                 fails.append("table caption numbers are not 1..%d: %s"
                              % (want, sorted(seen)[:12]))
 

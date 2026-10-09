@@ -252,6 +252,15 @@ def find_raw_latex_tables(text):
     for entry in out:
         if seen.get((entry['start'], entry['stop'])) is not entry:
             entry['notes'] = None
+    # So does a caption the float gives once: Shor sets the Toffoli and
+    # Fredkin truth tables side by side under one caption, and both printed
+    # "표 3.1". The first tabular keeps it. Two captions (AlphaQ) stay two.
+    given = set()
+    for entry in out:
+        key = (entry['start'], entry['stop'], entry['caption'])
+        if entry['caption'] and key in given:
+            entry['caption'] = None
+        given.add(key)
     return out
 
 

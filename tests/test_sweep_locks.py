@@ -124,6 +124,14 @@ class CaptionNumberTests(unittest.TestCase):
         _, _, _, disagree = self.check(body)
         self.assertEqual(len(disagree), 1)
 
+    def test_a_section_scoped_number_is_counted(self):
+        # Shor prints its tables as 3.1 and 3.2.
+        body = ("<caption><strong>표 3.1 (Table 3.1)</strong> 첫 번째 표</caption>"
+                "<caption><strong>표 3.2 (Table 3.2)</strong> 두 번째 표</caption>")
+        want, seen, bad, disagree = self.check(body)
+        self.assertEqual((want, seen), (2, ['3.1', '3.2']))
+        self.assertEqual((bad, disagree), ([], []))
+
     def test_english_target_declines_to_answer(self):
         # "Table 5" is also how the prose refers to it: no anchor exists, and
         # a number this cannot stand behind is worse than no number.

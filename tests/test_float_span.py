@@ -77,6 +77,14 @@ class FloatSpans(unittest.TestCase):
         self.assertEqual(len(tables), 2)
         self.assertEqual((tables[0]['start'], tables[0]['stop']),
                          (tables[1]['start'], tables[1]['stop']))
+        self.assertEqual([t['caption'] for t in tables], ['left', 'right'])
+
+    def test_one_caption_over_two_tabulars_prints_once(self):
+        # Shor's Toffoli and Fredkin truth tables: both printed "표 3.1".
+        doc = ('\\begin{table}\n\\caption{Truth tables.}\n'
+               + (TABULAR % 'a') + '\n' + (TABULAR % 'b') + '\n\\end{table}\n')
+        tables = mb.find_raw_latex_tables(doc)
+        self.assertEqual([t['caption'] for t in tables], ['Truth tables.', None])
 
 
 if __name__ == '__main__':
