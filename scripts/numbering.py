@@ -904,6 +904,10 @@ def format_figure_blocks(md_text, lang_cfg=None, temp_dir=None):
         # OWN box, which left each panel on a line of its own and spread one
         # float down a whole page.
         attr = ''
+        if grouped and not letter and caption == ' ':
+            # Its caption is a space held only so pandoc makes it a figure;
+            # the print sheet hides it rather than rule off nothing.
+            attr = '{.panel-more}'
         pieces.append(md_text[cursor:m.start()])
         if grouped and not open_group:
             pieces.append('\n\n::: figuregroup\n')

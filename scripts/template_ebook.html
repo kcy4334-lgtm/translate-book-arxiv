@@ -872,6 +872,11 @@
             .figuregroup > figure img {
                 width: 100%; height: auto; max-height: 150mm;
             }
+            /* A panel's other images: their caption is a held space, and
+               its letter prints under the panel's last image. */
+            .figuregroup > figure:has(> img.panel-more) > figcaption {
+                display: none;
+            }
             .figuregroup > p {
                 flex: 1 0 100%; order: 99;
                 margin: 4pt 0 0; text-indent: 0; text-align: left;
