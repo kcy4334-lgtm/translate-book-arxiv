@@ -177,6 +177,13 @@ class HiggsFormulas(unittest.TestCase):
         out, _s = mb.normalize_math_commands(r'range $100{\--}160$ GeV')
         self.assertEqual(out, r'range $100{-}160$ GeV')
 
+    def test_a_text_box_holding_only_a_formula_is_the_formula(self):
+        out, _s = mb.normalize_math_commands(
+            r'mass of $\mbox{\ensuremath{126.0\; \pm 0.4 \;\textrm{(stat)}'
+            r'~\mathrm{GeV}}}$ is')
+        self.assertEqual(out, r'mass of $126.0\; \pm 0.4 \;\textrm{(stat)}'
+                              r'~\mathrm{GeV}$ is')
+
     def test_an_escaped_hyphen_in_prose_stays(self):
         out, _s = mb.normalize_math_commands(r'\- not a list item')
         self.assertEqual(out, r'\- not a list item')

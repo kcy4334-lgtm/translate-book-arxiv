@@ -836,6 +836,31 @@ _ACCENT_ON_COMMAND_RE = re.compile(
     r'\{(?:[^{}]|\{[^{}]*\})*\})')
 
 
+_BOXED_MATH_RE = re.compile(r'\\(?:mbox|hbox|text)\s*\{\s*\\ensuremath\s*\{')
+
+
+def _unbox_math(span):
+    r"""`\mbox{\ensuremath{X}}` inside a formula -> `X`.
+
+    A text box holding only a formula is that formula. texmath reads neither
+    layer: higgs_atlas states its mass, `126.0 \pm 0.4 (stat) \pm 0.4 (sys)
+    GeV`, twice that way and both printed as source.
+    """
+    for _ in range(8):
+        m = _BOXED_MATH_RE.search(span)
+        if not m:
+            return span
+        inner_close = _balanced_group(span, m.end() - 1)
+        if inner_close < 0:
+            return span
+        rest = re.match(r'\s*\}', span[inner_close:])
+        if not rest:
+            return span
+        span = (span[:m.start()] + span[m.end():inner_close - 1]
+                + span[inner_close + rest.end():])
+    return span
+
+
 def normalize_math_commands(md_text):
     """Modernise the pre-LaTeX2e font switches. Returns (text, stats).
 
@@ -901,7 +926,7 @@ def normalize_math_commands(md_text):
         # reader for it and refused higgs_atlas's `$100{\--}160$`. Inside
         # formulas only: in markdown prose `\-` is an escaped hyphen.
         text = _INLINE_MATH_SPAN_RE.sub(
-            lambda m: re.sub(r'(?<!\\)\\-', '', m.group(0)), text)
+            lambda m: _unbox_math(re.sub(r'(?<!\\)\\-', '', m.group(0))), text)
         return text
 
     held = sorted([(m.start(), m.end(), 'code')
