@@ -1902,5 +1902,42 @@ class StatusTests(unittest.TestCase):
         self.assertEqual(status['meta_files_consumed'], 0)
 
 
+class DecisionsFromAFileTests(unittest.TestCase):
+    """The run book writes the decisions to a file and names it. Piping them
+    in with `echo '{...}' |` broke on the first apostrophe in a term, and
+    needed `echo` pre-approved, which the plugin directory holds a release
+    for. Run as a command, the way the run book runs it."""
+
+    SCRIPT = str(SCRIPT_DIR / 'merge_meta.py')
+
+    def run_cli(self, *args):
+        return subprocess.run([sys.executable, self.SCRIPT, *args],
+                              capture_output=True, text=True,
+                              encoding='utf-8', errors='replace')
+
+    def test_a_file_records_the_hashes_as_stdin_does(self):
+        m = empty_meta(used_term_sources=['Tai'])
+        existing = make_term('Tai', '太一', 'person')
+        with temp_workspace(glossary=make_glossary(existing),
+                            metas={'chunk0001': m}) as tmp:
+            out1, _ = run_prepare_merge(tmp)
+            path = os.path.join(tmp, 'merge_decisions.json')
+            with open(path, 'w', encoding='utf-8') as fh:
+                json.dump({'auto_apply': out1['auto_apply'], 'decisions': [],
+                           'consumed_chunk_ids': out1['consumed_chunk_ids'],
+                           'note': "the author's own term"}, fh)
+            done = self.run_cli('apply-merge', tmp, '--decisions', path)
+            self.assertEqual(done.returncode, 0, done.stderr)
+            out2, _ = run_prepare_merge(tmp)
+            self.assertEqual(out2['consumed_chunk_ids'], [])
+
+    def test_a_missing_file_changes_nothing(self):
+        with temp_workspace(glossary=make_glossary()) as tmp:
+            done = self.run_cli('apply-merge', tmp, '--decisions',
+                                os.path.join(tmp, 'absent.json'))
+            self.assertEqual(done.returncode, 2)
+            self.assertIn('cannot read the decisions file', done.stderr)
+
+
 if __name__ == '__main__':
     unittest.main()

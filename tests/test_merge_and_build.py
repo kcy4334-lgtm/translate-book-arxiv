@@ -1514,16 +1514,18 @@ class SectionNumberingTests(unittest.TestCase):
         self.assertEqual(out, self.MD)
 
     def _with_prefixes(self, prefixes):
-        """Stand in for the PDF read, which needs pymupdf."""
-        real = merge_and_build.read_pdf_section_prefixes
+        """Stand in for the PDF read, which needs pymupdf. Replaced in
+        latex_cleanup, the module number_sections looks it up in."""
+        import latex_cleanup
+        real = latex_cleanup.read_pdf_section_prefixes
 
         def fake(temp_dir, tex_heads):
             return list(prefixes), {'matched': sum(1 for p in prefixes if p),
                                     'unnumbered': sum(1 for p in prefixes if p == ''),
                                     'missing': 0, 'wrapped': 0, 'reason': None}
 
-        merge_and_build.read_pdf_section_prefixes = fake
-        self.addCleanup(setattr, merge_and_build, 'read_pdf_section_prefixes', real)
+        latex_cleanup.read_pdf_section_prefixes = fake
+        self.addCleanup(setattr, latex_cleanup, 'read_pdf_section_prefixes', real)
 
     def test_applies_the_prefixes_the_original_prints(self):
         self._with_prefixes(["", "1.", "2.", "2.1.", "2.1.1.", "2.2."])

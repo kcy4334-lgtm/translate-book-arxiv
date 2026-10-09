@@ -130,6 +130,7 @@ ARTEFACT_CONSUMERS = {
     'manifest.json': 'manifest.py, repair.py',
     'config.txt': 'backends.py, merge_and_build.py, corpus_census.py',
     'glossary.json': 'glossary.py, merge_meta.py, verify_chunk.py',
+    'merge_decisions.json': 'merge_meta.py',
     'run_state.json': 'run_state.py',
     'source_fingerprint.json': 'convert.py',
     'output.md': 'merge_and_build.py',
@@ -802,8 +803,8 @@ class ASectionWalkKnowsAboutTheAppendix(unittest.TestCase):
         the count claims in `test_doc_consistency` went stale."""
         found = {'%s:%s' % (module, func)
                  for module, func, _body in self.walkers()}
-        for expected in ('merge_and_build.py:float_units',
-                         'merge_and_build.py:flat_equation_numbers'):
+        for expected in ('numbering.py:float_units',
+                         'numbering.py:flat_equation_numbers'):
             self.assertIn(expected, found)
 
 

@@ -1,7 +1,7 @@
 ---
 name: translate-book
 description: Translate an arXiv paper, or any PDF/DOCX/EPUB book, into any language as a printable book. For arXiv papers it reads the LaTeX source, so equations, tables, figures and numbering survive. Parallel sub-agents translate the chunks; output is HTML, DOCX, EPUB and PDF.
-allowed-tools: Read, Write, Edit, Bash(python *), Bash(python3 *), Bash(grep *), Bash(echo *), Glob, Grep, Agent, AskUserQuestion
+allowed-tools: Read, Write, Edit, Bash(python ${CLAUDE_PLUGIN_ROOT}/scripts/chunk_context.py:*), Bash(python3 ${CLAUDE_PLUGIN_ROOT}/scripts/chunk_context.py:*), Bash(python ${CLAUDE_PLUGIN_ROOT}/scripts/convert.py:*), Bash(python3 ${CLAUDE_PLUGIN_ROOT}/scripts/convert.py:*), Bash(python ${CLAUDE_PLUGIN_ROOT}/scripts/corpus_census.py:*), Bash(python3 ${CLAUDE_PLUGIN_ROOT}/scripts/corpus_census.py:*), Bash(python ${CLAUDE_PLUGIN_ROOT}/scripts/doctor.py:*), Bash(python3 ${CLAUDE_PLUGIN_ROOT}/scripts/doctor.py:*), Bash(python ${CLAUDE_PLUGIN_ROOT}/scripts/glossary.py:*), Bash(python3 ${CLAUDE_PLUGIN_ROOT}/scripts/glossary.py:*), Bash(python ${CLAUDE_PLUGIN_ROOT}/scripts/install_advisors.py:*), Bash(python3 ${CLAUDE_PLUGIN_ROOT}/scripts/install_advisors.py:*), Bash(python ${CLAUDE_PLUGIN_ROOT}/scripts/kb.py:*), Bash(python3 ${CLAUDE_PLUGIN_ROOT}/scripts/kb.py:*), Bash(python ${CLAUDE_PLUGIN_ROOT}/scripts/merge_and_build.py:*), Bash(python3 ${CLAUDE_PLUGIN_ROOT}/scripts/merge_and_build.py:*), Bash(python ${CLAUDE_PLUGIN_ROOT}/scripts/merge_meta.py:*), Bash(python3 ${CLAUDE_PLUGIN_ROOT}/scripts/merge_meta.py:*), Bash(python ${CLAUDE_PLUGIN_ROOT}/scripts/meta.py:*), Bash(python3 ${CLAUDE_PLUGIN_ROOT}/scripts/meta.py:*), Bash(python ${CLAUDE_PLUGIN_ROOT}/scripts/referee.py:*), Bash(python3 ${CLAUDE_PLUGIN_ROOT}/scripts/referee.py:*), Bash(python ${CLAUDE_PLUGIN_ROOT}/scripts/repair.py:*), Bash(python3 ${CLAUDE_PLUGIN_ROOT}/scripts/repair.py:*), Bash(python ${CLAUDE_PLUGIN_ROOT}/scripts/run_state.py:*), Bash(python3 ${CLAUDE_PLUGIN_ROOT}/scripts/run_state.py:*), Bash(python ${CLAUDE_PLUGIN_ROOT}/scripts/sidecar_edit.py:*), Bash(python3 ${CLAUDE_PLUGIN_ROOT}/scripts/sidecar_edit.py:*), Bash(python ${CLAUDE_PLUGIN_ROOT}/scripts/verify_chunk.py:*), Bash(python3 ${CLAUDE_PLUGIN_ROOT}/scripts/verify_chunk.py:*), Bash(python ${CLAUDE_PLUGIN_ROOT}/scripts/verify_tables.py:*), Bash(python3 ${CLAUDE_PLUGIN_ROOT}/scripts/verify_tables.py:*), Bash(python ${CLAUDE_PLUGIN_ROOT}/tests/consistency_probe.py:*), Bash(python3 ${CLAUDE_PLUGIN_ROOT}/tests/consistency_probe.py:*), Bash(python ${CLAUDE_PLUGIN_ROOT}/tests/dry_run.py:*), Bash(python3 ${CLAUDE_PLUGIN_ROOT}/tests/dry_run.py:*), Bash(python ${CLAUDE_PLUGIN_ROOT}/tests/format_probe.py:*), Bash(python3 ${CLAUDE_PLUGIN_ROOT}/tests/format_probe.py:*), Bash(python ${CLAUDE_PLUGIN_ROOT}/tests/inventory_probe.py:*), Bash(python3 ${CLAUDE_PLUGIN_ROOT}/tests/inventory_probe.py:*), Bash(python ${CLAUDE_PLUGIN_ROOT}/tests/layout_probe.py:*), Bash(python3 ${CLAUDE_PLUGIN_ROOT}/tests/layout_probe.py:*), Bash(python ${CLAUDE_PLUGIN_ROOT}/tests/leak_probe.py:*), Bash(python3 ${CLAUDE_PLUGIN_ROOT}/tests/leak_probe.py:*), Bash(python ${CLAUDE_PLUGIN_ROOT}/tests/source_probe.py:*), Bash(python3 ${CLAUDE_PLUGIN_ROOT}/tests/source_probe.py:*), Bash(python ${CLAUDE_PLUGIN_ROOT}/tests/table_probe.py:*), Bash(python3 ${CLAUDE_PLUGIN_ROOT}/tests/table_probe.py:*), Glob, Grep, Agent, AskUserQuestion
 metadata: {"openclaw":{"requires":{"bins":["python","pandoc"]},"homepage":"https://github.com/kcy4334-lgtm/translate-book-arxiv"}}
 ---
 
@@ -31,9 +31,9 @@ and they only grow; reading both to answer one question costs more than the
 answer. Look things up instead:
 
 ```bash
-python scripts/kb.py find "<symptom, file, function or LaTeX command>"
-python scripts/kb.py list          # id + title for everything, to browse
-python scripts/kb.py show K102 H26 # named entries, in full
+python ${CLAUDE_PLUGIN_ROOT}/scripts/kb.py find "<symptom, file, function or LaTeX command>"
+python ${CLAUDE_PLUGIN_ROOT}/scripts/kb.py list          # id + title for everything, to browse
+python ${CLAUDE_PLUGIN_ROOT}/scripts/kb.py show K102 H26 # named entries, in full
 ```
 
 `kb.py` parses both files fresh on every call, so it is never out of date with
@@ -122,9 +122,9 @@ same prompt; the same defect in a third book is something nobody has fixed.
 None of that is visible from inside a chunk.
 
 ```bash
-python scripts/referee.py tally  <temp_dir> --lang <lang>   # judge this run
-python scripts/referee.py record <temp_dir> --lang <lang>   # and remember it
-python scripts/referee.py history                           # every run so far
+python ${CLAUDE_PLUGIN_ROOT}/scripts/referee.py tally  <temp_dir> --lang <lang>   # judge this run
+python ${CLAUDE_PLUGIN_ROOT}/scripts/referee.py record <temp_dir> --lang <lang>   # and remember it
+python ${CLAUDE_PLUGIN_ROOT}/scripts/referee.py history                           # every run so far
 ```
 
 `tally` only counts and compares. **Whose fault it is is not in the count**:
@@ -147,7 +147,7 @@ style, maths and front matter it used. `merge_and_build.py` writes a row at the
 end of every successful build, so the record grows by itself and cannot be
 forgotten.
 
-    python scripts/corpus_census.py digest
+    python ${CLAUDE_PLUGIN_ROOT}/scripts/corpus_census.py digest
 
 turns it into frequency ("`wrapfigure` in 1 of 5, `figure*` in 4 of 5") and,
 at the end, **NEVER SEEN**: the shapes no paper in the corpus has ever
@@ -167,6 +167,24 @@ agent types shows. Give them the paths they need; they read, they do not run
 the pipeline. If neither form is listed, they are not installed: Step 0
 reports that, and `install_advisors.py` fixes it.
 
+## How to run commands
+
+Every command in this file is one of the skill's own scripts, named by its
+full path. Run each exactly as written, one per call.
+
+- **Add nothing to it:** no `cd ... &&`, no `;`, no `| head`, no `2>&1`, no
+  shell variables. Every path is already absolute. A command with any of
+  those is no longer the one the skill's permission rules allow, so the user
+  is asked to approve it. On one paper run as a plugin, 44 of 76 shell
+  commands fell outside those rules, and 13 of them were the skill's own
+  scripts with a `cd` or a pipe added.
+- **Files go through the file tools:** Read, Grep and Glob to look, Write and
+  Edit to change. Not `cat`, `ls`, `head`, `grep`, `echo` or a heredoc.
+- **A check no script gives:** write it to a `.py` file in `<temp_dir>` with
+  Write and run that file. It asks for approval once, and the user can read
+  what it does. Not `python -c`: its quoting breaks on the first backslash,
+  and LaTeX is mostly backslashes.
+
 ## Workflow
 
 ### 0. Check the Machine
@@ -174,21 +192,22 @@ reports that, and `install_advisors.py` fixes it.
 Before anything else, run:
 
 ```bash
-python {baseDir}/scripts/doctor.py --strict
+python ${CLAUDE_PLUGIN_ROOT}/scripts/doctor.py --strict
 ```
 
 It takes about a second and lists every component with `OK`, `MISSING` or
-`absent`.
+`absent`. Run it exactly as written, with nothing appended, and decide from
+the lines it prints rather than from its exit code.
 
-- **Exit 1 (a `MISSING` line):** stop here. Tell the user which components
+- **A `MISSING` line:** stop here. Tell the user which components
   are missing, quote the reason `doctor.py` prints under each, and point them
   to the Prerequisites section of the README. Do not convert or translate
   anything yet. A missing pandoc or browser otherwise surfaces only at the
   build, after every chunk has been translated.
-- **Exit 0 with `absent` lines:** carry on, and say what each one costs. A
+- **`absent` lines and no `MISSING`:** carry on, and say what each one costs. A
   missing font for the target language changes the line breaks and the page
   count. A missing advisor or translator sub-agent means `python
-  {baseDir}/scripts/install_advisors.py` has not been run (a plugin install
+  ${CLAUDE_PLUGIN_ROOT}/scripts/install_advisors.py` has not been run (a plugin install
   brings them with it): the four advisors below cannot be called, and every
   chunk costs about twice the tokens. Offer to run it; the new agents
   load when the next session starts.
@@ -210,12 +229,20 @@ Determine the following from the user's message:
 
 If the file path is not provided, ask the user.
 
+**A licence is a question about publishing, not about translating.** A book
+the user translates to read themselves needs no licence check, so do not stop
+for one. Only when the user says they will publish or share the translation,
+tell them it needs the paper's licence to allow that (CC BY and CC BY-SA do;
+arXiv's default licence does not) and that the paper's arXiv abstract page
+names it. Measured: an unattended run stopped a personal translation halfway
+to ask about a licence nobody had raised.
+
 ### 2. Preprocess: Convert to Markdown Chunks
 
 Run the conversion script to produce chunks:
 
 ```bash
-python {baseDir}/scripts/convert.py "<file_path>" --olang "<target_lang>"
+python ${CLAUDE_PLUGIN_ROOT}/scripts/convert.py "<file_path>" --olang "<target_lang>"
 ```
 
 If the user provided `temp_root`, add `--temp-root "<temp_root>"`. The temp
@@ -237,7 +264,7 @@ downloading the paper's source from arxiv.org, **ask the user before passing
 `--allow-network`**:
 
 ```bash
-python {baseDir}/scripts/convert.py "<file_path>" --olang "<target_lang>" --allow-network
+python ${CLAUDE_PLUGIN_ROOT}/scripts/convert.py "<file_path>" --olang "<target_lang>" --allow-network
 ```
 
 Related flags:
@@ -387,7 +414,7 @@ reports words worth a second look (KNOWLEDGE [K72](KNOWLEDGE.md#k72)).
 4. **Count frequencies** by running:
 
    ```bash
-   python {baseDir}/scripts/glossary.py count-frequencies "<temp_dir>"
+   python ${CLAUDE_PLUGIN_ROOT}/scripts/glossary.py count-frequencies "<temp_dir>"
    ```
 
    This scans every `chunk*.md` (excluding `output_chunk*.md`), updates each term's `frequency` field, and writes back atomically.
@@ -409,7 +436,7 @@ forty times usually is, one appearing twice usually is not.
 Run:
 
 ```bash
-python {baseDir}/scripts/run_state.py plan "<temp_dir>"
+python ${CLAUDE_PLUGIN_ROOT}/scripts/run_state.py plan "<temp_dir>"
 ```
 
 If the user explicitly asks to apply glossary edits to outputs produced before
@@ -430,8 +457,8 @@ has read them since. Put them through the same gate as a fresh translation
 (step 4.4) before recording them:
 
 ```bash
-python {baseDir}/scripts/verify_chunk.py "<temp_dir>" --lang <target_lang> --strict chunk0001 chunk0002 ...
-python {baseDir}/scripts/run_state.py record "<temp_dir>" chunk0001 chunk0002 ...
+python ${CLAUDE_PLUGIN_ROOT}/scripts/verify_chunk.py "<temp_dir>" --lang <target_lang> --strict chunk0001 chunk0002 ...
+python ${CLAUDE_PLUGIN_ROOT}/scripts/run_state.py record "<temp_dir>" chunk0001 chunk0002 ...
 ```
 
 Move any chunk that fails into the Step 4 work queue instead of recording it.
@@ -444,7 +471,7 @@ to Step 5.
 **Do this before launching a single sub-agent.**
 
 ```bash
-python {baseDir}/tests/dry_run.py "<temp_dir>" --lang <lang>
+python ${CLAUDE_PLUGIN_ROOT}/tests/dry_run.py "<temp_dir>" --lang <lang>
 ```
 
 It stages every `chunkNNNN.md` as its own `output_chunkNNNN.md` in
@@ -502,7 +529,7 @@ whose tool lists are as short as the translator's, start at about 6,000.
 Translating the same chunk both ways, the translator used under half the
 tokens of a general-purpose agent and kept the same 41 placeholders. Only
 if neither name is listed, dispatch general-purpose agents and tell the user
-that `python {baseDir}/scripts/install_advisors.py` makes the next run
+that `python ${CLAUDE_PLUGIN_ROOT}/scripts/install_advisors.py` makes the next run
 cheaper.
 
 **Chunks that must NOT be translated.** The reference list is kept as
@@ -517,11 +544,9 @@ output and no agent is ever dispatched for it. You do not have to do anything.
 
 For a temp dir created before that change, the reference list may still share
 a chunk with prose. Check, and if you find one, copy it verbatim to its
-`output_` name and write an empty meta file rather than translating it:
-
-```bash
-grep -l "begin{thebibliography}" "<temp_dir>"/chunk*.md
-```
+`output_` name and write an empty meta file rather than translating it. To
+check, search the `chunk*.md` files in `<temp_dir>` for
+`begin{thebibliography}` with the Grep tool.
 
 **Tell every sub-agent to translate the headings.** Left to itself a sub-agent
 will often leave `# Introduction` as it found it. That is not a cosmetic
@@ -549,7 +574,7 @@ Each sub-agent receives:
 **Term table assembly**: before spawning a sub-agent, run:
 
 ```bash
-python {baseDir}/scripts/glossary.py print-terms-for-chunk "<temp_dir>" "chunk<NNNN>.md"
+python ${CLAUDE_PLUGIN_ROOT}/scripts/glossary.py print-terms-for-chunk "<temp_dir>" "chunk<NNNN>.md"
 ```
 
 Capture stdout. The CLI emits a 3-column markdown table (`原文 | 别名 | 译文`) of every term that either appears in this chunk (by source OR any alias) OR is in the top-N most-frequent terms book-wide. Inject the table as `{TERM_TABLE}` in rule #13 of the translation prompt. **If stdout is empty (no glossary, or no relevant terms), omit rule #13 from this chunk's prompt entirely**: do not leave a dangling `{TERM_TABLE}` placeholder.
@@ -557,7 +582,7 @@ Capture stdout. The CLI emits a 3-column markdown table (`原文 | 别名 | 译�
 **Meta schema assembly**: before spawning a sub-agent, run:
 
 ```bash
-python {baseDir}/scripts/meta.py prompt-block
+python ${CLAUDE_PLUGIN_ROOT}/scripts/meta.py prompt-block
 ```
 
 Capture stdout and paste it into the prompt verbatim, the same way you paste
@@ -574,7 +599,7 @@ thrown away, which looks exactly like sub-agents that observed nothing.
 **Neighbor context assembly**: before spawning a sub-agent, run:
 
 ```bash
-python {baseDir}/scripts/chunk_context.py "<temp_dir>" "chunk<NNNN>.md"
+python ${CLAUDE_PLUGIN_ROOT}/scripts/chunk_context.py "<temp_dir>" "chunk<NNNN>.md"
 ```
 
 Capture stdout. The CLI emits prompt-ready read-only excerpts: the last ~300
@@ -812,7 +837,7 @@ reading the artefact, and none of them is found by asking again.
 Run this on every chunk in the batch, before recording anything:
 
 ```bash
-python {baseDir}/scripts/verify_chunk.py "<temp_dir>" --lang <target_lang> --strict chunk0001 chunk0002 ...
+python ${CLAUDE_PLUGIN_ROOT}/scripts/verify_chunk.py "<temp_dir>" --lang <target_lang> --strict chunk0001 chunk0002 ...
 ```
 
 It compares the output against the source chunk, the glossary the agent was
@@ -885,7 +910,7 @@ must not change is the order within a chunk: record before merge.
 1. Record the chunks that PASSED step 4.4, and only those, before mutating the glossary:
 
    ```bash
-   python {baseDir}/scripts/run_state.py record "<temp_dir>" chunk0001 chunk0002 ...
+   python ${CLAUDE_PLUGIN_ROOT}/scripts/run_state.py record "<temp_dir>" chunk0001 chunk0002 ...
    ```
 
    If this fails, fix the missing/empty output or state error before continuing.
@@ -893,7 +918,7 @@ must not change is the order within a chunk: record before merge.
 2. Run prepare-merge:
 
    ```bash
-   python {baseDir}/scripts/merge_meta.py prepare-merge "<temp_dir>"
+   python ${CLAUDE_PLUGIN_ROOT}/scripts/merge_meta.py prepare-merge "<temp_dir>"
    ```
 
    Capture stdout JSON. It contains four arrays:
@@ -910,7 +935,7 @@ must not change is the order within a chunk: record before merge.
 
 3. **If `consumed_chunk_ids` is empty** → nothing was scanned; skip to Step 5.
 
-4. **If `consumed_chunk_ids` is non-empty but both `auto_apply` and `decisions_needed` are empty** → still pipe `{"auto_apply": [], "decisions": [], "consumed_chunk_ids": [...]}` into `apply-merge` so the hashes get recorded. **Skipping this is the bug**: no-op metas would re-scan forever otherwise.
+4. **If `consumed_chunk_ids` is non-empty but both `auto_apply` and `decisions_needed` are empty** → still hand `{"auto_apply": [], "decisions": [], "consumed_chunk_ids": [...]}` to `apply-merge` (step 6) so the hashes get recorded. **Skipping this is the bug**: no-op metas would re-scan forever otherwise.
 
 5. **Otherwise, resolve each decision**:
    - Read its evidence quotes inline.
@@ -921,16 +946,23 @@ must not change is the order within a chunk: record before merge.
      {"id": "d1", "kind": "alias", "variant": "Taig", "candidate_source": "Tai", "choice": "yes_alias"}
      ```
 
-6. Pipe the decisions JSON into apply-merge:
+6. Write the decisions JSON to `<temp_dir>/merge_decisions.json` with the
+   Write tool, then apply it:
+
+   ```json
+   {"auto_apply": [...], "decisions": [...], "consumed_chunk_ids": [...]}
+   ```
 
    ```bash
-   echo '{"auto_apply": [...], "decisions": [...], "consumed_chunk_ids": [...]}' \
-     | python {baseDir}/scripts/merge_meta.py apply-merge "<temp_dir>"
+   python ${CLAUDE_PLUGIN_ROOT}/scripts/merge_meta.py apply-merge "<temp_dir>" --decisions "<temp_dir>/merge_decisions.json"
    ```
+
+   Not `echo '...' |`: a term or a quote with an apostrophe in it ends the
+   shell's quoting halfway through the JSON.
 
    Surface the summary JSON (`auto_applied`, `decisions_resolved`, `consumed_chunks`, `errors`) in your batch progress message.
 
-   **apply-merge is transactional.** If any decision is malformed (wrong choice for kind, missing fields, references a non-existent entity), the entire batch aborts with a non-zero exit and stderr details, no glossary mutation, no hashes recorded. On non-zero exit, fix the offending decision and re-pipe; `prepare-merge` will surface the same proposals because nothing was consumed.
+   **apply-merge is transactional.** If any decision is malformed (wrong choice for kind, missing fields, references a non-existent entity), the entire batch aborts with a non-zero exit and stderr details, no glossary mutation, no hashes recorded. On non-zero exit, fix the offending decision in the file and run it again; `prepare-merge` will surface the same proposals because nothing was consumed.
 
    **Decision order in the input list is not significant.** `apply-merge` internally dispatches entity-creating decisions before alias-attaching ones, so `yes_alias` decisions whose candidate is created by another decision in the same batch (a `use_standalone_N`, `use_variant_N`, or `promote_to_separate_entity`) succeed regardless of the order you pass them in. Alias chains (e.g. `Taighi → Taig` where `Taig → Tai` is also a pending alias decision) resolve via a fixed-point loop within the alias-attacher pass; you don't need to topo-sort or sequence chained aliases manually.
 
@@ -977,7 +1009,7 @@ existed, with every other check green (K176).
 Find out whether this paper is affected:
 
 ```bash
-python {baseDir}/tests/format_probe.py "<temp_dir>" --lang <target_lang>
+python ${CLAUDE_PLUGIN_ROOT}/tests/format_probe.py "<temp_dir>" --lang <target_lang>
 ```
 
 If it reports untranslated captions, run one `translator` agent (as in
@@ -1006,9 +1038,9 @@ and `&` counts the snapshot recorded, so `verify_tables.py` calls a perfect
 revert a PASS.
 
 ```bash
-python {baseDir}/scripts/sidecar_edit.py read "<temp_dir>/chunk0006.math.json"
+python ${CLAUDE_PLUGIN_ROOT}/scripts/sidecar_edit.py read "<temp_dir>/chunk0006.math.json"
 #   ... translate the words, then write the replacement LaTeX to a file ...
-python {baseDir}/scripts/sidecar_edit.py write "<temp_dir>/chunk0006.math.json" \
+python ${CLAUDE_PLUGIN_ROOT}/scripts/sidecar_edit.py write "<temp_dir>/chunk0006.math.json" \
     --token T0004 --expect <the sha256 that read printed> --latex-file new.tex
 ```
 
@@ -1034,9 +1066,9 @@ present, the caption is Korean, every count agrees, and the reader gets a
 number that was never in the paper.
 
 ```bash
-python {baseDir}/scripts/verify_tables.py snapshot "<temp_dir>"     # BEFORE
+python ${CLAUDE_PLUGIN_ROOT}/scripts/verify_tables.py snapshot "<temp_dir>"     # BEFORE
 #   ... the table sub-agents run ...
-python {baseDir}/scripts/verify_tables.py check "<temp_dir>" --strict
+python ${CLAUDE_PLUGIN_ROOT}/scripts/verify_tables.py check "<temp_dir>" --strict
 ```
 
 The check requires the snapshot and refuses to answer without one, because a
@@ -1121,7 +1153,7 @@ so a right-margin `(N)` number still lands in the margin.
 Check the result in the built HTML, not in the markdown:
 
 ```bash
-python {baseDir}/tests/format_probe.py "<temp_dir>" --lang <target_lang> --strict
+python ${CLAUDE_PLUGIN_ROOT}/tests/format_probe.py "<temp_dir>" --lang <target_lang> --strict
 ```
 
 Every table must have a `<thead>`; the probe says how many do. A table with
@@ -1141,7 +1173,7 @@ A chunk can pass on its own and still be wrong about the book: a term the
 glossary gained in batch 3 was not in the table batch 1 was handed.
 
 ```bash
-python {baseDir}/scripts/verify_chunk.py "<temp_dir>" --lang <target_lang> --strict --quiet
+python ${CLAUDE_PLUGIN_ROOT}/scripts/verify_chunk.py "<temp_dir>" --lang <target_lang> --strict --quiet
 ```
 
 Every chunk must pass before you merge. A book built on a chunk that failed
@@ -1156,14 +1188,14 @@ Also read `manifest.json` and verify:
 Then run the meta-merge observability snapshot:
 
 ```bash
-python {baseDir}/scripts/merge_meta.py status "<temp_dir>"
+python ${CLAUDE_PLUGIN_ROOT}/scripts/merge_meta.py status "<temp_dir>"
 ```
 
 Then look at the run as a whole, which no per-chunk gate can:
 
 ```bash
-python {baseDir}/scripts/referee.py tally  "<temp_dir>" --lang <target_lang>
-python {baseDir}/scripts/referee.py record "<temp_dir>" --lang <target_lang>
+python ${CLAUDE_PLUGIN_ROOT}/scripts/referee.py tally  "<temp_dir>" --lang <target_lang>
+python ${CLAUDE_PLUGIN_ROOT}/scripts/referee.py record "<temp_dir>" --lang <target_lang>
 ```
 
 `record` is what makes the referee grow, without it, every book is the first
@@ -1174,7 +1206,7 @@ and doing it three times is how a briefing fault gets mistaken for bad luck.
 Also run the selective re-translation state snapshot:
 
 ```bash
-python {baseDir}/scripts/run_state.py status "<temp_dir>"
+python ${CLAUDE_PLUGIN_ROOT}/scripts/run_state.py status "<temp_dir>"
 ```
 
 Surface a one-line summary in the verification report:
@@ -1200,7 +1232,7 @@ Translate the title to the target language. For Chinese, wrap in 书名号: `《
 Run the build script with the translated title:
 
 ```bash
-python {baseDir}/scripts/merge_and_build.py --temp-dir "<temp_dir>" --title "<translated_title>" --cleanup
+python ${CLAUDE_PLUGIN_ROOT}/scripts/merge_and_build.py --temp-dir "<temp_dir>" --title "<translated_title>" --cleanup
 ```
 
 If the user provided `epub_cover`, add `--cover "<epub_cover>"`. If the user
@@ -1298,7 +1330,7 @@ source `tabular` that is not on the page, a body row carrying numbers with no
 label.
 
 ```bash
-python {baseDir}/tests/table_probe.py "<temp_dir>" --lang <target_lang> --strict
+python ${CLAUDE_PLUGIN_ROOT}/tests/table_probe.py "<temp_dir>" --lang <target_lang> --strict
 ```
 
 Fix everything it reports before spending an agent on the half that cannot be
@@ -1435,14 +1467,14 @@ instead. The verification gate is:
 ```bash
 python -m compileall scripts tests
 python -m unittest discover -s tests -p 'test_*.py'
-python tests/layout_probe.py --strict
-python tests/layout_probe.py --stress --strict
-python tests/format_probe.py <temp_dir> --lang <lang> --strict
-python tests/source_probe.py <temp_dir> --strict
-python tests/table_probe.py <temp_dir> --lang <lang> --strict
-python tests/inventory_probe.py <temp_dir> --lang <lang> --strict
-python tests/leak_probe.py <temp_dir> --strict
-python tests/consistency_probe.py <temp_dir> --lang <lang> --strict
+python ${CLAUDE_PLUGIN_ROOT}/tests/layout_probe.py --strict
+python ${CLAUDE_PLUGIN_ROOT}/tests/layout_probe.py --stress --strict
+python ${CLAUDE_PLUGIN_ROOT}/tests/format_probe.py <temp_dir> --lang <lang> --strict
+python ${CLAUDE_PLUGIN_ROOT}/tests/source_probe.py <temp_dir> --strict
+python ${CLAUDE_PLUGIN_ROOT}/tests/table_probe.py <temp_dir> --lang <lang> --strict
+python ${CLAUDE_PLUGIN_ROOT}/tests/inventory_probe.py <temp_dir> --lang <lang> --strict
+python ${CLAUDE_PLUGIN_ROOT}/tests/leak_probe.py <temp_dir> --strict
+python ${CLAUDE_PLUGIN_ROOT}/tests/consistency_probe.py <temp_dir> --lang <lang> --strict
 ```
 
 Each looks at something the others cannot see, so none of them is redundant:
@@ -1518,8 +1550,8 @@ those are restored verbatim from `chunk*.math.json` at merge, so it can
    be fixed without touching prose at all:
 
    ```bash
-   python {baseDir}/scripts/repair.py sidecar "<temp_dir>"            # dry run
-   python {baseDir}/scripts/repair.py sidecar "<temp_dir>" --apply
+   python ${CLAUDE_PLUGIN_ROOT}/scripts/repair.py sidecar "<temp_dir>"            # dry run
+   python ${CLAUDE_PLUGIN_ROOT}/scripts/repair.py sidecar "<temp_dir>" --apply
    ```
 
    This undoes the column spec pandoc emitted twice and lifts labels out of
@@ -1532,15 +1564,15 @@ those are restored verbatim from `chunk*.math.json` at merge, so it can
 4. **Re-hash and re-record** every source chunk you touched:
 
    ```bash
-   python {baseDir}/scripts/repair.py rehash "<temp_dir>"
-   python {baseDir}/scripts/run_state.py record "<temp_dir>" chunk0005 ...
+   python ${CLAUDE_PLUGIN_ROOT}/scripts/repair.py rehash "<temp_dir>"
+   python ${CLAUDE_PLUGIN_ROOT}/scripts/run_state.py record "<temp_dir>" chunk0005 ...
    ```
 
    The source hash is how the pipeline decides a chunk needs translating
    again. Skip this and the next run silently re-translates a chunk that was
    already right, paying for it, and discarding the review.
 5. **Confirm nothing is queued** before rebuilding:
-   `python {baseDir}/scripts/run_state.py plan "<temp_dir>"` must report an
+   `python ${CLAUDE_PLUGIN_ROOT}/scripts/run_state.py plan "<temp_dir>"` must report an
    empty `translation_chunk_ids`.
 6. **Touch the output chunks, then rebuild** with `--force-html`. The merge is
    keyed on their mtime, so editing only a sidecar or a source chunk leaves

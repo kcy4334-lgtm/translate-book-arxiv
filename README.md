@@ -76,7 +76,7 @@ This page was written for the repository, with made-up results, so it can be sho
 - **Resumable**: SHA-256 hashes in a manifest keep stale outputs out of the merge, and a changed glossary re-translates only the chunks that used the changed terms
 - **Print-ready PDF**: headless Chromium against a real `@page` box (A4, 18/18/22/18 mm, 11.5 pt), page numbers stamped afterwards because Chrome has no margin boxes. `scripts/layout.py` holds the page geometry and fonts
 - **Output**: HTML with a floating TOC, DOCX, EPUB and PDF, with an optional EPUB cover, working folder and export name
-- **Tests**: 2,275, standard library only, run in CI
+- **Tests**: 2,290, standard library only, run in CI
 
 ## Growing the skill
 
@@ -316,6 +316,10 @@ A temp dir belongs to one run. After changing the title, author, language, templ
 | `scripts/table_language.py` | The common table header words that must be translated |
 | `scripts/repair.py` | Repairs an already translated book in place |
 | `scripts/merge_and_build.py` | Merge, then HTML, DOCX, EPUB and PDF |
+| `scripts/latex_cleanup.py` | For the build: drops LaTeX that would print as text, expands macros, fixes math, numbers sections |
+| `scripts/numbering.py` | For the build: figure captions, float and equation numbers, cross-references |
+| `scripts/latex_tables.py` | For the build: the paper's raw LaTeX tables to HTML |
+| `scripts/build_common.py` | For the build: helpers the three above share |
 | `scripts/layout.py` | Fonts per language and print profiles (page size, margins, type size) |
 | `scripts/chromium_pdf.py` | Prints the PDF with headless Chromium: page numbers, TOC page numbers, bookmarks |
 | `scripts/equation_fit.py` | Re-renders when a wide equation prints under its own number |
@@ -356,7 +360,7 @@ python tools/build_plugin_branch.py && git push origin claude-plugin
 
 `/release` in `.claude/commands/release.md` runs the last three lines and stops at the first failure. A tag already on the remote is not moved without asking, because someone may have fetched it.
 
-The last line refreshes the `claude-plugin` branch, which Anthropic's plugin directory follows instead of `main`. The directory refuses any file over 5 MiB and holds binaries for review, while `main` keeps the test books the suite needs, so the branch is built from the tag with only the files the skill runs on plus `.claude-plugin/plugin.json`.
+The last line refreshes the `claude-plugin` branch, which Anthropic's plugin directory follows instead of `main`. The directory refuses any file over 5 MiB and holds binaries for review, while `main` keeps the test books the suite needs, so the branch is built from the tag with only the files the skill runs on plus `.claude-plugin/plugin.json`. The directory also holds a plugin whose `allowed-tools` lets it run any Python, so the branch's `SKILL.md` allows only the scripts it names, by their `${CLAUDE_PLUGIN_ROOT}` path; `main` keeps `{baseDir}` and `Bash(python *)` for the runtimes that do not fill in that variable.
 
 This fork is not published on ClawHub. The upstream project publishes there as `translate-book`, and that name is theirs.
 

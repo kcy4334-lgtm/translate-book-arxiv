@@ -44,6 +44,10 @@ class TheAdvisorCheckNoticesASkippedInstall(unittest.TestCase):
             if var in os.environ:
                 self.addCleanup(os.environ.__setitem__, var, os.environ[var])
             os.environ[var] = home
+        # The plugin branch ships the definitions at `agents/`, where a
+        # plugin install loads them; run from that folder, they are installed.
+        self.addCleanup(setattr, doctor, "PLUGIN_AGENTS", doctor.PLUGIN_AGENTS)
+        doctor.PLUGIN_AGENTS = os.path.join(home, "no-plugin-agents")
         return home
 
     def install_into(self, home, names):

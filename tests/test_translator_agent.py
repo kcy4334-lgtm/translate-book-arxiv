@@ -75,7 +75,8 @@ class DoctorFindsItWhereverItIsInstalled(unittest.TestCase):
             os.makedirs(os.path.join(root, "agents"))
             shutil.copyfile(SHIPPED, os.path.join(root, "agents",
                                                   "translator.md"))
-        patches = [mock.patch.object(doctor, "SKILL_ROOT", root),
+        patches = [mock.patch.object(doctor, "PLUGIN_AGENTS",
+                                     os.path.join(root, "agents")),
                    mock.patch.dict(os.environ, {"HOME": home,
                                                 "USERPROFILE": home})]
         for p in patches:
@@ -94,6 +95,7 @@ class DoctorFindsItWhereverItIsInstalled(unittest.TestCase):
         self.assertTrue(ok, detail)
 
 
+@unittest.skipUnless(TOOLS_DIR.is_dir(), "the plugin folder ships no tools/")
 class ThePluginBranchShipsTheAgents(unittest.TestCase):
     def test_each_definition_is_copied_to_agents(self):
         import build_plugin_branch

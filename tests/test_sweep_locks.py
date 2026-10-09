@@ -208,11 +208,15 @@ class CaptionNumberingIsIdempotentTests(unittest.TestCase):
     def setUp(self):
         self.units = [{"kind": "table", "number": 1},
                       {"kind": "table", "number": 2}]
-        self.real = mb.read_float_units
-        mb.read_float_units = lambda _d: self.units
+        # Replaced in latex_tables, the module number_table_captions looks
+        # it up in.
+        import latex_tables
+        self.module = latex_tables
+        self.real = latex_tables.read_float_units
+        latex_tables.read_float_units = lambda _d: self.units
 
     def tearDown(self):
-        mb.read_float_units = self.real
+        self.module.read_float_units = self.real
 
     def test_a_second_pass_adds_nothing(self):
         md = ("| a | b |\n|---|---|\n| 1 | 2 |\n\n: 첫 번째 표\n\n"
