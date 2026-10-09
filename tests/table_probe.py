@@ -39,6 +39,7 @@ import io
 import os
 import re
 import sys
+import unicodedata
 from collections import Counter
 
 SCRIPT_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
@@ -59,8 +60,10 @@ for _stream in (sys.stdout, sys.stderr):
     except (AttributeError, ValueError, OSError):
         pass
 
+# Not `array`: that is a matrix inside a formula. Shor's three were counted
+# as tables the book had lost.
 TABULAR_RE = re.compile(
-    r'\\begin\{(tabular\*?|tabularx|longtable|array)\}(.*?)\\end\{\1\}',
+    r'\\begin\{(tabular\*?|tabularx|tabulary|longtable)\}(.*?)\\end\{\1\}',
     re.DOTALL)
 TABLE_EL_RE = re.compile(r'(?s)<table\b.*?</table>')
 ROW_RE = re.compile(r'(?s)<tr\b.*?</tr>')
@@ -78,7 +81,9 @@ def read(path):
 
 def colspec_columns(spec):
     r"""Column count of `{l cc |r p{2cm} *{3}{c}}`."""
-    spec = re.sub(r'@\{[^}]*\}|!\{[^}]*\}|>\{[^}]*\}|<\{[^}]*\}', '', spec)
+    # Braces nest in here: ViT's `!{\color{lightgray}\vline}` stopped at the
+    # first `}` and left `lightgray` behind to be counted as columns.
+    spec = re.sub(r'[@!<>]\{(?:[^{}]|\{[^{}]*\})*\}', '', spec)
 
     def expand(m):
         return m.group(2) * int(m.group(1))
@@ -88,7 +93,10 @@ def colspec_columns(spec):
         prev = spec
         spec = re.sub(r'\*\s*\{\s*(\d+)\s*\}\s*\{([^{}]*)\}', expand, spec)
     spec = re.sub(r'[a-z]\{[^{}]*\}', 'p', spec)      # p{..} m{..} b{..}
-    return len(re.findall(r'[lcrpXY]', spec))
+    # Every letter left is a column, the paper's own types included: ViT
+    # declares `\newcolumntype{C}` and its 22-column table counted 2.
+    spec = re.sub(r'\\[A-Za-z]+', '', spec)
+    return len(re.findall(r'[A-Za-z]', spec))
 
 
 def _matching_brace(text, start):
@@ -130,8 +138,23 @@ def tabular_units(tex):
         close = _matching_brace(body, pos)
         if close < 0:
             continue
-        out.append((colspec_columns(body[pos + 1:close]), body[close + 1:]))
+        cells = body[close + 1:]
+        # A tabular that only lays out graphics is a figure, and the build
+        # unwraps it (`unwrap_graphics_tabulars`). ViT's Figure 1 is one; left
+        # in, every table after it was compared with the tabular before it,
+        # and a correct book drew 29 findings.
+        if '\\includegraphics' in cells and not _LAYOUT_LEFTOVER_RE.sub(
+                '', _GRAPHIC_RE.sub('', cells)):
+            continue
+        out.append((colspec_columns(body[pos + 1:close]), cells))
     return out
+
+
+_GRAPHIC_RE = re.compile(r'\\includegraphics\s*(?:\[[^\]]*\])?\s*\{[^{}]*\}')
+# The same allowance as the build's: breaks, cell separators, spacing.
+_LAYOUT_LEFTOVER_RE = re.compile(
+    r'\\\\(?:\[[^\]]*\])?|&|\\(?:hfill|centering|quad|qquad'
+    r'|vspace\*?\{[^{}]*\}|hspace\*?\{[^{}]*\})|%[^\n]*|\s')
 
 
 def source_rows(body):
@@ -236,7 +259,11 @@ def html_rows(block):
 
 
 def numbers_of(text):
-    return Counter(NUMBER_RE.findall(text))
+    # NFKC first: pandoc writes `\mathbf{88.55}` in MathML as the
+    # mathematical bold digits `𝟖𝟖.𝟓𝟓`, which are digits to `\d` but not the
+    # string "88.55". ViT's table 2 lost its seven bold best results that
+    # way, on a page that shows every one of them.
+    return Counter(NUMBER_RE.findall(unicodedata.normalize('NFKC', text)))
 
 
 # The numbers inside a command's arguments are not table values: the `3` in
@@ -249,6 +276,10 @@ _ARG_NUM_RE = re.compile(
     # carries a 2024 the reader never sees as a table entry, and CafeQ's
     # table 6 was reported as missing six values it never had.
     r'\\cite[a-zA-Z]*\s*(?:\[[^\]]*\])*\s*\{[^{}]*\}'
+    # A drawing, not a value: ViT marks each task's group with
+    # `\tikz\fill[natural] (0,0) circle (.5ex);`, and its 20 coordinates
+    # were reported as 60 missing numbers.
+    r'|\\tikz\b[^;]*;'
     r'|\\(?:ref|autoref|eqref|cref|Cref|label)\s*\{[^{}]*\}'
     r'|\\(?:multicolumn|multirow)\s*\{[^{}]*\}\s*(?:\[[^\]]*\])?\s*' + _GROUP +
     r'|\\(?:cmidrule|cline)\s*(?:\([lr]{1,2}\))?\s*\{[^{}]*\}'
@@ -338,7 +369,9 @@ def probe(temp_dir, lang='ko', strict=False):
         print('ERROR: no book_doc.html in %s — build first' % temp_dir)
         return 1
 
-    units = tabular_units(read(flat))
+    # Without the comments: Sentence-BERT has a whole table commented out,
+    # and it was counted as an eighth table missing from a correct book.
+    units = tabular_units(COMMENT_RE.sub('', read(flat)))
     blocks = TABLE_EL_RE.findall(_page_markup(read(html_path)))
     print('source tabulars: %d      tables in the book: %d'
           % (len(units), len(blocks)))

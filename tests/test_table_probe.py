@@ -20,6 +20,53 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import table_probe as tp
 
 
+class ViTTableNine(unittest.TestCase):
+    """ViT's VTAB table: grey rules in the colspec, TikZ dots in the header."""
+
+    def test_nested_braces_in_a_rule_spec_are_not_columns(self):
+        spec = ('p{10pt}p{1.6cm}!{\\color{lightgray}\\vline} ccccccc'
+                '!{\\color{lightgray}\\vline}cccc')
+        self.assertEqual(tp.colspec_columns(spec), 13)
+
+    def test_tikz_coordinates_are_not_values(self):
+        body = ('& \\rotatebox{90}{\\raisebox{0.5pt}{\\tikz\\fill[natural] '
+                '(0,0) circle (.5ex);} Caltech101} \\\\ ViT & 95.3 \\\\')
+        # "Caltech101" is printed; the coordinates are not.
+        self.assertEqual(sorted(tp.printed_numbers(body)), ['101', '95.3'])
+
+
+class BoldMathDigits(unittest.TestCase):
+    """ViT's best results are `$\\mathbf{88.55}$`; pandoc prints them in
+    mathematical bold digits, and the probe called them missing."""
+
+    def test_bold_math_digits_are_the_same_number(self):
+        self.assertEqual(tp.numbers_of('\U0001D7D6\U0001D7D6.\U0001D7D3\U0001D7D3'),
+                         tp.numbers_of('88.55'))
+
+
+class CommentedOutTables(unittest.TestCase):
+    """Sentence-BERT comments a whole table out; it is not missing."""
+
+    def test_a_commented_out_tabular_is_not_counted(self):
+        import contextlib
+        import io
+        import shutil
+        import tempfile
+        d = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, d, True)
+        flat = ('% \\begin{tabular}{|l|c|}\n%  A & 1 \\\\\n% \\end{tabular}\n'
+                '\\begin{tabular}{lc}\nA & 1 \\\\\n\\end{tabular}\n')
+        with open(os.path.join(d, 'flat.tex'), 'w', encoding='utf-8') as fh:
+            fh.write(flat)
+        with open(os.path.join(d, 'book_doc.html'), 'w', encoding='utf-8') as fh:
+            fh.write('<table><tr><td>A</td><td>1</td></tr></table>')
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            tp.probe(d)
+        self.assertIn('source tabulars: 1', out.getvalue())
+        self.assertNotIn('tabular(s) in the source', out.getvalue())
+
+
 class Colspec(unittest.TestCase):
 
     def test_star_repeat_is_expanded(self):
