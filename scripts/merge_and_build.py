@@ -1224,9 +1224,19 @@ _MATHML_ANNOTATION_RE = re.compile(r'<annotation\b[^>]*>.*?</annotation>',
                                    re.DOTALL)
 
 
+_MACRO_DEFINITION_LINE_RE = re.compile(
+    r'(?m)^[ \t]*\\(?:(?:re)?newcommand|providecommand|def)\b.*$')
+
+
 def check_math_fidelity(md_file, html_text):
     """Warn/fail if math in output.md did not render in the HTML."""
     md_text = Path(md_file).read_text(encoding='utf-8')
+    # A macro DEFINITION prints nothing, so the math inside it is not a
+    # formula owed to the page. 2609.11801 carries
+    # `\providecommand{\cspstd}[1]{{$\pm$#1}}` inside a table, and every build
+    # reported 368 formulas asked for and 367 delivered while every `±` it
+    # stood for was on the page.
+    md_text = _MACRO_DEFINITION_LINE_RE.sub('', md_text)
     want = len(_MATH_SPAN_RE.findall(md_text))
     if want == 0:
         print("Math check: no $...$ math in output.md — skipped")

@@ -70,6 +70,19 @@ class MathFidelityIgnoresTheAnnotation(unittest.TestCase):
     def test_the_check_passes_on_a_page_that_only_has_an_annotation(self):
         self.assertTrue(mb.check_math_fidelity(self.md, RENDERED))
 
+    def test_math_inside_a_macro_definition_is_not_owed_to_the_page(self):
+        r"""2609.11801's `\providecommand{\cspstd}[1]{{$\pm$#1}}` sits in a
+        table; every build reported 368 asked for, 367 delivered."""
+        with open(self.md, 'w', encoding='utf-8') as fh:
+            fh.write('Text $x$.\n\n  \\providecommand{\\cspstd}[1]{{$\\pm$#1}}\n'
+                     '\\newcommand{\\foo}{$y$}\n')
+        import io
+        import contextlib
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            mb.check_math_fidelity(self.md, '<p><math><mi>x</mi></math></p>')
+        self.assertIn('1 TeX span(s) in md -> 1 rendered', out.getvalue())
+
     def test_an_unclosed_annotation_does_not_swallow_the_page(self):
         # A truncated tag must not let the substitution run to the end of the
         # file and hide every real leak behind it.
