@@ -54,6 +54,19 @@ class ResNetNesting(unittest.TestCase):
         self.assertTrue(tp._blank_first_cell(rows[1]))
 
 
+class SpanAndBreakArguments(unittest.TestCase):
+    def test_a_doubly_nested_multicolumn_format_is_not_a_value(self):
+        # Shor's truth table.
+        body = (r'\multicolumn{3}{|c|@{\hspace{1em}}}{INPUT}&'
+                r'\multicolumn{3}{@{\hspace{-1em}}c@{\hspace{0em}}|}{OUTPUT}\\')
+        self.assertEqual(tp.printed_numbers(body), tp.Counter())
+
+    def test_a_row_break_length_is_not_a_value(self):
+        # U-Net's `\bottomrule\\[-0.8cm]`.
+        self.assertEqual(tp.printed_numbers(r'a & 1 \\ \bottomrule\\[-0.8cm]'),
+                         tp.Counter({'1': 1}))
+
+
 class ViTTableNine(unittest.TestCase):
     """ViT's VTAB table: grey rules in the colspec, TikZ dots in the header."""
 

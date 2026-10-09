@@ -99,6 +99,18 @@ class Citations(unittest.TestCase):
             r'\cite{Bengio1994,Simonyan2015}', labels)[0], '[1, 2]')
 
 
+class ClosingBreak(unittest.TestCase):
+    def test_a_break_after_the_last_rule_goes(self):
+        # U-Net: a blank row under its results table.
+        tex = 'a & 1 \\\\\n\\bottomrule\\\\[-0.8cm]\n  \\end{tabular}'
+        self.assertEqual(mb.drop_closing_break(tex),
+                         ('a & 1 \\\\\n\\bottomrule\n  \\end{tabular}', 1))
+
+    def test_a_break_between_rows_stays(self):
+        tex = 'a & 1 \\\\\n\\hline\nb & 2 \\\\\n\\end{tabular}'
+        self.assertEqual(mb.drop_closing_break(tex), (tex, 0))
+
+
 class TextMacro(unittest.TestCase):
 
     def test_text_becomes_textrm(self):

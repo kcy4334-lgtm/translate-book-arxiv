@@ -260,7 +260,10 @@ _CELL_DECOR_RE = re.compile(
 # With a flat `\{[^{}]*\}` the format never matched, the command's numbers
 # stayed in the cell, and 2609.11801's table 6 was reported missing a value
 # 7 on every run: the span of its `\multicolumn{7}{@{}l}{\emph{Training}}`.
-_GROUP = r'\{(?:[^{}]|\{[^{}]*\})*\}'
+_GROUP = r'\{(?:[^{}]|\{(?:[^{}]|\{[^{}]*\})*\})*\}'
+# Two levels deep: Shor's `\multicolumn{3}{|c|@{\hspace{1em}}}{INPUT}` holds
+# a brace inside a brace inside the format, and its span `3` was read as two
+# values the page had lost.
 
 # `\multicolumn` and `\multirow` put a span and a format in front of the text.
 # The generic rule below strips the command and then unwraps every brace, so
@@ -368,7 +371,9 @@ _ARG_NUM_RE = re.compile(
     r'|\\[a-zA-Z]+\s*\{\s*[-\d.]+\s*(?:em|ex|pt|cm|mm|in|bp)\s*\}'
     # The same length in an optional argument: `\addlinespace[2pt]`. Seven of
     # those in AlphaQ's table 1 read as seven values the page had lost.
-    r'|\\[a-zA-Z]+\s*\[\s*[-\d.]+\s*(?:em|ex|pt|cm|mm|in|bp)\s*\]')
+    r'|\\[a-zA-Z]+\s*\[\s*[-\d.]+\s*(?:em|ex|pt|cm|mm|in|bp)\s*\]'
+    # And after a row break: U-Net's `\\[-0.8cm]` was a missing value 0.8.
+    r'|\\\\\s*\[\s*[-\d.]+\s*(?:em|ex|pt|cm|mm|in|bp)\s*\]')
 
 
 def printed_numbers(body):

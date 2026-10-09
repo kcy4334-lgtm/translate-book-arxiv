@@ -1556,6 +1556,21 @@ def drop_multicolumn_spacing(tex):
         + m.group(3), tex)
 
 
+_CLOSING_BREAK_RE = re.compile(
+    r'(\\(?:bottomrule|hline|midrule|toprule)(?:\[[^\]]*\])?)\s*\\\\'
+    r'(?:\s*\[[^\]]*\])?(\s*\\end\{(?:tabular\*?|tabularx|tabulary|longtable)\})')
+
+
+def drop_closing_break(tex):
+    r"""`\bottomrule\\[-0.8cm]\end{tabular}` -> `\bottomrule\end{tabular}`.
+
+    A row break after the closing rule opens a row with nothing in it; LaTeX
+    sets it in no height (U-Net pulls it up 0.8 cm), pandoc as a blank row
+    under the table. Returns (text, count).
+    """
+    return _CLOSING_BREAK_RE.subn(r'\1\2', tex)
+
+
 def expand_raw_latex_tables(md_text, pandoc=None, math_mode='mathml',
                             output='html', temp_dir=None):
     """Convert raw LaTeX tables into real tables.
@@ -1602,6 +1617,7 @@ def expand_raw_latex_tables(md_text, pandoc=None, math_mode='mathml',
             t['bare'], _labels = arxiv_backend.unwrap_rotatebox(t['bare'])
             t['bare'], _notes = arxiv_backend.unwrap_table_notes(t['bare'])
             t['bare'], _at = drop_multicolumn_spacing(t['bare'])
+            t['bare'], _br = drop_closing_break(t['bare'])
             # A protected float never met the citation resolver or the
             # leftover-command pass, so both have to happen here or the
             # reader loses the source beside a benchmark and the header
