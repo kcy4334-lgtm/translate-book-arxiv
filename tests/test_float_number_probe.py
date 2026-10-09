@@ -98,5 +98,21 @@ class TheBodyMentionIsNotTheCaption(unittest.TestCase):
         self.assertEqual((agree, disagree), (2, 0))
 
 
+class AFigureNamedInATableCaptionIsNotItsNumber(unittest.TestCase):
+    """ViT's Table 6 caption reads "These correspond to Figure 5 in the main
+    paper"; the probe began right after that, and "Figure 5" was taken for
+    the table's own number."""
+
+    def test_only_the_label_of_its_own_kind_counts(self):
+        tex = ('\\begin{table}\n'
+               '\\caption{in the main paper we show transfer accuracy on '
+               'several datasets.}\n\\end{table}\n')
+        printed = ('Table 1: Detailed results. These correspond to Figure 5 '
+                   'in the main paper we show transfer accuracy on several '
+                   'datasets.')
+        _agree, disagree, _skipped, problems = sp.check_floats(None, tex, printed)
+        self.assertEqual((disagree, problems), (0, []))
+
+
 if __name__ == '__main__':
     unittest.main()

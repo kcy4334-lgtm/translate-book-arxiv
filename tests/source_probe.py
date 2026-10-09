@@ -263,8 +263,13 @@ def check_floats(temp_dir, flat, pdf_flat):
             # `Table 3.1`. Comparison is by STRING, because `3.1` has no
             # integer form and `int()` threw the number away rather than
             # disagreeing.
-            got = re.search(r'(?:Figure|Fig\.?|Table|Tab\.?)\s*'
-                            r'(\d+(?:\.\d+)*)\s*[:.]?\s*$', head)
+            # The label of THIS kind of float. ViT's Table 6 caption says
+            # "These correspond to Figure 5 in the main paper", the probe
+            # starts right after it, and "Figure 5" was read as the table's
+            # number: a correct book failed.
+            label = (r'(?:Table|Tab\.?)' if unit['kind'] == 'table'
+                     else r'(?:Figure|Fig\.?)')
+            got = re.search(label + r'\s*(\d+(?:\.\d+)*)\s*[:.]?\s*$', head)
             if got:
                 break
         if not got:
