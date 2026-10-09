@@ -29,6 +29,7 @@ import tempfile
 import urllib.error
 import urllib.request
 
+import drawn_figures
 import latex_rows
 import math_guard
 import paper_macros
@@ -3776,6 +3777,11 @@ def build(input_file, temp_dir, arxiv_id, allow_network=True):
     if tagged:
         print(f"Rewrote {tagged} starred display(s) the paper numbers by hand "
               f"(\\addtocounter + \\tag) as ordinary numbered ones")
+    flat, drawn = drawn_figures.crop_drawn_figures(
+        flat, input_file, os.path.dirname(main_tex))
+    if drawn:
+        print(f"Cropped {len(drawn)} figure(s) drawn in TikZ/PGF from the "
+              f"original PDF: " + ', '.join('Figure %s' % n for n, _f in drawn))
     flat, marks = text_superscripts(flat)
     if marks:
         print(f"Wrote {marks} upright superscript mark(s) ($^{{\\rm 48}}$) as "

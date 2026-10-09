@@ -76,7 +76,7 @@ This page was written for the repository, with made-up results, so it can be sho
 - **Resumable**: SHA-256 hashes in a manifest keep stale outputs out of the merge, and a changed glossary re-translates only the chunks that used the changed terms
 - **Print-ready PDF**: headless Chromium against a real `@page` box (A4, 18/18/22/18 mm, 11.5 pt), page numbers stamped afterwards because Chrome has no margin boxes. `scripts/layout.py` holds the page geometry and fonts
 - **Output**: HTML with a floating TOC, DOCX, EPUB and PDF, with an optional EPUB cover, working folder and export name
-- **Tests**: 2,567, standard library only, run in CI
+- **Tests**: 2,572, standard library only, run in CI
 
 ## Growing the skill
 
@@ -303,6 +303,7 @@ A temp dir belongs to one run. After changing the title, author, language, templ
 | `scripts/paper_macros.py` | Expands the paper's own macros from the `.sty` files it ships |
 | `scripts/pdf_text.py` | Reads a PDF in reading order and scores how many of the paper's sentences survived |
 | `scripts/algorithm_float.py` | Turns `algorithm` floats into Markdown lists |
+| `scripts/drawn_figures.py` | Crops figures drawn in TikZ or PGF from the original PDF |
 | `scripts/latex_rows.py` | Finds the `\\` that really ends a table row |
 | `scripts/math_guard.py` | Replaces formulas and citations with placeholders (`⟦M0042⟧`) during translation and restores them |
 | `scripts/sidecar_edit.py` | Reads and writes a chunk's formula sidecar file without breaking it |
