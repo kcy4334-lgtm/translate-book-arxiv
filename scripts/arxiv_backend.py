@@ -1921,6 +1921,86 @@ def unwrap_algorithm_figures(tex):
     return _FIGURE_ENV_RE.sub(repl, tex), count
 
 
+_GRAPHIC_CALL_RE = re.compile(
+    r'\\includegraphics\s*(?:\[[^\]]*\])?\s*\{[^{}]*\}')
+# `tabular*` takes its width before the column spec.
+_LAYOUT_TABULAR_RE = re.compile(
+    r'\\begin\{(tabular\*?)\}\s*(?:\[[^\]]*\])?\s*'
+    r'(?:\{[^{}]*\}\s*(?=\{))?\{(?:[^{}]|\{[^{}]*\})*\}'
+    r'(.*?)\\end\{\1\}', re.DOTALL)
+# What a layout cell may hold besides its graphic.
+_LAYOUT_NOISE_RE = re.compile(
+    r'\\\\(?:\[[^\]]*\])?|&|\\(?:hfill|centering|quad|qquad'
+    r'|vspace\*?\{[^{}]*\}|hspace\*?\{[^{}]*\})|%[^\n]*|\s')
+
+
+def unwrap_graphics_tabulars(tex):
+    r"""A tabular inside a figure that only lays out graphics becomes them.
+
+    ViT centres its model diagram in a one-cell `tabular`. pandoc reads that
+    as a table: the figure became a table holding an image, its caption a
+    plain paragraph with no number, and the book counted one table more than
+    the paper has. Only a tabular whose cells hold nothing but graphics is
+    unwrapped; a grid with labels or numbers in it is a real table.
+    Returns (tex, n).
+    """
+    count = 0
+
+    def in_figure(m):
+        nonlocal count
+        body = m.group(2)
+
+        def tabular(t):
+            nonlocal count
+            cells = t.group(2)
+            graphics = _GRAPHIC_CALL_RE.findall(cells)
+            if not graphics or _LAYOUT_NOISE_RE.sub(
+                    '', _GRAPHIC_CALL_RE.sub('', cells)):
+                return t.group(0)
+            count += 1
+            return '\n'.join(graphics)
+
+        new = _LAYOUT_TABULAR_RE.sub(tabular, body)
+        return m.group(0) if new == body else m.group(0).replace(body, new, 1)
+
+    return _FIGURE_ENV_RE.sub(in_figure, tex), count
+
+
+_MINIPAGE_RE = re.compile(
+    r'\\begin\{minipage\}(?:\[[^\]]*\])*\{[^{}]*\}(.*?)\\end\{minipage\}',
+    re.DOTALL)
+
+
+def split_captioned_minipages(tex):
+    r"""A figure of side-by-side minipages, each with its own caption, becomes
+    one figure per minipage. Returns (tex, n).
+
+    LaTeX numbers each caption; pandoc gives the float only its LAST one. ViT
+    sets figures 3 and 4 that way: the book printed one figure with both
+    images, figure 3's caption was gone, and the `\;` spacing between the
+    minipages reached the page. Side by side is a layout a one-column book
+    page does not keep, and two floats is what the paper numbers.
+    """
+    count = 0
+
+    def repl(m):
+        nonlocal count
+        env, body = m.group(1), m.group(2)
+        pages = list(_MINIPAGE_RE.finditer(body))
+        if len(pages) < 2 or '\\captionof' in body:
+            return m.group(0)
+        if not all('\\caption' in p.group(1) for p in pages):
+            return m.group(0)
+        outside = _MINIPAGE_RE.sub('', body)
+        if '\\caption' in outside or '\\includegraphics' in outside:
+            return m.group(0)        # a float caption over panels: one figure
+        count += 1
+        return '\n\n'.join('\\begin{%s}\n%s\n\\end{%s}' % (env, p.group(1).strip(), env)
+                           for p in pages)
+
+    return _FIGURE_ENV_RE.sub(repl, tex), count
+
+
 _ENUM_LABEL_RE = re.compile(r'\\begin\{enumerate\}\s*\[')
 _ENUM_COUNTERS = {
     'arabic': lambda n: str(n),
@@ -2086,6 +2166,14 @@ def sanitize_tex(tex):
     if holders:
         print(f"Unwrapped {holders} figure(s) that only held algorithms; "
               f"pandoc would print their last caption a second time")
+    tex, split = split_captioned_minipages(tex)
+    if split:
+        print(f"Split {split} figure(s) of captioned minipages into one figure "
+              f"each; pandoc keeps only the last caption of a float")
+    tex, layouts = unwrap_graphics_tabulars(tex)
+    if layouts:
+        print(f"Unwrapped {layouts} tabular(s) that only laid out a figure's "
+              f"graphics; pandoc would make the figure a table")
     tex, floats = normalize_float_envs(tex)
     if floats:
         print(f"Rewrote {floats} float environment(s) pandoc has no reader for "

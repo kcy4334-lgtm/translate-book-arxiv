@@ -210,6 +210,10 @@ def counter_events(tex):
     return events
 
 
+_MINIPAGE_SPAN_RE = re.compile(
+    r'\\begin\{minipage\}.*?\\end\{minipage\}', re.DOTALL)
+
+
 def float_units(tex):
     """One entry per figure/table number the paper actually issues.
 
@@ -302,7 +306,20 @@ def float_units(tex):
                     and not any(s <= m.start() < e for s, e in nested)]
         # Split at caption STARTS, which is the one rule that survives both
         # layouts in the wild: content-then-caption and caption-then-content.
-        bounds = [0] + [m.start() for m in captions[1:]] + [len(body)]
+        # Except where each caption sits in a minipage of its own: there the
+        # minipage is the unit. Cut at the caption, ViT's figure 3 owned
+        # both images -- its own and figure 4's, which comes before figure
+        # 4's caption -- and the book printed them as one figure.
+        pages = [(p.start(), p.end()) for p in _MINIPAGE_SPAN_RE.finditer(body)]
+        bounds = [0]
+        for prev, m in zip(captions, captions[1:]):
+            cut = m.start()
+            for s, e in pages:
+                if s <= m.start() < e and s > prev.start():
+                    cut = s
+                    break
+            bounds.append(cut)
+        bounds.append(len(body))
         for index in range(max(1, len(captions))):
             if captions:
                 counters[kind] += 1

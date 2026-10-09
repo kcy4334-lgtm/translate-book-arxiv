@@ -252,6 +252,68 @@ if __name__ == "__main__":
     unittest.main()
 
 
+class CaptionedMinipageTests(unittest.TestCase):
+    r"""ViT's figures 3 and 4 are two captioned minipages in one figure;
+    pandoc kept only the second caption and printed both images as one."""
+
+    FIG = ("\\begin{figure}\n"
+           "\\begin{minipage}[t]{0.47\\textwidth}\\centering\n"
+           "\\includegraphics{a}\n\\caption{First.}\\label{fig:a}\n"
+           "\\end{minipage}\\;\\;\n"
+           "\\begin{minipage}[t]{0.47\\textwidth}\\centering\n"
+           "\\includegraphics{b}\n\\caption{Second.}\\label{fig:b}\n"
+           "\\end{minipage}\n\\vspace{-3mm}\n\\end{figure}")
+
+    def test_each_captioned_minipage_becomes_a_figure(self):
+        out, n = arxiv_backend.split_captioned_minipages(self.FIG)
+        self.assertEqual(n, 1)
+        self.assertEqual(out.count('\\begin{figure}'), 2)
+        first, second = out.split('\\end{figure}')[:2]
+        self.assertIn('\\includegraphics{a}', first)
+        self.assertIn('First.', first)
+        self.assertIn('\\includegraphics{b}', second)
+        self.assertNotIn('\\;', out)
+
+    def test_panels_under_one_float_caption_stay_one_figure(self):
+        tex = ("\\begin{figure}\\begin{minipage}{.5\\textwidth}\\includegraphics{a}"
+               "\\end{minipage}\\begin{minipage}{.5\\textwidth}\\includegraphics{b}"
+               "\\end{minipage}\\caption{Both.}\\end{figure}")
+        self.assertEqual(arxiv_backend.split_captioned_minipages(tex), (tex, 0))
+
+
+class GraphicsTabularTests(unittest.TestCase):
+    r"""ViT centres its model diagram in a one-cell tabular; pandoc made the
+    figure a table and its caption an unnumbered paragraph."""
+
+    def test_a_tabular_holding_only_a_graphic_is_unwrapped(self):
+        tex = ("\\begin{figure}[h]\n\\begin{center}\n\\begin{tabular}{c}\n"
+               "\\includegraphics[width=.83\\textwidth]{images/model.pdf}\n"
+               "\\end{tabular}\n\\end{center}\n\\caption{Model.}\n\\end{figure}")
+        out, n = arxiv_backend.unwrap_graphics_tabulars(tex)
+        self.assertEqual(n, 1)
+        self.assertNotIn('tabular', out)
+        self.assertIn('\\includegraphics[width=.83\\textwidth]{images/model.pdf}', out)
+        self.assertIn('\\caption{Model.}', out)
+
+    def test_a_grid_of_graphics_is_unwrapped_to_its_panels(self):
+        tex = ("\\begin{figure}\\begin{tabular}{cc}\\includegraphics{a} & "
+               "\\includegraphics{b} \\\\ \\includegraphics{c} & \\includegraphics{d}"
+               "\\end{tabular}\\caption{Grid.}\\end{figure}")
+        out, n = arxiv_backend.unwrap_graphics_tabulars(tex)
+        self.assertEqual(n, 1)
+        self.assertEqual(out.count('\\includegraphics'), 4)
+
+    def test_a_tabular_with_labels_is_a_real_table(self):
+        tex = ("\\begin{figure}\\begin{tabular}{cc}Input & Output \\\\ "
+               "\\includegraphics{a} & \\includegraphics{b}\\end{tabular}"
+               "\\caption{Pairs.}\\end{figure}")
+        self.assertEqual(arxiv_backend.unwrap_graphics_tabulars(tex), (tex, 0))
+
+    def test_a_tabular_outside_a_figure_is_left_alone(self):
+        tex = "\\begin{tabular}{c}\\includegraphics{a}\\end{tabular}"
+        self.assertEqual(arxiv_backend.unwrap_graphics_tabulars(tex), (tex, 0))
+
+
 class RaisedGraphicTests(unittest.TestCase):
     r"""ViT's figure 7 sets two of its three panels as
     `\raisebox{-0.15in}{\includegraphics..}`; pandoc kept the box as raw
