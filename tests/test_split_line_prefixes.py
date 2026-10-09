@@ -25,6 +25,21 @@ def read(lines, heads, run_in_level=0):
     return mb.prefixes_from_lines(lines, heads, run_in_level)[0]
 
 
+class SentenceBertHeadings(unittest.TestCase):
+    """Two of Sentence-BERT's headings printed with no number."""
+
+    def test_a_wrapped_title_under_its_own_number_line(self):
+        lines = ['4', 'Evaluation - Semantic Textual', 'Similarity',
+                 'We evaluate ...']
+        heads = [(1, 'Evaluation - Semantic Textual Similarity', True)]
+        self.assertEqual(read(lines, heads), ['4'])
+
+    def test_a_ligature_in_the_pdf_still_matches(self):
+        lines = ['7', 'Computational Efﬁciency', 'Sentence ...']
+        heads = [(1, 'Computational Efficiency', True)]
+        self.assertEqual(read(lines, heads), ['7'])
+
+
 class RepeatedTitles(unittest.TestCase):
     """ViT has "4.6 Self-supervision" and, in the appendix, "B.1.2
     Self-supervision". One number was kept per title, so the second printed

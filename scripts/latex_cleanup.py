@@ -13,6 +13,7 @@ build or a test reaches for.
 import os
 import re
 import subprocess
+import unicodedata
 
 from build_common import (
     _FONTSIZE_RE, _balanced_group, resolve_pandoc, strip_tex_comments,
@@ -1195,6 +1196,9 @@ def _source_pdf(temp_dir):
 
 def _normalize_heading(text):
     """Fold a heading to something two renderings of it can agree on."""
+    # A PDF prints `ﬁ` as one character; NFKC makes it `fi` again. Without it
+    # Sentence-BERT's "Computational Efﬁciency" never met its own title.
+    text = unicodedata.normalize('NFKC', text)
     text = re.sub(r'\$[^$]*\$', ' ', text)          # math renders differently
     text = re.sub(r'[^0-9A-Za-z]+', ' ', text)
     return re.sub(r'\s+', ' ', text).strip().lower()
@@ -1350,6 +1354,15 @@ def prefixes_from_lines(lines, tex_heads, run_in_level=0, stats=None):
         partial = _longest_prefix_match(key, numbered)
         if partial is not None:
             prefixes.append(numbered[partial][0])
+            stats['matched'] += 1
+            stats['wrapped'] += 1
+            continue
+        # Wrapped AND set apart from its number: Sentence-BERT prints `4`,
+        # then `Evaluation - Semantic Textual`, then `Similarity`.
+        partial = _longest_prefix_match(key, split)
+        fitting = [p for p in split.get(partial, ()) if _prefix_fits_level(p, level)]
+        if partial is not None and fitting:
+            prefixes.append(fitting[0])
             stats['matched'] += 1
             stats['wrapped'] += 1
             continue
