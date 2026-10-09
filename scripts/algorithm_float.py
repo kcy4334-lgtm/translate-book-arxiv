@@ -143,8 +143,53 @@ def extract_caption(tex):
     return ' '.join(caption.split()), label
 
 
+_TEXT_STYLE_RE = re.compile(
+    r'\\(textbf|textit|emph|texttt|textrm|textsf|textup|textnormal|textmd)\s*\{')
+_STYLE_MARK = {'textbf': '**', 'textit': '*', 'emph': '*', 'texttt': '`'}
+
+
+def _text_markup(text):
+    r"""`\textbf{if}` outside math as `**if**`, and its kin likewise.
+
+    A statement goes into the markdown as written, and pandoc drops an inline
+    LaTeX command it meets there from the HTML altogether: 2609.11801 writes
+    `\State \textbf{if} $\hat q>1/2$ \textbf{then break}` and
+    `\State \textbf{return} $\hat D$`, and its book printed the condition
+    with no `if`, no `then break` and a bare `D̂` with no `return`. Math is
+    left alone; inside `$...$` the commands are pandoc's to read.
+    """
+    out, i = [], 0
+    while i < len(text):
+        if text[i] == '\\' and i + 1 < len(text) and text[i + 1] == '$':
+            out.append(text[i:i + 2])
+            i += 2
+            continue
+        if text[i] == '$':
+            close = i + 1
+            while close < len(text) and not (text[close] == '$'
+                                             and text[close - 1] != '\\'):
+                close += 1
+            out.append(text[i:close + 1])
+            i = close + 1
+            continue
+        m = _TEXT_STYLE_RE.match(text, i)
+        if m:
+            end = _matching_brace(text, m.end() - 1)
+            inner = _text_markup(text[m.end():end - 1]).strip()
+            mark = _STYLE_MARK.get(m.group(1), '')
+            if mark == '`':                # a code span prints `\_` as is
+                inner = re.sub(r'\\([_%&#$])', r'\1', inner)
+            out.append('%s%s%s' % (mark, inner, mark) if inner else '')
+            i = end
+            continue
+        out.append(text[i])
+        i += 1
+    return ''.join(out)
+
+
 def _clean_argument(text):
     r"""Tidy one statement's text: `\TO` is a word here, not a math arrow."""
+    text = _text_markup(text)
     text = re.sub(r'\\(?:TO|To)(?![A-Za-z])', ' **to** ', text)
     text = re.sub(r'\\(?:DO|Do)(?![A-Za-z])', ' ', text)
     text = re.sub(r'\\(?:THEN|Then)(?![A-Za-z])', ' ', text)
@@ -197,6 +242,16 @@ def parse_body(tex):
             offset = len(rest) - len(stripped)
             end = _matching_brace(rest, offset)
             argument, rest = rest[offset + 1:end - 1], rest[end:]
+            # `\Function{name}{params}` prints `name(params)`. Taking only the
+            # name left `{$[z(t), a(t)], t, θ$}` in Neural ODE's book, braces
+            # and all.
+            more = rest.lstrip()
+            if key in ('function', 'procedure') and more.startswith('{'):
+                offset = len(rest) - len(more)
+                end = _matching_brace(rest, offset)
+                argument = '%s(%s)' % (argument.strip(),
+                                       rest[offset + 1:end - 1].strip())
+                rest = rest[end:]
         rest, notes = _pull_comments(rest)
         argument, more = _pull_comments(argument)
         notes.extend(more)
@@ -222,7 +277,8 @@ def parse_body(tex):
             template = _RENDER[key]
             line = template % text if '%s' in template else template
             if tail:
-                line = '%s %s' % (line, tail)
+                gap = '' if tail[0] in ':;,.' else ' '
+                line = '%s%s%s' % (line, gap, tail)
         else:
             line = text
         if key in _OPENS:

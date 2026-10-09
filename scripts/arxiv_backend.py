@@ -1850,6 +1850,45 @@ def normalize_table_rules(tex):
     return _TABULAR_ENV_RE.sub(fix, tex), count[0]
 
 
+_FIGURE_ENV_RE = re.compile(
+    r'\\begin\{(figure\*?)\}(?:\[[^\]]*\])?(.*?)\\end\{\1\}', re.DOTALL)
+_ALGORITHM_FLOAT_RE = re.compile(
+    r'\\begin\{(algorithm\*?)\}.*?\\end\{\1\}', re.DOTALL)
+# What a figure may hold besides its algorithms and still be only a holder.
+_HOLDER_NOISE_RE = re.compile(
+    r'\\(?:begin|end)\{minipage\}(?:\[[^\]]*\])?(?:\{[^{}]*\})?'
+    r'|\\(?:hfill|centering|small|footnotesize|vspace\*?\{[^{}]*\}|hspace\*?\{[^{}]*\})'
+    r'|\\algrenewcommand\{[^{}]*\}\{[^{}]*\}|%[^\n]*|\s')
+
+
+def unwrap_algorithm_figures(tex):
+    r"""A figure that only holds algorithm floats, side by side, becomes them.
+
+    2609.11801 sets its two algorithms in two minipages inside one `figure`.
+    pandoc gives that figure the LAST caption and label it finds inside it, so
+    the book printed the second algorithm's caption, "Inference", once more as
+    a stray line under both, and `alg:b` named the figure as well as the
+    algorithm. The algorithms are floats of their own; the figure added only
+    the side-by-side layout, which a book page in one column does not keep.
+    Returns (tex, n).
+    """
+    count = 0
+
+    def repl(m):
+        nonlocal count
+        body = m.group(2)
+        algorithms = [a.group(0) for a in _ALGORITHM_FLOAT_RE.finditer(body)]
+        if not algorithms:
+            return m.group(0)
+        rest = _ALGORITHM_FLOAT_RE.sub('', body)
+        if _HOLDER_NOISE_RE.sub('', rest):
+            return m.group(0)          # a caption, an image, text: a real figure
+        count += 1
+        return '\n\n'.join(algorithms)
+
+    return _FIGURE_ENV_RE.sub(repl, tex), count
+
+
 def sanitize_tex(tex):
     """Drop markup that only styles the page, before pandoc reads it."""
     total = 0
@@ -1864,6 +1903,10 @@ def sanitize_tex(tex):
     if panels:
         print(f"Unwrapped {panels} \\subfloat panel(s) so pandoc can see the "
               f"figures inside them")
+    tex, holders = unwrap_algorithm_figures(tex)
+    if holders:
+        print(f"Unwrapped {holders} figure(s) that only held algorithms; "
+              f"pandoc would print their last caption a second time")
     tex, floats = normalize_float_envs(tex)
     if floats:
         print(f"Rewrote {floats} float environment(s) pandoc has no reader for "

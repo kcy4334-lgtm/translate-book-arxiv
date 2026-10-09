@@ -110,6 +110,39 @@ class FrontMatterTests(unittest.TestCase):
         self.assertEqual((out, n), ("plain tex", 0))
 
 
+class AlgorithmFigureTests(unittest.TestCase):
+    """2609.11801 and DDPM set two algorithms side by side in minipages inside
+    one figure. pandoc gave the figure the last caption inside it, and the
+    book printed "Inference" once more as a stray line under both."""
+
+    def alg(self, name):
+        return (BS + "begin{algorithm}[H]" + BS + "caption{" + name + "}\n"
+                + BS + "begin{algorithmic}[1]\n" + BS + "State x\n"
+                + BS + "end{algorithmic}\n" + BS + "end{algorithm}")
+
+    def test_a_figure_of_only_algorithms_becomes_the_algorithms(self):
+        tex = (BS + "begin{figure}[t!]\n" + BS + "begin{minipage}[t]{0.49" + BS
+               + "textwidth}\n" + BS + "algrenewcommand{" + BS
+               + "algorithmicindent}{0.5em}\n" + self.alg("Training") + "\n"
+               + BS + "end{minipage}%\n" + BS + "hfill\n" + BS
+               + "begin{minipage}[t]{0.49" + BS + "textwidth}\n"
+               + self.alg("Inference") + "\n" + BS + "end{minipage}\n"
+               + BS + "end{figure}")
+        out, n = arxiv_backend.unwrap_algorithm_figures(tex)
+        self.assertEqual(n, 1)
+        self.assertNotIn("figure", out)
+        self.assertNotIn("minipage", out)
+        self.assertEqual(out.count(BS + "begin{algorithm}"), 2)
+
+    def test_a_figure_with_its_own_caption_or_image_is_left_alone(self):
+        for extra in (BS + "caption{Both}", BS + "includegraphics{a.png}",
+                      "Some words."):
+            tex = (BS + "begin{figure}\n" + self.alg("A") + "\n" + extra + "\n"
+                   + BS + "end{figure}")
+            out, n = arxiv_backend.unwrap_algorithm_figures(tex)
+            self.assertEqual((out, n), (tex, 0), extra)
+
+
 class AbstractCommandTests(unittest.TestCase):
     r"""Some classes take the abstract as `\abstract{...}` and print it from
     `\maketitle` (muxlab.cls; A&A's aa.cls with traditabstract). pandoc reads

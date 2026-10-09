@@ -102,6 +102,35 @@ class ParseTests(unittest.TestCase):
         markdown = af.algorithm_to_markdown(CAMEL, 1, 'en')
         self.assertNotIn('Initialization', markdown)
 
+    def test_bold_keywords_written_by_hand_survive(self):
+        r"""2609.11801 writes its early exit and its return as `\State
+        \textbf{if} ... \textbf{then break}` and `\State \textbf{return} ...`.
+        Left as LaTeX in the markdown, pandoc dropped them from the HTML and
+        the book printed a bare condition and a bare `D̂`."""
+        tex = (r'\begin{algorithm}\caption{Training}\begin{algorithmic}[1]'
+               '\n' r'\State \textbf{if} $\hat{\bf q}>1/2$ \textbf{then break}'
+               '\n' r'\State \textbf{return}  $\hat{D}$'
+               '\n' r'\State see \emph{the \textbf{note}} and \texttt{x\_1}'
+               '\n' r'\State $\textbf{v} = \text{a} + \$5$'
+               '\n' r'\end{algorithmic}\end{algorithm}')
+        lines = [line for _d, line in af.parse_body(tex)[1]]
+        self.assertEqual(lines[0], r'**if** $\hat{\bf q}>1/2$ **then break**')
+        self.assertEqual(lines[1], r'**return** $\hat{D}$')
+        self.assertEqual(lines[2], r'see *the **note*** and `x_1`')
+        self.assertEqual(lines[3], r'$\textbf{v} = \text{a} + \$5$')
+
+    def test_a_function_prints_its_parameters_in_parentheses(self):
+        tex = (r'\begin{algorithm}\caption{c}\begin{algorithmic}'
+               '\n' r'\Function{\textnormal{aug\_dynamics}}{$[\mathbf{z}(t)], t$}: \Comment{Define}'
+               '\n' r'\State \textbf{return} $f$'
+               '\n' r'\EndFunction'
+               '\n' r'\end{algorithmic}\end{algorithm}')
+        lines = [line for _d, line in af.parse_body(tex)[1]]
+        self.assertEqual(lines[0],
+                         r'**function** aug\_dynamics($[\mathbf{z}(t)], t$): *▷ Define*'
+                         .replace(': *', ':  *'))
+        self.assertNotIn('{', lines[0].split('$')[0])
+
     def test_an_escaped_percent_is_not_a_comment(self):
         tex = (r'\begin{algorithm}\caption{c}\begin{algorithmic}'
                '\n' r'\STATE accuracy is 90\% here' '\n'
