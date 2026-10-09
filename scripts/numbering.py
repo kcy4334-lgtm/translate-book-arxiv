@@ -538,14 +538,23 @@ def _source_file(temp_dir, source):
     return None
 
 
+_CAPTION_MATH_SPLIT_RE = re.compile(r'((?<!\\)\$[^$]+\$)')
+
+
 def _figure_caption_md(label, body):
     r"""`**label** body`, safe to sit inside an image's alt text."""
     body = (body or '').strip()
     caption = f'**{label}** {body}'.strip() if body else f'**{label}**'
-    # Square brackets would close the alt-text span early. Escaping is safe
-    # here: normalize_latex_leftovers has already run, so nothing will re-read
-    # `\[` as display math afterwards.
-    caption = caption.replace('[', r'\[').replace(']', r'\]')
+    # Square brackets would close the alt-text span early, so they are
+    # written as entities, which pandoc prints as plain brackets. Not as `\[`:
+    # the reader runs with tex_math_single_backslash, and ResNet's caption
+    # citation `\[41\]` came out as display math, a lone centred "41" between
+    # two halves of the caption. And only outside `$...$`, where a bracket is
+    # the formula's own and `\[` would break it.
+    caption = ''.join(
+        part if part.startswith('$')
+        else part.replace('[', '&#91;').replace(']', '&#93;')
+        for part in _CAPTION_MATH_SPLIT_RE.split(caption))
     # One line: implicit_figures needs the image alone in its paragraph, and a
     # newline inside the alt text would end it.
     return re.sub(r'\s*\n\s*', ' ', caption)
