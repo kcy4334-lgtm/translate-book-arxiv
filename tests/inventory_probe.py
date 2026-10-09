@@ -133,8 +133,12 @@ def page_inventory(html, lang):
     refs = re.search(r'(?s)<h[1-6][^>]*>\s*(?:[\dA-Z.]+\s+)?%s'
                      r'(?:\s*\([^()<]*\))?\s*</h[1-6]>(.*)'
                      % re.escape(refs_word), html)
+    # The list ends where the next section starts. Counted to the end of the
+    # book, it took in the appendix's paragraphs: DDPM's figures turning from
+    # stray paragraphs into figures moved its "entries" from 111 to 96.
+    listed = re.split(r'<h[12]\b', refs.group(1))[0] if refs else ''
     return {
-        'bibliography entries': (len(re.findall(r'<p\b', refs.group(1)))
+        'bibliography entries': (len(re.findall(r'<p\b', listed))
                                  if refs else 0),
         'figures': len(re.findall(r'<figure\b', html)),
         'tables': len(re.findall(r'<table\b', NON_PAGE_RE.sub(' ', html))),

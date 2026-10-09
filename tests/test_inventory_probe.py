@@ -117,5 +117,12 @@ class BothDirections(unittest.TestCase):
         self.assertEqual(self.run_probe(more), 0)
 
 
+class TheListEndsAtTheNextSection(unittest.TestCase):
+    def test_appendix_paragraphs_are_not_entries(self):
+        html = ('<h1>참고문헌</h1><p>A.</p><p>B.</p>'
+                '<h1>A Appendix</h1><p>Not an entry.</p>')
+        self.assertEqual(ip.page_inventory(html, 'ko')['bibliography entries'], 2)
+
+
 if __name__ == '__main__':
     unittest.main()
