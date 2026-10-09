@@ -178,6 +178,10 @@ full path. Run each exactly as written, one per call.
   is asked to approve it. On one paper run as a plugin, 44 of 76 shell
   commands fell outside those rules, and 13 of them were the skill's own
   scripts with a `cd` or a pipe added.
+- **Through the Bash tool, never PowerShell:** the permission rules name
+  `Bash(python ...)`, so the same command run through PowerShell is not
+  covered and is refused or asked about. In one run of three papers, most of
+  the refused commands were the skill's own scripts sent through PowerShell.
 - **Files go through the file tools:** Read, Grep and Glob to look, Write and
   Edit to change. Not `cat`, `ls`, `head`, `grep`, `echo` or a heredoc.
 - **A check no script gives:** write it to a `.py` file in `<temp_dir>` with
@@ -586,6 +590,12 @@ python {baseDir}/scripts/glossary.py print-terms-for-chunk "<temp_dir>" "chunk<N
 ```
 
 Capture stdout. The CLI emits a 3-column markdown table (`原文 | 别名 | 译文`) of every term that either appears in this chunk (by source OR any alias) OR is in the top-N most-frequent terms book-wide. Inject the table as `{TERM_TABLE}` in rule #13 of the translation prompt. **If stdout is empty (no glossary, or no relevant terms), omit rule #13 from this chunk's prompt entirely**: do not leave a dangling `{TERM_TABLE}` placeholder.
+
+**Paste the table into the prompt; do not tell the translator to fetch it.**
+A shorter prompt is not worth it: a translator's own command can be refused,
+and it then translates without the glossary rather than stopping. In one run
+two translators were sent to fetch their table, both were refused, and their
+chunks came back with four terms rendered against the glossary.
 
 **Meta schema assembly**: before spawning a sub-agent, run:
 
