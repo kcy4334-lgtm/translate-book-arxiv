@@ -47,6 +47,9 @@ _FIG_IMAGE_RE = re.compile(
     r'^!\[([^\]]*)\]\((images/fig(\d+)[^)]*)\)(?:\{[^}]*\})?'
     r'(?:[ \t]*`\{[^`\n]*\}`\{=[a-z]+\})?[ \t]*$',
     re.MULTILINE)
+# An extracted image followed on the same line by another one.
+_SHARED_IMAGE_LINE_RE = re.compile(
+    r'(?m)^(!\[[^\]]*\]\(images/fig\d+[^)]*\)(?:\{[^}]*\})?)[ \t]+(?=!\[)')
 
 # How wide to draw one panel of a multi-panel float, by panel count.
 #
@@ -600,6 +603,13 @@ def format_figure_blocks(md_text, lang_cfg=None, temp_dir=None):
     fig_label = lang_cfg.get('figure_label', 'Figure')
     captioned = figures_with_captions(temp_dir)
     panels = figure_panels(temp_dir)
+    # Panels set side by side arrive on one line, `![](a)  ![](b)`, with the
+    # `\hspace` between them gone. Each must stand alone on its line to be
+    # read as a figure: ViT's figure 13 printed as two bare images with its
+    # caption a plain paragraph and no number.
+    split = 1
+    while split:                   # one panel per pass: the pattern is anchored
+        md_text, split = _SHARED_IMAGE_LINE_RE.subn('\\1\n\n', md_text)
     matches = list(_FIG_IMAGE_RE.finditer(md_text))
     if not matches:
         return md_text, 0

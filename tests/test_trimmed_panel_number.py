@@ -46,6 +46,16 @@ class TrimmedPanels(unittest.TestCase):
         with open(os.path.join(self.dir, 'flat.tex'), 'w', encoding='utf-8') as fh:
             fh.write(FLAT)
 
+    def test_panels_on_one_line_are_still_one_numbered_figure(self):
+        """ViT's figure 13: two panels with an `\\hspace` between them
+        arrived on one line and printed with no number or caption."""
+        md = ('![](images/fig0001_one.png)\n\n첫 그림.\n\n'
+              '![](images/fig0011_attn_a_trim.png)  ![](images/fig0012_attn_b_trim.png)'
+              '  ![](images/fig0013_attn_c_trim.png)\n\n'
+              '어텐션 지도.\n\n다음 문단.\n')
+        out, _count = mb.format_figure_blocks(md, KO, self.dir)
+        self.assertIn('**그림 2 (Fig. 2)** 어텐션 지도.', out)
+
     def test_cropped_panels_print_as_one_figure_with_its_number(self):
         md = ('![](images/fig0001_one.png)\n\n첫 그림.\n\n'
               + ''.join('![](images/fig%04d_attn_%s_trim.png)\n\n' % (i, c)
