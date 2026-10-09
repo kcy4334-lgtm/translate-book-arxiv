@@ -163,8 +163,15 @@ def check_equations(flat, pdf_lines):
     markers, which is exactly how the drift above was found.
     """
     counted = mb._numbers_for_block(flat)
-    printed = [l.strip() for l in pdf_lines if _EQ_MARKER_RE.match(l.strip())]
+    printed = [l.strip() for l in pdf_lines if _EQ_MARKER_RE.match(l.strip())
+               and not _NOT_AN_EQ_NUMBER_RE.search(l.strip())]
     return counted, printed_equation_count(printed)
+
+
+# A counter starts at 1 and prints no leading zero. PaLM's toxicity table
+# sets its scores alone on a line, `(0.8)`, `(0.02)`, and they were counted
+# as two equation numbers in a paper that numbers none.
+_NOT_AN_EQ_NUMBER_RE = re.compile(r'(?:^\(|\.)0\d*(?:\.|\)$)')
 
 
 def printed_equation_count(markers):
@@ -227,7 +234,11 @@ def caption_sites(pdf_flat, needle, rivals):
     """
     at = pdf_flat.find(needle)
     while at >= 0:
-        if not any(len(rival) > len(needle) and pdf_flat.startswith(rival, at)
+        # Rejoined where the line broke: 2609.11801 prints "multi- solution",
+        # so the longer caption did not claim its own site.
+        here = re.sub(r'(\w)- (\w)', r'\1-\2',
+                      pdf_flat[at:at + 2 * max([len(r) for r in rivals] or [0])])
+        if not any(len(rival) > len(needle) and here.startswith(rival)
                    for rival in rivals):
             yield at
         at = pdf_flat.find(needle, at + 1)
@@ -256,25 +267,35 @@ def check_floats(temp_dir, flat, pdf_flat):
             continue
         needle = probe[:44]
         rivals = [other for other in probes if other != probe]
-        got = None
+        # Dotted here too: a float counter reset per section prints
+        # `Table 3.1`. Comparison is by STRING, because `3.1` has no
+        # integer form and `int()` threw the number away rather than
+        # disagreeing.
+        # The label of THIS kind of float. ViT's Table 6 caption says
+        # "These correspond to Figure 5 in the main paper", the probe
+        # starts right after it, and "Figure 5" was read as the table's
+        # number: a correct book failed.
+        label = (r'(?:Table|Tab\.?)' if unit['kind'] == 'table'
+                 else r'(?:Figure|Fig\.?)')
+        printed = []
         for at in caption_sites(pdf_flat, needle, rivals):
             head = pdf_flat[max(0, at - 30):at]
-            # Dotted here too: a float counter reset per section prints
-            # `Table 3.1`. Comparison is by STRING, because `3.1` has no
-            # integer form and `int()` threw the number away rather than
-            # disagreeing.
-            # The label of THIS kind of float. ViT's Table 6 caption says
-            # "These correspond to Figure 5 in the main paper", the probe
-            # starts right after it, and "Figure 5" was read as the table's
-            # number: a correct book failed.
-            label = (r'(?:Table|Tab\.?)' if unit['kind'] == 'table'
-                     else r'(?:Figure|Fig\.?)')
-            got = re.search(label + r'\s*(\d+(?:\.\d+)*)\s*[:.]?\s*$', head)
-            if got:
-                break
-        if not got:
+            found = re.search(label + r'\s*(\d+(?:\.\d+)*)\s*[:.]?\s*$', head)
+            if found:
+                printed.append((found, at))
+        # Two captions that open alike, beside two different numbers. The
+        # whole probe decides when it can (2609.11801's Tables 4 and 5);
+        # when it cannot, the float is not located. PaLM's Figures 24 and 26
+        # both open "Model performance as a function of total training FLOP
+        # count", and the first one was read as the book's correct 26.
+        if len(set(f.group(1) for f, _at in printed)) > 1:
+            reach = [len(os.path.commonprefix([probe, pdf_flat[at:at + len(probe)]]))
+                     for _f, at in printed]
+            printed = [site for site, n in zip(printed, reach) if n == max(reach)]
+        if len(set(f.group(1) for f, _at in printed)) != 1:
             skipped += 1
             continue
+        got = printed[0][0]
         if got.group(1) == str(unit['number']):
             agree += 1
         else:
@@ -365,8 +386,29 @@ def check_references(temp_dir, flat, pdf_flat):
         if at < 0:
             skipped += 1
             continue
-        tail = _REF_WORD_RE.sub('', pdf_flat[at + len(probe):at + len(probe) + 30], 1)
-        got = re.match(r'\s*\(?([0-9A-Z]+(?:\.[0-9]+)*)\)?', tail)
+        segment = pdf_flat[at + len(probe):at + len(probe) + 40]
+        # A word the line broke: PaLM prints "(Sec- tion 6.4)".
+        segment = re.sub(r'(\w)- (\w)', r'\1\2', segment)
+        # The reference word only where the reference starts. Taken from
+        # anywhere in the window, "(Nie et al., 2019) Table 4" lost its
+        # "Table" and the probe read the N of Nie as the number.
+        word = re.match(r'\s*\(?\s*' + _REF_WORD_RE.pattern, segment,
+                        re.IGNORECASE)
+        if word:
+            tail = segment[word.end():]
+        elif m.group(0)[1] in 'cC' and not re.match(r'\s*\(\s*\d', segment):
+            # `\cref` prints its own word, or for an equation only `(4)`;
+            # with neither right here, something else stands between the
+            # located words and the reference -- a citation, or a footnote
+            # the page set at that point.
+            skipped += 1
+            continue
+        else:
+            tail = segment
+        # Not run into a word: "5In the closed book" is footnote 5's text.
+        # One letter may follow, SINQ's panel `2a`.
+        got = re.match(r'\s*\(?((?:[0-9]+|[A-Z]+)(?:\.[0-9]+)*)\)?'
+                       r'(?![A-Za-z]{2})', tail)
         if not got:
             skipped += 1
             continue
