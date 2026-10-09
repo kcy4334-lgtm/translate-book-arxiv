@@ -92,14 +92,21 @@ _SPANS = [
     #
     # Placed before the general rule, and it only matches when a brace group is
     # actually present, so a span without one is still handled below.
+    #
+    # None of the inline rules crosses a masked code span (`\x00C<n>\x00`): a
+    # formula never holds one. PaLM writes `($>$10M examples)`, pandoc puts
+    # an empty HTML comment -- a raw-inline code span -- between `$>$` and
+    # `10M`, and this rule opened at the CLOSING `$`, read the comment's
+    # `{=html}` as a brace group, and closed at the next formula: three spans
+    # of prose stored as maths, the code mask printed on the page.
     ('M', 'inline', re.compile(
         r'(?<![\\$\w])\$(?!\s)'
-        r'(?:[^$\n\\{]|\\[^\n])*'
-        r'\{(?:[^{}$\\]|\\[^\n]|\$(?:[^$\n\\]|\\[^\n])+\$'
+        r'(?:[^$\n\\{\x00]|\\[^\n])*'
+        r'\{(?:[^{}$\\\x00]|\\[^\n]|\$(?:[^$\n\\]|\\[^\n])+\$'
         r'|\{(?:[^{}$\\]|\\[^\n])*\})*\}'
-        r'(?:[^$\n\\]|\\[^\n])*'
+        r'(?:[^$\n\\\x00]|\\[^\n])*'
         r'(?<!\\)\$(?!\d)')),
-    ('M', 'inline', re.compile(r'(?<![\\$\w])\$(?!\s)(?:[^$\n\\]|\\.)+?(?<!\\)\$(?!\d)')),
+    ('M', 'inline', re.compile(r'(?<![\\$\w])\$(?!\s)(?:[^$\n\\\x00]|\\.)+?(?<!\\)\$(?!\d)')),
     # The same span, wrapped across lines. An author who writes a `\frac`
     # inline lays it out over several lines, and the rule above — which forbids
     # a newline on purpose — walks straight past it: the GAN paper's
@@ -113,7 +120,7 @@ _SPANS = [
     # written to avoid. Bounded in length for the same reason.
     ('M', 'inline', re.compile(
         r'(?<![\\$\w])\$(?!\s)'
-        r'(?:[^$\n\\]|\\.|\n(?![ \t]*\r?\n)){1,800}?'
+        r'(?:[^$\n\\\x00]|\\.|\n(?![ \t]*\r?\n)){1,800}?'
         r'(?<!\\)\$(?!\d)')),
     ('C', 'cite', re.compile(r'(?<!\\)\[@[^\]\n]{1,400}\]')),
 ]
@@ -219,6 +226,11 @@ def protect(text, start=1):
         text = pattern.sub(take, text)
 
     text = _unmask_code(text, code_store)
+    # And inside the spans: a formula that runs across a code span takes the
+    # code's mask with it, and was stored with the mask still in place. PaLM
+    # printed `\x00C44\x00{=html}10M` where its table says 10M.
+    for span in spans:
+        span['latex'] = _unmask_code(span['latex'], code_store)
     return text, spans
 
 

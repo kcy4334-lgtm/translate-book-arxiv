@@ -19,6 +19,20 @@ import math_guard  # noqa: E402
 BS = chr(92)
 
 
+class CodeBetweenFormulas(unittest.TestCase):
+    """PaLM: `($>$`<!-- -->`{=html}10M examples), mid-resource ($<$...`.
+    The brace rule opened at a closing `$`, took the comment's `{=html}` as
+    a brace group, and stored prose and a code mask as a formula."""
+
+    def test_a_formula_does_not_cross_a_code_span(self):
+        text = ('high ($>$`<!-- -->`{=html}10M examples), mid ($<$`<!-- -->`'
+                '{=html}10M, $>$`<!-- -->`{=html}1M examples)')
+        out, spans = math_guard.protect(text)
+        self.assertEqual([s['latex'] for s in spans], ['$>$', '$<$', '$>$'])
+        self.assertNotIn('\x00', out)
+        self.assertEqual(math_guard.restore(out, spans), text)
+
+
 class ProtectRestoreTests(unittest.TestCase):
     def test_inline_math_round_trip(self):
         src = r'The value $\alpha_i$ matters.'
