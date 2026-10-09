@@ -71,6 +71,8 @@ CELL_RE = re.compile(r'(?s)<(t[hd])\b([^>]*)>(.*?)</\1>')
 COLSPAN_RE = re.compile(r'colspan="(\d+)"')
 MULTICOL_RE = re.compile(r'\\multicolumn\s*\{\s*(\d+)\s*\}')
 NUMBER_RE = re.compile(r'\d+(?:\.\d+)?')
+# A rule's trim, widths included: PaLM's `\cmidrule(l{3pt}r{3pt}){2-3}`.
+_TRIM = r'(?:\((?:[^(){}]|\{[^{}]*\})*\))?'
 # Comment out to the end of line, but `\%` is a printed percent sign.
 COMMENT_RE = re.compile(r'(?<!\\)%[^\n]*')
 
@@ -246,7 +248,7 @@ def source_rows(body):
     # `\cline{2-3}` too: left in, its `2-3` was the first cell of ResNet's
     # `& val & test`, so a correctly blank cell under a `\multirow` read as
     # a stranded row label.
-    body = re.sub(r'\\(?:cmidrule|cline)\s*(?:\([lr]{1,2}\))?\s*\{[^}]*\}',
+    body = re.sub(r'\\(?:cmidrule|cline)\s*' + _TRIM + r'\s*\{[^}]*\}',
                   '', body)
     # The optional argument has to go with the command. `\addlinespace[2pt]`
     # left its `[2pt]` behind in the next row's first cell, so seven of
@@ -372,7 +374,10 @@ _ARG_NUM_RE = re.compile(
     r'|\\tikz\b[^;]*;'
     r'|\\(?:ref|autoref|eqref|cref|Cref|label)\s*\{[^{}]*\}'
     r'|\\(?:multicolumn|multirow)\s*\{[^{}]*\}\s*(?:\[[^\]]*\])?\s*' + _GROUP +
-    r'|\\(?:cmidrule|cline)\s*(?:\([lr]{1,2}\))?\s*\{[^{}]*\}'
+    r'|\\(?:cmidrule|cline)\s*' + _TRIM + r'\s*\{[^{}]*\}'
+    # A footnote in a cell is printed under the table, not in it.
+    r'|\\(?:tablefootnote|footnote)\s*' + _GROUP +
+    r'|\\phantom\s*' + _GROUP +
     r'|\\rotatebox\s*(?:\[[^\]]*\])?\s*\{[^{}]*\}'
     r'|\\(?:resizebox|scalebox)\s*\{[^{}]*\}\s*\{[^{}]*\}'
     # A colour, not a value. `\rowcolor[rgb]{ .900, .900, .900}` shades the

@@ -872,6 +872,14 @@ class TableRuleTests(unittest.TestCase):
         self.assertEqual(kept, 1)
         self.assertNotIn("cline", out)
 
+    def test_a_trim_with_widths_is_read(self):
+        # PaLM: "(l 3pt r 3pt ) 2-3" printed in a header cell.
+        tex = self.tab("& A & B" + BS + BS + NL + BS + "cmidrule(l{3pt}r{3pt}){2-3}"
+                       + NL + "x & 1 & 2" + BS + BS)
+        out, _kept = arxiv_backend.normalize_table_rules(tex)
+        self.assertNotIn("3pt", out)
+        self.assertNotIn("2-3", out)
+
     def test_text_outside_a_tabular_is_untouched(self):
         tex = "prose " + BS + "cmidrule(lr){1-2} more prose"
         out, kept = arxiv_backend.normalize_table_rules(tex)

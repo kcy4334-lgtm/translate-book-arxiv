@@ -99,6 +99,21 @@ class Citations(unittest.TestCase):
             r'\cite{Bengio1994,Simonyan2015}', labels)[0], '[1, 2]')
 
 
+class CellFootnotes(unittest.TestCase):
+    def test_a_tablefootnote_becomes_a_mark_and_a_note(self):
+        # PaLM's FLOP-count row lost its explanation.
+        tex = (r'Training FLOP Count\tablefootnote{This uses $2 \times 3$ '
+               r'per {token}.} & 37.4 \\ Other\footnote{Second.} & 1 \\')
+        body, notes = mb.footnotes_to_notes(tex)
+        self.assertEqual(body, r'Training FLOP Count\textsuperscript{a} & 37.4 '
+                               r'\\ Other\textsuperscript{b} & 1 \\')
+        self.assertEqual(notes, [r'\textsuperscript{a} This uses $2 \times 3$ '
+                                 r'per {token}.', r'\textsuperscript{b} Second.'])
+
+    def test_no_footnote_no_change(self):
+        self.assertEqual(mb.footnotes_to_notes('a & b'), ('a & b', []))
+
+
 class ClosingBreak(unittest.TestCase):
     def test_a_break_after_the_last_rule_goes(self):
         # U-Net: a blank row under its results table.

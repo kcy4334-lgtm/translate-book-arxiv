@@ -1574,6 +1574,36 @@ def drop_closing_break(tex):
     return _CLOSING_BREAK_RE.subn(r'\1\2', tex)
 
 
+_CELL_FOOTNOTE_RE = re.compile(r'\\(?:tablefootnote|footnote)\s*(?:\[[^\]]*\])?\s*\{')
+
+
+def footnotes_to_notes(tex):
+    r"""A footnote in a cell becomes a mark there and a note under the table.
+
+    Returns (tex, [note, ...]). pandoc has no reader for `\tablefootnote` and
+    dropped it with its text: PaLM's FLOP-count row lost the sentence saying
+    how the count was made. A footnote rendered inside a fragment would land
+    in the fragment, not on the page's notes, so the table carries its own,
+    marked a, b, ... as `threeparttable` notes already are.
+    """
+    notes = []
+    out, cursor = [], 0
+    for m in _CELL_FOOTNOTE_RE.finditer(tex):
+        if m.start() < cursor:
+            continue
+        close = _balanced_group(tex, m.end() - 1)
+        if close < 0:
+            continue
+        mark = chr(ord('a') + len(notes)) if len(notes) < 26 else str(len(notes) + 1)
+        notes.append('\\textsuperscript{%s} %s'
+                     % (mark, tex[m.end():close - 1].strip()))
+        out.append(tex[cursor:m.start()])
+        out.append('\\textsuperscript{%s}' % mark)
+        cursor = close
+    out.append(tex[cursor:])
+    return ''.join(out), notes
+
+
 def expand_raw_latex_tables(md_text, pandoc=None, math_mode='mathml',
                             output='html', temp_dir=None):
     """Convert raw LaTeX tables into real tables.
@@ -1621,6 +1651,10 @@ def expand_raw_latex_tables(md_text, pandoc=None, math_mode='mathml',
             t['bare'], _notes = arxiv_backend.unwrap_table_notes(t['bare'])
             t['bare'], _at = drop_multicolumn_spacing(t['bare'])
             t['bare'], _br = drop_closing_break(t['bare'])
+            t['bare'], cell_notes = footnotes_to_notes(t['bare'])
+            if cell_notes:
+                t['notes'] = '\n\n'.join(
+                    ([t['notes']] if t.get('notes') else []) + cell_notes)
             # A protected float never met the citation resolver or the
             # leftover-command pass, so both have to happen here or the
             # reader loses the source beside a benchmark and the header

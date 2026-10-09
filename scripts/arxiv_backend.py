@@ -2274,8 +2274,11 @@ def strip_title_block(tex):
 _TABULAR_ENV_RE = re.compile(
     r'\\begin\{(tabular\*?|tabularx|longtable|array)\}(.*?)\\end\{\1\}',
     re.DOTALL)
+# The trim may carry widths: PaLM's `\cmidrule(l{3pt}r{3pt}){2-3}` matched
+# nothing and printed "(l 3pt r 3pt ) 2-3" into a header cell.
 _CMIDRULE_RE = re.compile(
-    r'\\cmidrule\s*(?:\[[^\]]*\])?\s*(?:\([lr]{1,2}\))?\s*\{[^{}]*\}'
+    r'\\cmidrule\s*(?:\[[^\]]*\])?\s*(?:\((?:[^(){}]|\{[^{}]*\})*\))?'
+    r'\s*\{[^{}]*\}'
     r'|\\cline\s*\{[^{}]*\}')
 _HEADER_RULE_RE = re.compile(r'\\(?:midrule|hline)\b')
 
