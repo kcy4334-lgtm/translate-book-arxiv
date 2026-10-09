@@ -110,6 +110,53 @@ class FrontMatterTests(unittest.TestCase):
         self.assertEqual((out, n), ("plain tex", 0))
 
 
+class AbstractCommandTests(unittest.TestCase):
+    r"""Some classes take the abstract as `\abstract{...}` and print it from
+    `\maketitle` (muxlab.cls; A&A's aa.cls with traditabstract). pandoc reads
+    no class, so the text was lost: the demo book of 2609.11801 went from the
+    authors straight to Figure 1, and Planck 2015 XIII lost its abstract the
+    same way."""
+
+    PREAMBLE = (BS + "documentclass{muxlab}\n"
+                + BS + "abstract{Humans and " + BS + "textbf{machines} think.%\n}\n"
+                + BS + "begin{document}\n" + BS + "maketitle\n"
+                + BS + "section{Introduction}\nText.\n" + BS + "end{document}\n")
+
+    def test_a_preamble_abstract_lands_right_after_maketitle(self):
+        out, n = arxiv_backend.sectionize_front_matter(self.PREAMBLE)
+        self.assertEqual(n, 1)
+        title = out.index(BS + "maketitle")
+        section = out.index(BS + "section*{Abstract}")
+        self.assertLess(title, section)
+        self.assertLess(section, out.index(BS + "section{Introduction}"))
+        self.assertIn("Humans and " + BS + "textbf{machines} think.", out)
+        self.assertLess(out.index(BS + "begin{document}"), out.index("Humans"))
+
+    def test_an_abstract_in_the_body_stays_where_it_is(self):
+        tex = (BS + "begin{document}\n" + BS + "abstract{Body abstract.}\n"
+               + BS + "maketitle\n")
+        out, n = arxiv_backend.sectionize_front_matter(tex)
+        self.assertEqual(n, 1)
+        self.assertIn(BS + "section*{Abstract}\nBody abstract.\n", out)
+        self.assertNotIn(BS + "abstract{", out)
+
+    def test_a_definition_is_not_an_abstract(self):
+        for definition in (BS + "newcommand" + BS + "abstract{x}",
+                           BS + "renewcommand{" + BS + "abstract}[1]{y}",
+                           "% " + BS + "abstract{commented out}"):
+            tex = definition + "\n" + BS + "begin{document}\n" + BS + "maketitle\n"
+            out, n = arxiv_backend.sectionize_front_matter(tex)
+            self.assertEqual((out, n), (tex, 0), definition)
+
+    def test_an_abstract_environment_wins(self):
+        """A paper with both keeps the environment and gets one Abstract."""
+        tex = (BS + "abstract{command}\n" + BS + "begin{document}\n"
+               + BS + "begin{abstract}env" + BS + "end{abstract}\n")
+        out, _ = arxiv_backend.sectionize_front_matter(tex)
+        self.assertEqual(out.count(BS + "section*{Abstract}"), 1)
+        self.assertIn("env", out)
+
+
 if __name__ == "__main__":
     unittest.main()
 

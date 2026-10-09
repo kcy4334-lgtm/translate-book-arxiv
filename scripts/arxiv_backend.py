@@ -189,8 +189,52 @@ def sectionize_front_matter(tex):
         return repl
 
     tex = _ABSTRACT_ENV_RE.sub(to_section('Abstract'), tex)
+    had_environment = count > 0
     tex = _KEYWORDS_ENV_RE.sub(to_section('Index Terms'), tex)
+    if not had_environment:
+        tex, moved = _abstract_command_to_section(tex)
+        count += moved
     return tex, count
+
+
+_ABSTRACT_CMD_RE = re.compile(r'\\abstract\s*\{')
+# What may stand in front of `\abstract{` when the line DEFINES the command
+# rather than uses it: `\newcommand\abstract{...}` must stay where it is.
+_DEFINES_RE = re.compile(r'\\(?:(?:re)?newcommand|providecommand|def|let)\*?\s*\{?\s*$')
+_MAKETITLE_RE = re.compile(r'\\maketitle\b')
+
+
+def _abstract_command_to_section(tex):
+    r"""Move an abstract given as `\abstract{...}` into the body as a section.
+
+    Some classes take the abstract as a command in the preamble and print it
+    from `\maketitle`: muxlab.cls defines `\renewcommand{\abstract}[1]{\def
+    \abstracttext{#1}}`. pandoc reads no class file, so the text never reached
+    the body, and the finished book of 2609.11801, shipped as the repository's
+    demo, opened at the authors and went straight to Figure 1. The section
+    goes right after `\maketitle`, where the class would have printed it, or
+    at the start of the body when there is none. Returns (tex, moved).
+    """
+    for m in _ABSTRACT_CMD_RE.finditer(tex):
+        line_start = tex.rfind('\n', 0, m.start()) + 1
+        before = tex[line_start:m.start()]
+        if re.search(r'(?<!\\)%', before) or _DEFINES_RE.search(before):
+            continue
+        brace = m.end() - 1
+        body = _balanced_arg(tex, brace)
+        if body is None or not body.strip():
+            continue
+        end = brace + len(body) + 2
+        section = '\\section*{Abstract}\n%s\n' % body.strip()
+        begin = tex.find('\\begin{document}')
+        if begin == -1 or m.start() > begin:
+            return tex[:m.start()] + section + tex[end:], 1
+        tex = tex[:m.start()] + tex[end:]
+        begin = tex.find('\\begin{document}')
+        title = _MAKETITLE_RE.search(tex, begin)
+        at = title.end() if title else begin + len('\\begin{document}')
+        return tex[:at] + '\n' + section + tex[at:], 1
+    return tex, 0
 
 
 def extract_latex_title(tex):
@@ -2379,8 +2423,8 @@ def build(input_file, temp_dir, arxiv_id, allow_network=True):
 
     flat, front_sections = sectionize_front_matter(flat)
     if front_sections:
-        print(f"Front matter: {front_sections} environment(s) kept as sections "
-              f"(pandoc drops abstract/keywords as metadata otherwise)")
+        print(f"Front matter: {front_sections} abstract/keywords block(s) kept "
+              f"as sections (pandoc drops them as metadata otherwise)")
 
     # The paper's own shorthand, before pandoc reads the source. A `.sty` is
     # never `\input`, so `flatten_tex` does not inline it and pandoc never sees
