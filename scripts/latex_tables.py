@@ -1111,7 +1111,13 @@ def build_citation_labels(md_text):
     """
     labels = {}
     for m in _BIBITEM_LABEL_RE.finditer(md_text):
-        split = _LABEL_YEAR_RE.match(m.group(1))
+        label = m.group(1).strip()
+        # acl_natbib writes the whole label as one group,
+        # `[{Misra et~al.(2016)Misra, Ecker, and Walker}]`, and the brace
+        # then printed in front of the authors: `({Misra et al. 2016)`.
+        if label.startswith('{') and label.endswith('}'):
+            label = label[1:-1]
+        split = _LABEL_YEAR_RE.match(label)
         if not split:
             continue
         authors = split.group(1).replace('~', ' ').strip()
@@ -1473,6 +1479,18 @@ def expand_raw_latex_tables(md_text, pandoc=None, math_mode='mathml',
 
     converted = failed = 0
     cite_labels = build_citation_labels(md_text)
+    if not cite_labels and temp_dir:
+        # The inlined list is not in the text any more: `resolve_bibliography`
+        # has already rendered it to plain entries, and the keys went with it.
+        # Sentence-BERT's table printed "SVR" for "SVR (Misra et al., 2016)"
+        # and its captions lost the datasets they credit. flat.tex still has
+        # the list as the paper wrote it.
+        try:
+            with open(os.path.join(temp_dir, 'flat.tex'), encoding='utf-8',
+                      errors='replace') as fh:
+                cite_labels = build_citation_labels(fh.read())
+        except OSError:
+            pass
     if not cite_labels:
         # No inlined `\bibitem` list. The paper shipped a `.bib` and let
         # citeproc render it, so the keys live there instead (K152).
