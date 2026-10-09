@@ -181,13 +181,19 @@ def measure_book(pdf_path, eqnos, print_cfg, min_gap_pt=MIN_GAP_PT):
     """
     import fitz
 
+    # Read and closed before anything else: the next pass renders into the
+    # same file, and on Windows a file still open cannot be replaced.
     doc = fitz.open(pdf_path)
+    try:
+        pages = [(page.rect.width, page.get_text('dict')) for page in doc]
+    finally:
+        doc.close()
     wanted = {e.strip() for e in eqnos}
     seen = {}
-    for page in doc:
-        left, right = column_bounds(page.rect.width, print_cfg)
+    for width, data in pages:
+        left, right = column_bounds(width, print_cfg)
         lines = []
-        for block in page.get_text('dict')['blocks']:
+        for block in data['blocks']:
             for line in block.get('lines', []):
                 spans = [s for s in line['spans'] if s['text'].strip()]
                 if spans:

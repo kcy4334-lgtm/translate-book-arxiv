@@ -290,6 +290,38 @@ class TildeTests(unittest.TestCase):
         self.assertNotIn('texttildelow', out)
 
 
+class PickBblTests(unittest.TestCase):
+    r"""LaTeX reads `\jobname.bbl`; bert ships `lumiere.bbl` beside
+    `main.bbl`, and an os.walk took whichever came first."""
+
+    def tree(self, *names):
+        root = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, root, True)
+        for name in names:
+            Path(root, name).write_text(name, encoding='utf-8')
+        return root
+
+    def test_the_one_named_after_the_main_file_wins(self):
+        root = self.tree('lumiere.bbl', 'main.bbl', 'zz.bbl')
+        got = arxiv_backend.pick_bbl(root, str(Path(root, 'main.tex')))
+        self.assertEqual(Path(got).name, 'main.bbl')
+
+    def test_a_single_bbl_is_used_whatever_its_name(self):
+        root = self.tree('paper459.bbl')
+        got = arxiv_backend.pick_bbl(root, str(Path(root, 'main.tex')))
+        self.assertEqual(Path(got).name, 'paper459.bbl')
+
+    def test_the_citation_map_reads_that_file_alone(self):
+        root = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, root, True)
+        item = BS + 'bibitem[%s(2020)]{k}'
+        Path(root, 'main.bbl').write_text(item % 'Right', encoding='utf-8')
+        Path(root, 'aaa.bbl').write_text(item % 'Wrong', encoding='utf-8')
+        mapping = arxiv_backend.build_citation_map(
+            root, str(Path(root, 'main.tex')))
+        self.assertEqual(mapping, {'k': 'Right 2020'})
+
+
 class LlncsTheoremTests(unittest.TestCase):
     r"""llncs defines lemma, theorem, remark... in the class; AdamX never
     declares them, pandoc kept them as raw LaTeX and the build refused."""

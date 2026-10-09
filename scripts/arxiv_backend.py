@@ -677,20 +677,41 @@ def flatten_tex(path, root, seen=None, depth=0):
     return '\n'.join(out)
 
 
-def inline_bibliography(tex, root):
+def pick_bbl(root, main_tex=None):
+    r"""The `.bbl` LaTeX reads for this paper, or None.
+
+    LaTeX reads `\jobname.bbl`: the main file's name with `.bbl`. The first
+    `.bbl` an os.walk met was taken instead; bert ships `lumiere.bbl` beside
+    `main.bbl` and got `lumiere.bbl` (identical content, by luck). Several
+    with none named after the main file: sorted first, with a warning.
+    """
+    found = []
+    for dirpath, _dirs, files in os.walk(root):
+        found.extend(os.path.join(dirpath, fn) for fn in files
+                     if fn.lower().endswith('.bbl'))
+    if not found:
+        return None
+    if main_tex:
+        stem = os.path.splitext(os.path.basename(main_tex))[0].lower()
+        named = sorted(p for p in found
+                       if os.path.splitext(os.path.basename(p))[0].lower() == stem)
+        if named:
+            return named[0]
+    found.sort()
+    if len(found) > 1:
+        print("Warning: %d .bbl files and none named after %s; using %s"
+              % (len(found), os.path.basename(main_tex or 'the main file'),
+                 os.path.basename(found[0])))
+    return found[0]
+
+
+def inline_bibliography(tex, root, main_tex=None):
     r"""Replace \bibliography{...} with the compiled .bbl, when one shipped.
 
     pandoc reads a thebibliography environment into a real list, so this is what
     keeps the reference section from vanishing.
     """
-    bbl = None
-    for dirpath, _dirs, files in os.walk(root):
-        for fn in files:
-            if fn.lower().endswith('.bbl'):
-                bbl = os.path.join(dirpath, fn)
-                break
-        if bbl:
-            break
+    bbl = pick_bbl(root, main_tex)
     if not bbl:
         return tex
 
@@ -763,25 +784,25 @@ def _clean_bib_label(raw):
     return re.sub(r'\s+', ' ', label).strip()
 
 
-def build_citation_map(root):
-    """Map bibtex key -> human citation label, harvested from a .bbl."""
+def build_citation_map(root, main_tex=None):
+    """Map bibtex key -> human citation label, from the `.bbl` that was
+    inlined (`pick_bbl`), not every `.bbl` in the tree."""
     mapping = {}
-    for dirpath, _dirs, files in os.walk(root):
-        for fn in files:
-            if not fn.lower().endswith('.bbl'):
-                continue
-            try:
-                with open(os.path.join(dirpath, fn), encoding='utf-8', errors='replace') as f:
-                    text = f.read()
-            except OSError:
-                continue
-            for m in _BIBITEM_RE.finditer(text):
-                label, key, bare_key = m.group(1), m.group(2), m.group(3)
-                if bare_key:
-                    continue  # no label to show; leave those alone
-                cleaned = _clean_bib_label(label)
-                if key and cleaned:
-                    mapping[key] = cleaned
+    bbl = pick_bbl(root, main_tex)
+    if not bbl:
+        return mapping
+    try:
+        with open(bbl, encoding='utf-8', errors='replace') as f:
+            text = f.read()
+    except OSError:
+        return mapping
+    for m in _BIBITEM_RE.finditer(text):
+        label, key, bare_key = m.group(1), m.group(2), m.group(3)
+        if bare_key:
+            continue  # no label to show; leave those alone
+        cleaned = _clean_bib_label(label)
+        if key and cleaned:
+            mapping[key] = cleaned
     return mapping
 
 
@@ -3074,7 +3095,7 @@ def build(input_file, temp_dir, arxiv_id, allow_network=True):
         print(f"Bibliography: {mended} entry(ies) closed with a brace pandoc "
               f"read as literal text; BibTeX had already closed them")
     if not bib_files:
-        flat = inline_bibliography(flat, work_dir)
+        flat = inline_bibliography(flat, work_dir, main_tex)
 
     flat, front_sections = sectionize_front_matter(flat)
     if front_sections:
@@ -3134,7 +3155,7 @@ def build(input_file, temp_dir, arxiv_id, allow_network=True):
         return False, {}
 
     # Only needed when citeproc could not run (no .bib in the source).
-    citation_map = {} if bib_files else build_citation_map(work_dir)
+    citation_map = {} if bib_files else build_citation_map(work_dir, main_tex)
     md = postprocess_markdown(md, os.path.dirname(main_tex), work_dir,
                               temp_dir, work_dir, citation_map=citation_map)
 
