@@ -67,6 +67,28 @@ class SpanAndBreakArguments(unittest.TestCase):
                          tp.Counter({'1': 1}))
 
 
+class MoreLengthsAndRowEnds(unittest.TestCase):
+    def test_rules_and_struts_are_lengths(self):
+        # attention's tables.
+        self.assertEqual(tp.printed_numbers(
+            r'\rule{0pt}{2.0ex}A & 1 \\ \specialrule{1pt}{-1pt}{0pt}'),
+            tp.Counter({'1': 1}))
+
+    def test_graphic_options_are_not_values(self):
+        # Neural ODE's figure laid out as a tabular.
+        self.assertEqual(tp.printed_numbers(
+            r'\includegraphics[width=0.2\textwidth, trim=4mm 4mm 4mm 4mm]'
+            r'{imgs/resnet_0_viz.pdf} & B'), tp.Counter())
+
+    def test_tabularnewline_ends_a_row(self):
+        # GAN's table 4.
+        rows = tp.source_rows(r'a & b \tabularnewline \hline c & d \tabularnewline')
+        self.assertEqual(len(rows), 2)
+
+    def test_a_defined_column_type_with_a_width_is_one_column(self):
+        self.assertEqual(tp.colspec_columns(r'c|L{1in}|L{1in}|L{1in}|L{1in}'), 5)
+
+
 class ViTTableNine(unittest.TestCase):
     """ViT's VTAB table: grey rules in the colspec, TikZ dots in the header."""
 

@@ -92,7 +92,9 @@ def colspec_columns(spec):
     while prev != spec:
         prev = spec
         spec = re.sub(r'\*\s*\{\s*(\d+)\s*\}\s*\{([^{}]*)\}', expand, spec)
-    spec = re.sub(r'[a-z]\{[^{}]*\}', 'p', spec)      # p{..} m{..} b{..}
+    # A defined type takes a width too: GAN's `L{1in}` counted its `in` as
+    # two more columns, 13 for a five-column table.
+    spec = re.sub(r'[A-Za-z]\{[^{}]*\}', 'p', spec)   # p{..} m{..} L{..}
     # Every letter left is a column, the paper's own types included: ViT
     # declares `\newcolumntype{C}` and its 22-column table counted 2.
     spec = re.sub(r'\\[A-Za-z]+', '', spec)
@@ -231,6 +233,9 @@ def source_rows(body):
     counts them; splitting on the token alone read one row as two.
     """
     body = COMMENT_RE.sub('', body)
+    # The same row end, spelled out: GAN's table 4 ends every row with
+    # `\tabularnewline` and read as one row.
+    body = re.sub(r'\\tabularnewline(?![a-zA-Z])', r'\\\\', body)
     body = re.sub(r'\\(?:top|mid|bottom)rule(?:\[[^\]]*\])?', '', body)
     # `\cline{2-3}` too: left in, its `2-3` was the first cell of ResNet's
     # `& val & test`, so a correctly blank cell under a `\multirow` read as
@@ -344,6 +349,13 @@ def numbers_of(text):
 # that was missing none, and a check that cries about numbers nobody printed
 # is one people stop reading.
 _ARG_NUM_RE = re.compile(
+    # A strut or a rule is all lengths: attention's `\rule{0pt}{2.0ex}` and
+    # `\specialrule{1pt}{-1pt}{0pt}` were four missing values. First, so the
+    # one-length rule below does not take `\rule{0pt}` and leave `{2.0ex}`.
+    # A graphic's options are lengths and crops: Neural ODE's
+    # `trim=4mm 4mm 4mm 4mm` read as twelve values.
+    r'\\includegraphics\s*(?:\[[^\]]*\])?\s*\{[^{}]*\}|'
+    r'\\(?:rule|specialrule)(?![a-zA-Z])(?:\s*\[[^\]]*\])?(?:\s*\{[^{}]*\})+|'
     # A citation key is not a value either. `\cite{adepu2024framequant}`
     # carries a 2024 the reader never sees as a table entry, and CafeQ's
     # table 6 was reported as missing six values it never had.
