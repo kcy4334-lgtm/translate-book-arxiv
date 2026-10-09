@@ -1475,6 +1475,14 @@ entry twice.
 **Only if it is not already there.** An empty diff is a fine outcome; most
 runs should produce one.
 
+**Where to write.** The logs live in the skill's own folder. When that folder
+is outside the folder you work in (a plugin install: every update replaces
+its files, and writes there are refused), write the same entries, in the same
+format, to `<temp_dir>/findings.md`, and end your final report with one line
+naming that file as findings for the skill's maintainers, to send as an
+issue. A refused write to the skill folder is the expected answer there, not
+an error to retry. `--cleanup-only` leaves `findings.md` in place.
+
 Add a KNOWLEDGE entry when you hit any of these:
 
 - An external tool (pandoc, Chromium, Calibre, PyMuPDF) behaved in a way that

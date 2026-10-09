@@ -118,6 +118,13 @@ class WorkflowWiringTests(unittest.TestCase):
                         "--stress"):
             self.assertIn(command, step9, f"Step 9 does not name {command!r}")
 
+    def test_step_9_has_a_place_to_write_under_a_plugin_install(self):
+        # A plugin install refuses writes to the skill folder (2609.11801
+        # run), so Step 9 must name the fallback the agent can write.
+        step9 = self.skill[self.skill.index("### 9. Record What You Learned"):]
+        self.assertIn("**Where to write.**", step9)
+        self.assertIn("<temp_dir>/findings.md", step9)
+
 
 if __name__ == "__main__":
     unittest.main()
