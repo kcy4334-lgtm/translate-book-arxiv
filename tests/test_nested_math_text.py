@@ -119,6 +119,17 @@ class MathDirectivesAndPhantoms(unittest.TestCase):
         got, _ = mb.rewrite_text_fonts_in_math(r'$$x = y \notag$$')
         self.assertNotIn(r'\notag', got)
 
+    def test_the_no_number_mark_survives_for_the_counters(self):
+        r"""VAE: with `\nonumber` deleted every align row was numbered, 35
+        numbers where the paper prints 24. texmath reads `\nonumber`; only
+        `\notag` costs it the formula, so that one is spelled `\nonumber`."""
+        block = ('$$\\begin{align}a &= b \\nonumber \\\\\nc &= d \\notag \\\\\n'
+                 'e &= f\\end{align}$$')
+        got, _ = mb.rewrite_text_fonts_in_math(block)
+        self.assertEqual(got.count('\\nonumber'), 2)
+        # Three rows, two unnumbered: one number, as LaTeX prints it.
+        self.assertEqual([n for _s, _e, n in mb.equation_numbers(got)], [1])
+
 
 class SpacingLeftovers(unittest.TestCase):
     def test_bare_length_on_its_own_line_is_dropped(self):

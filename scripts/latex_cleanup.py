@@ -390,10 +390,18 @@ _BARE_ACCENT_RE = re.compile(
 # `\linebreak[3]` and friends carry an OPTIONAL argument, so the bracket has to
 # go with the command; left behind, `[3]` prints as text in the middle of a
 # formula. They are line-breaking hints with no content, like the rest here.
+#
+# Not `\nonumber`, though, and `\notag` is not deleted but spelled
+# `\nonumber`: texmath reads `\nonumber` (only `\notag` costs the formula),
+# and the equation counters downstream read it to know which rows take no
+# number. Deleted, every row of VAE's aligns took one, and the book printed
+# 35 numbers where the paper prints 24, its references pointing at the
+# wrong equations.
 _MATH_DIRECTIVE_RE = re.compile(
-    r'\\(?:qedhere|notag|nonumber|allowdisplaybreaks|displaybreak'
+    r'\\(?:qedhere|allowdisplaybreaks|displaybreak'
     r'|linebreak|nolinebreak|newline|pagebreak|nopagebreak)'
     r'(?![A-Za-z])\s*(?:\[[^\]\n]*\]\s*)?')
+_NOTAG_RE = re.compile(r'\\notag(?![A-Za-z])')
 
 
 # `\mathrm{event at time $t$}` -- inside a text-mode argument the author
@@ -752,6 +760,7 @@ def rewrite_text_fonts_in_math(md_text):
         span, dropped = _drop_balanced_command(span, _VPHANTOM_HEAD_RE)
         count[0] += dropped
         span = _MATH_DIRECTIVE_RE.sub(drop, span)
+        span = _NOTAG_RE.sub(r'\\nonumber', span)
 
         def to_iterated(_inner):
             count[0] += 1
