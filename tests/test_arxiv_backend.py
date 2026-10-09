@@ -264,6 +264,34 @@ class TildeTests(unittest.TestCase):
         self.assertNotIn('texttildelow', out)
 
 
+class ManualEquationTagTests(unittest.TestCase):
+    r"""VAE numbers `align*` rows by hand with
+    `\newcommand{\eqnr}{\addtocounter{equation}{1}\tag{\theequation}}`. The
+    book counted 2 equations of the paper's 24, and printed 22 as raw TeX."""
+
+    DEF = '\\newcommand{\\eqnr}{\\addtocounter{equation}{1}\\tag{\\theequation}}\n'
+
+    def test_the_tagged_row_keeps_its_number_and_the_rest_take_none(self):
+        tex = self.DEF + ('\\begin{align*}\na &= b \\\\\nc &= d\n'
+                          '\\eqnr\\label{eq:x}\\end{align*}')
+        out, n = arxiv_backend.number_manually_tagged_rows(tex)
+        self.assertEqual(n, 1)
+        self.assertIn('\\begin{align}', out)
+        self.assertIn('a &= b \\nonumber', out)
+        self.assertIn('c &= d\n\\label{eq:x}\\end{align}', out)
+        self.assertNotIn('\\eqnr\\label', out)
+
+    def test_the_literal_idiom_without_a_macro(self):
+        tex = ('\\begin{equation*}x = 1 \\addtocounter{equation}{1}'
+               '\\tag{\\theequation}\\end{equation*}')
+        out, n = arxiv_backend.number_manually_tagged_rows(tex)
+        self.assertEqual((out, n), ('\\begin{equation}x = 1 \\end{equation}', 1))
+
+    def test_a_starred_display_with_no_tag_is_left_alone(self):
+        tex = self.DEF + '\\begin{align*}a &= b\\end{align*}'
+        self.assertEqual(arxiv_backend.number_manually_tagged_rows(tex), (tex, 0))
+
+
 class CaptionedMinipageTests(unittest.TestCase):
     r"""ViT's figures 3 and 4 are two captioned minipages in one figure;
     pandoc kept only the second caption and printed both images as one."""

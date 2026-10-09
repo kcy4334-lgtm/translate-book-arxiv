@@ -29,6 +29,7 @@ import tempfile
 import urllib.error
 import urllib.request
 
+import latex_rows
 import math_guard
 import paper_macros
 from build_common import _in_latex_comment
@@ -1978,6 +1979,61 @@ def unwrap_algorithm_figures(tex):
     return _FIGURE_ENV_RE.sub(repl, tex), count
 
 
+# Numbering a row by hand: step the equation counter and tag the row with it.
+# LaTeX prints exactly what an unstarred environment would.
+_MANUAL_TAG = (r'\\(?:addtocounter\s*\{equation\}\s*\{1\}|(?:ref)?stepcounter'
+               r'\s*\{equation\})\s*\\tag\s*\{\\theequation\}')
+_MANUAL_TAG_DEF_RE = re.compile(
+    r'\\(?:(?:re)?newcommand\*?\s*\{?\\([A-Za-z]+)\}?|def\s*\\([A-Za-z]+))'
+    r'\s*\{\s*' + _MANUAL_TAG + r'\s*\}')
+_STARRED_DISPLAY_RE = re.compile(
+    r'\\begin\{(align|gather|equation|multline|flalign|eqnarray)\*\}'
+    r'(.*?)\\end\{\1\*\}', re.DOTALL)
+
+
+def number_manually_tagged_rows(tex):
+    r"""A starred display numbered by hand becomes an ordinary numbered one.
+
+    VAE defines `\eqnr` as `\addtocounter{equation}{1}\tag{\theequation}` and
+    ends 22 `align*` rows with it. Every counter here reads a starred block as
+    unnumbered, so the book counted 2 equations where the paper prints 24,
+    and texmath, which cannot render `\addtocounter`, printed the 22 formulas
+    as raw TeX. The unstarred environment with `\nonumber` on the untagged
+    rows numbers exactly the same rows with the same numbers, in LaTeX every
+    reader here understands. Returns (tex, blocks rewritten).
+    """
+    names = {a or b for a, b in _MANUAL_TAG_DEF_RE.findall(tex)}
+    marker = _MANUAL_TAG
+    if names:
+        marker += r'|\\(?:%s)(?![A-Za-z])(?:\{\})?' % '|'.join(
+            re.escape(n) for n in sorted(names, key=len, reverse=True))
+    marker_re = re.compile(marker)
+    count = 0
+
+    def repl(m):
+        nonlocal count
+        env, body = m.group(1), m.group(2)
+        if not marker_re.search(body):
+            return m.group(0)
+        if env in ('equation', 'multline'):
+            new = marker_re.sub('', body)
+        else:
+            rows = []
+            for row in latex_rows.split_rows(body):
+                if marker_re.search(row):
+                    rows.append(marker_re.sub('', row))
+                else:
+                    # An empty last row too: unstarred, a trailing `\\`
+                    # would number a row that prints nothing.
+                    rows.append(row.rstrip() + ' \\nonumber'
+                                + row[len(row.rstrip()):])
+            new = '\\\\'.join(rows)
+        count += 1
+        return '\\begin{%s}%s\\end{%s}' % (env, new, env)
+
+    return _STARRED_DISPLAY_RE.sub(repl, tex), count
+
+
 _GRAPHIC_CALL_RE = re.compile(
     r'\\includegraphics\s*(?:\[[^\]]*\])?\s*\{[^{}]*\}')
 # `tabular*` takes its width before the column spec.
@@ -2908,6 +2964,10 @@ def build(input_file, temp_dir, arxiv_id, allow_network=True):
     # Reported, not swallowed. A refusal leaves the name printing verbatim in
     # the book, and the silent version of that is how it went unnoticed until
     # a reader found `\ie` in the middle of a Korean sentence (K110).
+    flat, tagged = number_manually_tagged_rows(flat)
+    if tagged:
+        print(f"Rewrote {tagged} starred display(s) the paper numbers by hand "
+              f"(\\addtocounter + \\tag) as ordinary numbered ones")
     used_refusals = {k: v for k, v in macro_report['refused'].items()
                      if re.search(r'\\%s(?![A-Za-z])' % re.escape(k), flat)}
     if used_refusals:
