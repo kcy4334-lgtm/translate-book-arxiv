@@ -257,12 +257,20 @@ _AUTHOR_SEP_RE = re.compile(
 # "Technische Universität Darmstadt" an author, and Sentence-BERT's whole
 # list was refused for it. The word `and` joins two names as often as
 # `\and` does: "Nils Reimers and Iryna Gurevych".
-_AUTHOR_NAME_SEP_RE = re.compile(r',|\s+and\s+')
+# Spacing between names is a separator too: DeeR-VLA writes `~~~`, AlphaQ
+# `\enspace`, 2609.11801 `,\;\;`. Unsplit, four names read as one person of
+# eight words and the whole list was refused.
+_AUTHOR_NAME_SEP_RE = re.compile(
+    r',|\s+and\s+|~{2,}|\\(?:enspace|enskip)\b|\\;')
 # Spacing and marks that carry no name, gone before anything is split: the
 # comma in ViT's `$^{*,\dagger}$` cut a mark in half, and `\vspace{1mm}`
-# left "1mm" behind as a name with a digit in it.
+# left "1mm" behind as a name with a digit in it. A colour or a font switch
+# names nothing either: `\color{muxfg}` left "muxfg" in front of a name.
 _AUTHOR_SPACING_RE = re.compile(
-    r'\$[^$]*\$|\\vspace\*?\s*\{[^{}]*\}|\\centerline\b')
+    r'\$[^$]*\$|\\vspace\*?\s*\{[^{}]*\}|\\centerline\b'
+    r'|\\color\s*(?:\[[^\]]*\])?\s*\{[^{}]*\}'
+    r'|\\(?:sffamily|rmfamily|ttfamily|bfseries|mdseries|itshape|upshape'
+    r'|normalsize|small|large|Large)\b')
 # Inside one author entry the NAME is the first line; `\\` starts the
 # affiliation and the e-mail. Gluing the lines together produced
 # "Ashish Vaswani Google Brain avaswani@google.com" as a person.
@@ -287,6 +295,7 @@ _NAME_PARTICLES = {'van', 'von', 'der', 'den', 'de', 'del', 'della', 'da',
 
 def _bare_author(part):
     """One name fragment with its markup and stray marks gone."""
+    part = re.sub('[^]*', ' ', part)    # `_encode_marks`
     return ' '.join(_AUTHOR_MARKUP_RE.sub(' ', part).split()).strip(' .,;*†‡§:')
 
 
@@ -325,30 +334,161 @@ _AUTHOR_MARKUP_RE = re.compile(
     r'|\$[^$]*\$|\{|\}|~|\\,|\\ |\^\{[^{}]*\}|\^\S')
 
 
-def extract_latex_authors(tex):
-    r"""The paper's author names, from `\author{}` or `\icmlauthor{}`. '' if none.
+# Marks are kept through the parse, so a name can be matched to the
+# affiliation that carries the same mark. Encoded in private-use characters,
+# commas included, so no separator and no markup pattern below touches them.
+_MARK_OPEN, _MARK_CLOSE, _MARK_COMMA = '\ue010', '\ue011', '\ue012'
+_MARK_IN_TEXT_RE = re.compile('%s([^%s]*)%s' % (_MARK_OPEN, _MARK_CLOSE,
+                                                _MARK_CLOSE))
+_MARK_SYMBOLS = (('ddagger', '‡'), ('ddag', '‡'), ('dagger', '†'),
+                 ('dag', '†'), ('circ', '∘'), ('ast', '*'), ('star', '⋆'),
+                 ('S', '§'), ('P', '¶'), ('sharp', '♯'), ('natural', '♮'),
+                 ('flat', '♭'), ('diamondsuit', '♢'), ('diamond', '◇'),
+                 ('heartsuit', '♡'), ('spadesuit', '♠'), ('clubsuit', '♣'),
+                 ('Letter', '✉'))
+_MARK_CMD_RE = re.compile(
+    r'\\textsuperscript\s*\{((?:[^{}]|\{[^{}]*\})*)\}'
+    r'|\\inst\s*\{([^{}]*)\}'
+    r'|\$\s*((?:[^$\\]|\\.)*?)\s*\$')
+_IS_MARK_RE = re.compile(r'[0-9a-z*†‡∘⋆§¶♯♮♭♢◇♡♠♣✉,]+')
 
-    The title page falls back to "Unknown Author" whenever the source PDF has
-    no author metadata, which arXiv's GenPDF routinely omits — eight finished
-    books say it, and every one of them has the names sitting in its own
-    flat.tex. This does not try to parse an author BLOCK, only to recover the
-    names from it: affiliations, footnote marks and superscripts are markup and
-    come off.
+
+def _mark_text(raw):
+    r"""`\normalfont 1,2,3` -> `1,2,3`; `^{*,\dagger}` -> `*,†`."""
+    text = raw
+    for cmd, char in _MARK_SYMBOLS:
+        text = re.sub(r'\\%s(?![A-Za-z])' % cmd, char, text)
+    # `$` too: 2609.11801 marks its first author `\textsuperscript{1,$*$}`.
+    text = re.sub(r'\\[A-Za-z]+|\\[,;:! ]|[{}^\s~$]', '', text)
+    return text
+
+
+def _encode_marks(block):
+    """Each author or affiliation mark in `block` as a placeholder."""
+    def swap(m):
+        raw = m.group(1) if m.group(1) is not None else (
+            m.group(2) if m.group(2) is not None else m.group(3))
+        mark = _mark_text(raw)
+        if not _IS_MARK_RE.fullmatch(mark or ''):
+            return m.group(0)
+        return _MARK_OPEN + mark.replace(',', _MARK_COMMA) + _MARK_CLOSE
+    return _MARK_CMD_RE.sub(swap, block)
+
+
+def _split_marks(text):
+    """(text without marks, [mark, ...])."""
+    marks = [m.replace(_MARK_COMMA, ',').strip(',')
+             for m in _MARK_IN_TEXT_RE.findall(text)]
+    marks = [m for m in marks if m]
+    return _MARK_IN_TEXT_RE.sub(' ', text), marks
+
+
+# TeX's spellings of letters a name needs: `{\L}ukasz`, `\.{I}smail`,
+# `Schr\"odinger`. Left as they were, the backslash refused Attention's whole
+# author list over Łukasz Kaiser.
+_TEX_LETTERS = {'L': 'Ł', 'l': 'ł', 'O': 'Ø', 'o': 'ø', 'ss': 'ß',
+                'AA': 'Å', 'aa': 'å', 'AE': 'Æ', 'ae': 'æ', 'OE': 'Œ',
+                'oe': 'œ', 'i': 'ı', 'j': 'ȷ'}
+_TEX_ACCENTS = {"'": '\u0301', '`': '\u0300', '^': '\u0302', '"': '\u0308',
+                '~': '\u0303', '=': '\u0304', '.': '\u0307', 'u': '\u0306',
+                'v': '\u030c', 'H': '\u030b', 'c': '\u0327', 'k': '\u0328',
+                'r': '\u030a'}
+_TEX_LETTER_RE = re.compile(
+    r'\{\\(%s)\}|\\(%s)(?:\{\}|(?![A-Za-z]))'
+    % (('|'.join(sorted(_TEX_LETTERS, key=len, reverse=True)),) * 2))
+# Each spelling with its own braces, never an optional brace on either side:
+# `\{?` took the brace of the `\textbf{` in front, and `\textbf{\.{I}smail}`
+# came out `\textbfİsmail}`.
+_TEX_ACCENT_RE = re.compile(
+    r'\{\\([\'`^"~=.])\s*([A-Za-zıȷ])\}'            # {\'e}
+    r'|\\([\'`^"~=.])\s*\{([A-Za-zıȷ])\}'           # \'{e}
+    r'|\\([\'`^"~=.])([A-Za-zıȷ])'                  # \'e
+    r'|\{\\([uvHckr])\s+([A-Za-zıȷ])\}'             # {\v s}
+    r'|\\([uvHckr])\s*\{([A-Za-zıȷ])\}'             # \v{s}
+    r'|\\([uvHckr])\s([A-Za-zıȷ])')                 # \v s
+
+
+def tex_letters_to_unicode(text):
+    r"""`{\L}ukasz \.{I}lkan Schr\"odinger` -> `Łukasz İlkan Schrödinger`."""
+    import unicodedata
+    text = _TEX_LETTER_RE.sub(
+        lambda m: _TEX_LETTERS[m.group(1) or m.group(2)], text)
+
+    def accent(m):
+        groups = m.groups()
+        at = next(i for i in range(0, len(groups), 2) if groups[i])
+        mark, base = groups[at], groups[at + 1]
+        base = {'ı': 'i', 'ȷ': 'j'}.get(base, base)
+        return unicodedata.normalize('NFC', base + _TEX_ACCENTS[mark])
+    return _TEX_ACCENT_RE.sub(accent, text)
+
+
+# An affiliation line that is something else: an e-mail, a note on equal
+# contribution, a link.
+_NOT_AN_AFFILIATION_RE = re.compile(
+    r'(?i)equal(?:ly)?\s+(?:contribut|advis)|corresponding|work\s+(?:done|'
+    r'performed)|^\s*$')
+_EMAIL_GROUP_RE = re.compile(
+    r'\\(?:texttt|url|href|textsf|tt)\s*\{(?:[^{}]|\{[^{}]*\})*@'
+    r'(?:[^{}]|\{[^{}]*\})*\}(?:\s*\{(?:[^{}]|\{[^{}]*\})*\})?'
+    r'|\{\\tt\b(?:[^{}]|\{[^{}]*\})*@(?:[^{}]|\{[^{}]*\})*\}'
+    r'|\\?\{?[\w.,~\s\\-]*\\?\}?@[\w.-]+')
+_AFFIL_NOISE_RE = re.compile(
+    r'\\color\s*\{[^{}]*\}|\\(?:vspace|hspace)\*?\s*\{[^{}]*\}'
+    r'|^\s*\[[^\]]*\]|\\[A-Za-z]+\*?|[{}$~]')
+
+
+def _tex_group(tex, open_at):
+    r"""The body of the `{...}` at `open_at`, read as TeX reads it, or None.
+
+    Comments do not count and neither does an escaped brace. A brace count
+    that took both ran spectre's `\author{}` on through `\title{}` and the
+    whole abstract: a commented-out line in it holds `\{\href{...}`.
+    `tex` must be comment-stripped (`paper_macros.strip_comments`).
     """
-    tex = tex or ''
-    icml = re.findall(r'\\icmlauthor\s*\{((?:[^{}]|\{[^{}]*\})*)\}', tex)
-    if icml:
-        names = icml
+    close = paper_macros._group_end(tex, open_at)
+    return tex[open_at + 1:close - 1] if close > 0 else None
+
+
+def _renewed_body(tex, name):
+    r"""The body of `\renewcommand{\name}{...}`, or None."""
+    m = re.search(r'\\(?:re)?newcommand\s*\{?\\%s\}?\s*\{' % name, tex)
+    return _tex_group(tex, m.end() - 1) if m else None
+
+
+def _title_entries(tex):
+    r"""[(name parts, affiliation lines)] per author entry, or None.
+
+    The one parse both `extract_latex_authors` and `read_title_block` read,
+    so the names on the title page and in the metadata cannot disagree.
+    Marks are placeholders here (`_encode_marks`).
+
+    Two places a paper writes its author block: `\author{}` and a class's own
+    list macros (muxlab's `\authorlist` and `\affiliationlist`, which
+    2609.11801 fills with `\renewcommand`).
+    """
+    tex = paper_macros.strip_comments(tex)
+    listed = _renewed_body(tex, 'authorlist')
+    if listed is not None:
+        block, extra = listed, _renewed_body(tex, 'affiliationlist') or ''
     else:
         m = re.search(r'\\author\s*(?:\[[^\]]*\])?\s*\{', tex)
         if not m:
-            return ''
-        block = _balanced_arg(tex, tex.index('{', m.end() - 1)) or ''
-        block = re.sub(r'(?m)^\s*%.*$', '', block)     # a commented-out author
-        block = _AUTHOR_NOTE_RE.sub(' ', block)
-        block = _AUTHOR_SPACING_RE.sub(' ', block)
-        names = []
-        for entry in _AUTHOR_SEP_RE.split(block):
+            return None
+        block = _tex_group(tex, tex.index('{', m.end() - 1)) or ''
+        extra = ''
+    entries = []
+    for part, is_affiliations in ((block, False), (extra, True)):
+        part = re.sub(r'(?m)^\s*%.*$', '', part)          # a commented-out line
+        part = re.sub(r'(?m)(?<!\\)%.*$', '', part)       # a line-end comment
+        part = tex_letters_to_unicode(_encode_marks(part))
+        part = _AUTHOR_NOTE_RE.sub(' ', part)
+        part = _AUTHOR_SPACING_RE.sub(' ', part)
+        if is_affiliations:
+            entries.append(([], _AUTHOR_LINE_RE.split(part)))
+            continue
+        for entry in _AUTHOR_SEP_RE.split(part):
+            names, affiliations = [], []
             # The names come first in the entry; then where they work and
             # how to reach them. The first line is always names (and is
             # refused below if it is not). A later line is names only if
@@ -358,37 +498,208 @@ def extract_latex_authors(tex):
             # someone, which is as wrong as a false name. The first line
             # that is anything else -- an affiliation, an address, a note
             # on equal contribution -- ends the names.
-            for index, line in enumerate(_AUTHOR_LINE_RE.split(entry)):
+            lines = _AUTHOR_LINE_RE.split(entry)
+            for index, line in enumerate(lines):
+                line = re.sub(r'^\s*\[[^\]]*\]', '', line)   # `\\[2pt]`
+                # A name carries its mark after it, an affiliation before it.
+                # VLA-Adapter spaces its affiliations with `\quad` as it does
+                # its names, so `$^{5}$State Key Laboratory` arrived as an
+                # entry of its own and refused the whole list as a name.
+                if not index and _LEADING_MARK_RE.match(line):
+                    affiliations = lines
+                    break
                 parts = _AUTHOR_NAME_SEP_RE.split(line)
                 if index and not all(_reads_as_a_name(p) for p in parts
                                      if _bare_author(p)):
+                    affiliations = lines[index:]
                     break
                 names.extend(parts)
-    out = []
-    for name in names:
-        name = ' '.join(_AUTHOR_MARKUP_RE.sub(' ', name).split())
-        name = name.strip(' .,;*†‡§')
+            entries.append((names, affiliations))
+    return entries
+
+
+_LEADING_MARK_RE = re.compile(r'[\s{}]*(?:\\[A-Za-z]+\*?\s*)*')
+
+
+def _clean_name(part):
+    """(name, marks) for one name fragment."""
+    text, marks = _split_marks(part)
+    name = ' '.join(_AUTHOR_MARKUP_RE.sub(' ', text).split())
+    return name.strip(' .,;*†‡§'), marks
+
+
+def _checked_names(parts):
+    r"""[(name, marks)], or None when any fragment is not a name.
+
+    It looked like a name and did not come out as one -- a digit or a
+    backslash means markup survived the strip. Refuse the WHOLE list:
+    `Sherjil Ozair` carries a dagger, and dropping just that one printed
+    seven of GAN's eight authors. A list missing someone is as wrong as one
+    naming the wrong person, and it is harder to notice.
+    """
+    out, seen = [], set()
+    for part in parts:
+        name, marks = _clean_name(part)
         if _NOT_A_PERSON_RE.search(name):
             # An institution where a person should be. Refusing costs the
             # title page nothing it does not already lack; printing it would
             # put a false name on a book (K121's lesson in another costume).
-            return ''
+            return None
         # Nothing but punctuation or spacing: not a name, and not a failure.
         if not name or not re.search(r'[A-Za-zÀ-ɏ]', name):
             continue
-        # It looked like a name and did not come out as one — a digit or a
-        # backslash means markup survived the strip. Refuse the WHOLE list:
-        # `Łukasz Kaiser` is written `{\L}ukasz Kaiser` and `Sherjil Ozair`
-        # carries a dagger, and dropping just those two printed seven of
-        # Attention's eight authors and seven of GAN's eight. A list missing
-        # someone is as wrong as one naming the wrong person, and it is harder
-        # to notice.
         if re.search(r'\d|\\', name) or len(name) > 60 \
                 or len(name.split()) > 6:
+            return None
+        if name not in seen:
+            seen.add(name)
+            out.append((name, marks))
+    return out
+
+
+def extract_latex_authors(tex):
+    r"""The paper's author names, from `\author{}` or `\icmlauthor{}`. '' if none.
+
+    The title page falls back to "Unknown Author" whenever the source PDF has
+    no author metadata, which arXiv's GenPDF routinely omits — eight finished
+    books say it, and every one of them has the names sitting in its own
+    flat.tex. Marks and affiliations come off here; `read_title_block` keeps
+    them.
+    """
+    tex = tex or ''
+    icml = re.findall(r'\\icmlauthor\s*\{((?:[^{}]|\{[^{}]*\})*)\}', tex)
+    if icml:
+        parts = icml
+    else:
+        entries = _title_entries(tex)
+        if entries is None:
             return ''
-        if name not in out:
-            out.append(name)
-    return '; '.join(out)
+        parts = [p for names, _aff in entries for p in names]
+    names = _checked_names(parts)
+    return '; '.join(name for name, _marks in names) if names else ''
+
+
+# What follows the names and is not an affiliation: a project page, a
+# dedication (higgs_atlas), IEEE's "X and Y are with Z" note (TinyVLA).
+_NOT_AN_AFFILIATION_TEXT_RE = re.compile(
+    r'(?i)^(?:https?://|www\.)|^\S+\.(?:com|org|net|edu|io|de)\S*$'
+    r'|\b(?:is|are)\s+with\b|\bdedicated\b')
+
+
+def _note_of(line):
+    """A note line (`$^*$equal technical contribution`) as text, marks inline."""
+    text = _MARK_IN_TEXT_RE.sub(
+        lambda m: m.group(1).replace(_MARK_COMMA, ','), line)
+    return ' '.join(_AFFIL_NOISE_RE.sub(' ', text).split()).strip(' ,;:')
+
+
+def _affiliations_of(lines, notes=None):
+    """[(marks, text)] from the lines after an entry's names.
+
+    A line that is a note on the authors (equal contribution, corresponding
+    author) goes to `notes` instead, when given: ViT marks authors `*` and
+    a dagger and says what they mean on a line of its own.
+
+    A marked affiliation runs until the next mark, over several lines if the
+    paper wraps it (2609.11716's first). Unmarked lines are one affiliation
+    together: VAE's `Machine Learning Group \\ Universiteit van Amsterdam`
+    is one place, not two.
+    """
+    out = []
+    for line in lines:
+        line = _EMAIL_GROUP_RE.sub(' ', line)
+        if _NOT_AN_AFFILIATION_RE.search(_MARK_IN_TEXT_RE.sub('', line)):
+            note = _note_of(line)
+            if notes is not None and note and note not in notes:
+                notes.append(note)
+            continue
+        # A line can carry several, each opened by its mark:
+        # `^1 Department of Automation ~~~ ^2 ByteDance`.
+        pieces = re.split('(%s[^%s]*%s)' % (_MARK_OPEN, _MARK_CLOSE,
+                                             _MARK_CLOSE), line)
+        mark = None
+        for piece in pieces:
+            if piece.startswith(_MARK_OPEN):
+                mark = piece[1:-1].replace(_MARK_COMMA, ',').strip(',')
+                continue
+            text = ' '.join(_AFFIL_NOISE_RE.sub(' ', piece).split())
+            text = text.strip(' ,;:·')
+            if not re.search(r'[A-Za-zÀ-ɏ]{2}', text) \
+                    or _NOT_AN_AFFILIATION_TEXT_RE.search(text) \
+                    or len(text.split()) > 20:
+                continue
+            if mark is None and out:
+                # No mark of its own: it continues the one before it.
+                out[-1] = (out[-1][0], out[-1][1] + ', ' + text)
+            else:
+                out.append((mark or '', text))
+            mark = None
+    return out
+
+
+def read_title_block(tex):
+    r"""{'authors': [(name, marks)], 'affiliations': [(mark, text)],
+    'notes': [text]}, or None.
+
+    The affiliations reached no page: pandoc reads `\author{}` as metadata
+    and drops it, and the title page was built from the names alone. Seven
+    of the corpus papers lost every affiliation that way, among them
+    2609.11801, whose seven institutions an agent then typed in by hand.
+
+    Marks are the paper's own (`\textsuperscript{1}`, `$^{*,\dagger}$`,
+    `\inst{1}`). A paper that writes each author's affiliation under their
+    name with no marks (Attention, VAE) gets numbers, one per distinct
+    affiliation, and none at all when every author shares one. None when the
+    names cannot be read, as `extract_latex_authors` refuses them.
+    """
+    entries = _title_entries(tex or '')
+    if not entries:
+        return None
+    authors, affiliations, owners, notes = [], [], [], []
+    for names, lines in entries:
+        checked = _checked_names(names)
+        if checked is None:
+            return None
+        found = _affiliations_of(lines, notes)
+        if checked:
+            authors.extend(checked)
+            owners.append((len(authors) - len(checked), len(authors), found))
+        elif found and owners:
+            # An entry split by spacing before its affiliation, as Attention
+            # writes `Aidan N. Gomez\hspace{1.7mm}\thanks{..}\\ University of
+            # Toronto`: the affiliation is the previous name's.
+            start, stop, before = owners[-1]
+            owners[-1] = (start, stop, before + found)
+        else:
+            owners.append((len(authors), len(authors), found))
+        affiliations.extend(found)
+    if not authors:
+        return None
+    marked = any(mark for mark, _text in affiliations)
+    distinct = []
+    for _mark, text in affiliations:
+        if text not in distinct:
+            distinct.append(text)
+    if marked or len(distinct) <= 1:
+        unique = []
+        for item in affiliations:
+            if item not in unique:
+                unique.append(item)
+        return {'authors': authors, 'affiliations': unique, 'notes': notes}
+    # Unmarked and not shared: number each distinct affiliation, and give
+    # each author the numbers of the affiliations written under them.
+    numbered = [(str(i), text) for i, text in enumerate(distinct, 1)]
+    number = {text: str(i) for i, text in enumerate(distinct, 1)}
+    authors = [list(a) for a in authors]
+    for start, stop, found in owners:
+        marks = []
+        for _m, text in found:
+            if number[text] not in marks:
+                marks.append(number[text])
+        for author in authors[start:stop]:
+            author[1] = marks + author[1]
+    return {'authors': [tuple(a) for a in authors],
+            'affiliations': numbered, 'notes': notes}
 
 
 def read_pdf_text(pdf_path):

@@ -13,8 +13,10 @@ keeps saying what it says today.
 Names are read line by line: the first line of an entry is names, and a later
 line is names only if every part of it reads as one, so an affiliation, an
 address or a note ends the list. Measured over the corpus, every list it gives
-names only people on the paper's first page, and gives all of them; it still
-refuses attention, adam, AlphaQ, VLA-Adapter, DeeR-VLA and 2609.11801. Splitting the whole block on commas,
+names only people on the paper's first page, and gives all of them; of the
+papers it used to refuse, attention, AlphaQ, VLA-Adapter, DeeR-VLA and
+2609.11801 now read (test_title_block.py), and adam has no author block.
+Splitting the whole block on commas,
 as it once did, refused Sentence-BERT for a comma in its affiliation and
 CafeQ, ViT, BERT, GAN and ResNet for marks and spacing.
 """

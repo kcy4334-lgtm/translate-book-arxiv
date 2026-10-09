@@ -1095,7 +1095,29 @@ _TEMPLATE_TOKEN_RE = re.compile(
     r'|h1_break_before|h1_page_break_before)\$')
 
 
-def build_title_page(title, source=''):
+def title_block(temp_dir):
+    """`arxiv_backend.read_title_block` over this book's flat.tex, or None."""
+    path = os.path.join(temp_dir or '', 'flat.tex')
+    if not os.path.isfile(path):
+        return None
+    with open(path, encoding='utf-8', errors='replace') as fh:
+        return arxiv_backend.read_title_block(fh.read())
+
+
+def marked_byline(block):
+    """The authors as HTML, each with the marks that tie them to an
+    affiliation or a note. Marks that point at nothing on the page are left
+    off: a paper that puts its institutions in the body (`\\institute`) has
+    no list here for a number to refer to."""
+    show = bool(block.get('affiliations') or block.get('notes'))
+    return ', '.join(
+        _html_lib.escape(name)
+        + ('<sup>%s</sup>' % _html_lib.escape(','.join(marks))
+           if show and marks else '')
+        for name, marks in block['authors'])
+
+
+def build_title_page(title, source='', block=None):
     r"""The page a paper opens with, or '' when there is nothing to put on it.
 
     The book opened on its table of contents: no title, no authors, no
@@ -1115,6 +1137,16 @@ def build_title_page(title, source=''):
     parts = ['<section class="title-page">',
              '<h1 class="title-page-title">%s</h1>'
              % _html_lib.escape(title.strip())]
+    # The affiliations, and the notes that say what an author's mark means,
+    # from `arxiv_backend.read_title_block`. In English, as the paper prints
+    # them: an institution's name is not translated.
+    if block and block.get('affiliations'):
+        parts.append('<p class="title-page-affiliations">%s</p>' % ' · '.join(
+            ('<sup>%s</sup>' % _html_lib.escape(mark) if mark else '')
+            + _html_lib.escape(text) for mark, text in block['affiliations']))
+    if block and block.get('notes'):
+        parts.append('<p class="title-page-notes">%s</p>' % '<br>'.join(
+            _html_lib.escape(note) for note in block['notes']))
     if (source or '').strip():
         parts.append('<p class="title-page-source">%s</p>'
                      % _html_lib.escape(source.strip()))
@@ -1124,14 +1156,15 @@ def build_title_page(title, source=''):
 
 def apply_template_to_html(html_content, template_file, output_file, title, lang_cfg,
                            author=None, print_cfg=None, title_page='',
-                           byline=None):
+                           byline=None, marked_names=None):
     """Apply a template to HTML content with language-aware substitutions.
 
     `author` is the metadata form and goes in the `<meta>` tag. `byline` is
     what the reader sees under the title; it defaults to `author` and is
     given the full list when one is known, because the metadata form is a
     catalogue entry -- "Yihao Wang et al." -- and a title page that credits
-    one of sixteen people is not a title page.
+    one of sixteen people is not a title page. `marked_names`, already
+    escaped, replaces it when the names carry marks (`marked_byline`).
     """
     if not template_file or not os.path.exists(template_file):
         print(f"Warning: Template {template_file} not found")
@@ -1189,8 +1222,9 @@ def apply_template_to_html(html_content, template_file, output_file, title, lang
             # anywhere -- a paper that does not say who wrote it. The title is
             # the body's first <h1>; the contents page is added after this.
             shown = (byline or author).replace(';', ',')
-            byline_html = '<p class="byline">%s</p>' % _html_lib.escape(
-                re.sub(r'\s{2,}', ' ', shown).strip())
+            byline_html = '<p class="byline">%s</p>' % (
+                marked_names or _html_lib.escape(
+                    re.sub(r'\s{2,}', ' ', shown).strip()))
             # Searched from <body>, not from the top of the file. The old
             # `re.sub(r'</h1>', ..., count=1)` matched the whole document,
             # and a CSS comment in <head> that merely NAMED the tag took the
@@ -2537,12 +2571,14 @@ def convert_md_to_html(temp_dir, title, lang_cfg, author=None,
     # credited one of sixteen authors, in a <meta> tag no reader sees.
     book_cfg = load_config(temp_dir) or {}
     arxiv_id = (book_cfg.get('arxiv_id') or '').strip()
+    block = title_block(temp_dir)
     title_page = build_title_page(
-        title, source='arXiv:%s' % arxiv_id if arxiv_id else '')
+        title, source='arXiv:%s' % arxiv_id if arxiv_id else '', block=block)
     full_byline = (book_cfg.get('creator') or '').strip() or author
     apply_template_to_html(body_content, template_ebook, book_doc_file, title,
                            ebook_cfg, author, print_cfg=print_cfg,
-                           title_page=title_page, byline=full_byline)
+                           title_page=title_page, byline=full_byline,
+                           marked_names=marked_byline(block) if block else None)
 
     # Generate book.html with web template
     template_web = os.path.join(SCRIPT_DIR, 'template.html')
