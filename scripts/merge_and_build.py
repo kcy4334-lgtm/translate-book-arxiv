@@ -890,6 +890,45 @@ def convert_with_pandoc(md_file, html_file, title, lang_attr, math_mode='mathml'
 # A math span: $$...$$ (may span lines) or $...$ (single line, non-empty).
 _MATH_SPAN_RE = re.compile(r'(?<!\\)(\$\$.+?\$\$|\$[^$\n]+?\$)', re.DOTALL)
 
+_MTR_RE = re.compile(r'<mtr>(.*?)</mtr>', re.DOTALL)
+_MTD_OPEN_RE = re.compile(r'<mtd\b([^>]*)>')
+
+
+def space_alignment_pairs(html):
+    r"""Put LaTeX's space between the column pairs of an `align` row.
+
+    `align` sets its cells in right/left pairs and puts a wide gap between
+    one pair and the next. pandoc's MathML gives every cell no padding, so the
+    second pair starts where the first ends: ViT's equation 8,
+    `[...]\,U_{msa} & U_{msa} \in \mathbb{R}^{...}`, read "U_msa U_msa ∈".
+    A row whose cells alternate right, left is an alignment; the first cell
+    of each later pair gets the gap. Matrices and cases align otherwise and
+    are left alone.
+    """
+    def row(m):
+        cells = list(_MTD_OPEN_RE.finditer(m.group(1)))
+        aligns = [re.search(r'columnalign="(\w+)"', c.group(1)) for c in cells]
+        aligns = [a.group(1) if a else '' for a in aligns]
+        if len(cells) < 3 or any(
+                a != ('right' if i % 2 == 0 else 'left')
+                for i, a in enumerate(aligns)):
+            return m.group(0)
+        body, out, cursor = m.group(1), [], 0
+        for i, cell in enumerate(cells):
+            if i and i % 2 == 0:
+                attrs = cell.group(1)
+                if 'style="' in attrs:
+                    attrs = attrs.replace('style="', 'style="padding-left: 2em; ', 1)
+                else:
+                    attrs += ' style="padding-left: 2em"'
+                out.append(body[cursor:cell.start()])
+                out.append('<mtd%s>' % attrs)
+                cursor = cell.end()
+        out.append(body[cursor:])
+        return '<mtr>%s</mtr>' % ''.join(out)
+
+    return _MTR_RE.sub(row, html)
+
 
 def _protect_math(text):
     """Stash math spans behind sentinels so markdown emphasis rules cannot
@@ -2430,6 +2469,7 @@ def convert_md_to_html(temp_dir, title, lang_cfg, author=None,
     # equation stays clean.
     body_content, eq_tagged = tag_equations_in_html(body_content, md_text,
                                                     temp_dir)
+    body_content = space_alignment_pairs(body_content)
     if eq_tagged or docx_tagged:
         print("Equations: %d numbered (%d in the DOCX copy)"
               % (eq_tagged, docx_tagged))
