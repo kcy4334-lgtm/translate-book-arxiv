@@ -1434,6 +1434,24 @@ _GLOSS_REF_RE = re.compile(
     r'|\s*\{([a-z]{1,12}:[^{}]{1,60})\}')
 
 
+_TRAILING_TAG_RE = re.compile(r'\s*(\([^()]{1,12}\))\s*$')
+
+
+def _without_shared_tag(gloss, translated):
+    """The gloss less a closing `(Q1)` the translated heading already ends with.
+
+    2609.11801 tags three sections `(Q1)`, `(Q2)` and `(Q3)` after the research
+    questions its introduction asks. The translator keeps the tag, the gloss
+    repeats the whole original, and the book printed
+    "정확하고 확장 가능한 순환 추론 (Q1) (Accurate and scalable recurrent
+    reasoning (Q1))". The tag is not a word to translate; once is enough.
+    """
+    tag = _TRAILING_TAG_RE.search(gloss)
+    if tag and translated.rstrip().endswith(tag.group(1)):
+        return gloss[:tag.start()].strip()
+    return gloss
+
+
 def _gloss_reference(original, numbers):
     r"""The source heading as a reader should see it.
 
@@ -1621,7 +1639,8 @@ def number_sections(md_text, temp_dir, bilingual=True):
             continue  # already numbered; do not double up
         text = f'{label} {translated}'.strip()
         if bilingual and original and not _already_says(translated, original):
-            gloss = _gloss_reference(original, gloss_numbers)
+            gloss = _without_shared_tag(_gloss_reference(original, gloss_numbers),
+                                        translated)
             if gloss:
                 text += f' ({gloss})'
         pieces.append(md_text[cursor:m.start()])
