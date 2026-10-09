@@ -60,7 +60,8 @@ from numbering import (
     read_class_conventions, read_counter_parents, read_fixed_counter_prefix,
     read_float_units, read_theorem_environments, read_theorem_parents,
     resolve_bare_float_labels, resolve_references,
-    resolve_unprefixed_references, roman_numeral, tag_equations_for_markdown,
+    resolve_unprefixed_references, roman_numeral, tag_equation_rows,
+    tag_equations_for_markdown,
     tag_equations_in_html, template_affixes, unwrap_prose_environments,
 )
 from latex_cleanup import (
@@ -2311,6 +2312,11 @@ def convert_md_to_html(temp_dir, title, lang_cfg, author=None,
     # about which lines are headings. A heading glued to the paragraph above
     # is not a heading to pandoc, and the loss is silent.
     md_text = separate_headings(md_text)
+    # A block numbered row by row carries its numbers in the TeX, for both
+    # paths; a one-number block is labelled per path further down.
+    md_text, rows_tagged = tag_equation_rows(md_text, temp_dir)
+    if rows_tagged:
+        print(f"Equations: {rows_tagged} row(s) of multi-line blocks numbered")
     docx_md, docx_ok, docx_bad = expand_raw_latex_tables(
         md_text, math_mode=math_mode, output='markdown', temp_dir=temp_dir)
     # pandoc builds book.docx straight from this file and never sees the HTML

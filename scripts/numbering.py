@@ -1996,6 +1996,96 @@ def equation_numbers(md_text, strings=None):
     return out
 
 
+# Environments whose rows are cells separated by `&`. The number goes in a
+# column of its own after the widest row, so the numbers line up with each
+# other and every row keeps its alignment. `gather` has one centred column
+# and no `&`; there the number follows the row.
+_COLUMN_ROW_ENVS = ('align', 'alignat', 'eqnarray', 'flalign')
+
+
+def _top_level_ampersands(row):
+    r"""`&` that separate cells of THIS row: not `\&`, not inside braces, not
+    inside a nested `cases` or `matrix`."""
+    count, brace, env, i, n = 0, 0, 0, 0, len(row)
+    while i < n:
+        ch = row[i]
+        if ch == '\\':
+            m = re.match(r'\\([A-Za-z@]+)', row[i:])
+            if not m:
+                i += 2
+                continue
+            if m.group(1) == 'begin':
+                env += 1
+            elif m.group(1) == 'end':
+                env = max(0, env - 1)
+            i += m.end()
+            continue
+        if ch == '{':
+            brace += 1
+        elif ch == '}':
+            brace = max(0, brace - 1)
+        elif ch == '&' and brace == 0 and env == 0:
+            count += 1
+        i += 1
+    return count
+
+
+def tag_equation_rows(md_text, temp_dir=None):
+    r"""Number each row of a block LaTeX numbers row by row. (text, count).
+
+    Such a block printed no number at all: `equation_numbers` leaves it
+    unlabelled, because one flush-right label cannot stand for four rows, and
+    pandoc drops `\tag`. ViT's eight equations showed one number between them,
+    and the text referred to (2) to (7) with nothing on the page to match.
+
+    Written into the TeX, so the HTML and the DOCX both carry it. Counted by
+    `equation_numbers`' own rule, so a row's number is the one its `\label`
+    resolves to.
+    """
+    blocks = [(m, _numbers_for_block(m.group(1)))
+              for m in _DISPLAY_MATH_BLOCK_RE.finditer(md_text)]
+    strings = flat_equation_numbers(temp_dir)
+    if strings is not None and len(strings) != sum(w for _m, w in blocks):
+        strings = None
+
+    pieces, cursor, counter, tagged = [], 0, 0, 0
+    for m, wanted in blocks:
+        if wanted <= 1:
+            counter += wanted
+            continue
+        body = m.group(1)
+        opened = _MATH_ENV_OPEN_RE.search(body)
+        if (not opened or opened.group(2) or opened.group(1) not in _ROW_NUMBERED
+                or opened.group(1) in ('empheq', 'IEEEeqnarray')):
+            counter += wanted
+            continue
+        env = opened.group(1)
+        inner = latex_rows.env_body(body, opened.end(), env)
+        rows = latex_rows.split_rows(inner)
+        widest = max(_top_level_ampersands(r) for r in rows)
+        out_rows = []
+        for row in rows:
+            if re.search(r'\\(?:nonumber|notag)\b', row):
+                out_rows.append(row)
+                continue
+            counter += 1
+            number = strings[counter - 1] if strings else counter
+            text, tail = row.rstrip(), row[len(row.rstrip()):]
+            if env in _COLUMN_ROW_ENVS:
+                pad = '&' * (widest - _top_level_ampersands(row) + 1)
+                text += ' %s \\qquad(%s)' % (pad, number)
+            else:
+                text += ' \\qquad(%s)' % number
+            out_rows.append(text + tail)
+            tagged += 1
+        start = m.start(1) + opened.end()
+        pieces.append(md_text[cursor:start])
+        pieces.append('\\\\'.join(out_rows))
+        cursor = start + len(inner)
+    pieces.append(md_text[cursor:])
+    return ''.join(pieces), tagged
+
+
 def tag_equations_for_markdown(md_text, temp_dir=None):
     """Put `\\qquad(N)` inside each numbered formula. Returns (text, count).
 
