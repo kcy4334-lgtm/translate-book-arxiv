@@ -413,6 +413,34 @@ class BibliographyErrorGuidanceTests(unittest.TestCase):
         self.assertIn('re-unpacked on every run', out)
         self.assertNotIn('and re-run', out)
 
+    def test_a_heap_ceiling_is_explained(self):
+        # higgs_atlas's pandoc grew to 160 GB on two macros calling each other.
+        result, out = self._run('pandoc.exe: Heap exhausted;')
+        self.assertIsNone(result)
+        self.assertIn('ceiling', out)
+        self.assertIn('call each other', out)
+
+    def test_pandoc_runs_under_a_heap_ceiling(self):
+        seen = []
+
+        class Recorder(object):
+            def convert_text(self, *_a, **kw):
+                seen.append(kw.get('extra_args'))
+                return ''
+
+        saved = sys.modules.get('pypandoc')
+        sys.modules['pypandoc'] = Recorder()
+        try:
+            with contextlib.redirect_stdout(io.StringIO()):
+                arxiv_backend.latex_to_markdown('BODY', '/tmp/x', '/tmp/x')
+        finally:
+            if saved is None:
+                del sys.modules['pypandoc']
+            else:
+                sys.modules['pypandoc'] = saved
+        args = seen[0]
+        self.assertEqual(args[:3], ['+RTS', '-M4g', '-RTS'])
+
     def test_another_failure_keeps_the_plain_message(self):
         """The advice is only right for a bibliography, so it must not appear
         on every failure; otherwise it sends readers at the wrong file."""

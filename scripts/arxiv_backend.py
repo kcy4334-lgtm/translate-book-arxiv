@@ -3126,6 +3126,9 @@ def _full_author_csl(pypandoc):
     return path
 
 
+_PANDOC_HEAP = '4g'
+
+
 def latex_to_markdown(flat_tex, tex_dir, root, bib_files=None,
                       year_letters=None):
     """Convert flattened LaTeX to markdown via pandoc (through pypandoc)."""
@@ -3135,7 +3138,12 @@ def latex_to_markdown(flat_tex, tex_dir, root, bib_files=None,
         print("pypandoc not found. Install with: pip install pypandoc")
         return None
 
-    extra = ['--wrap=none', f'--resource-path={tex_dir}{os.pathsep}{root}']
+    # A heap ceiling, as pandoc's manual advises for input it did not write.
+    # Two macros calling each other through `\ensuremath` are a loop pandoc's
+    # own check misses; higgs_atlas's pandoc grew to 160 GB before it was
+    # killed. With the ceiling it stops with "Heap exhausted".
+    extra = ['+RTS', '-M%s' % _PANDOC_HEAP, '-RTS', '--wrap=none',
+             f'--resource-path={tex_dir}{os.pathsep}{root}']
     if bib_files:
         # Without citeproc every \cite lands in the output as a literal
         # `[@bibtexkey]`, so the reader sees raw keys instead of citations.
@@ -3187,6 +3195,10 @@ def latex_to_markdown(flat_tex, tex_dir, root, bib_files=None,
         return normalize_newlines(out)
     except Exception as e:
         print(f"LaTeX to markdown conversion failed: {e}")
+        if 'Heap exhausted' in str(e):
+            print(f"  pandoc reached its {_PANDOC_HEAP} ceiling. A paper needs "
+                  f"far less; this is a macro expanding without end, usually "
+                  f"two definitions that call each other.")
         bad = _BIB_READ_ERROR_RE.search(str(e))
         if bad:
             # The generic advice below this ("fix the cause reported above")
