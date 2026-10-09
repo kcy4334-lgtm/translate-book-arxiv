@@ -45,6 +45,13 @@ class NotationThePaperPrints(unittest.TestCase):
         found = lp.candidates('−DKL(q\U0001D753(\U0001D49B)||p\U0001D73D(\U0001D49B))')
         self.assertEqual(dict(found), {})
 
+    def test_an_approximate_number_is_prose(self):
+        found = lp.candidates('it takes ~65 hours, or ~0.01 s')
+        self.assertEqual(dict(found), {})
+
+    def test_a_leaked_tie_is_still_flagged(self):
+        self.assertIn('section~', lp.candidates('see section~ above'))
+
     def test_a_bar_in_plain_text_is_still_flagged(self):
         self.assertIn('a||b', lp.candidates('see a||b here'))
 

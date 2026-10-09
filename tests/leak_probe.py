@@ -120,6 +120,10 @@ def candidates(text, source=''):
         if set(token) & SYNTAX and not written_as_literal(token, source):
             if set(token) & SYNTAX <= {'|'} and MATH_LETTERS_RE.search(token):
                 continue
+            # "~65 hours" is "about 65": Sentence-BERT's `\texttildelow`.
+            # A tie that leaked sits after a word, not before a number.
+            if re.match(r'~[\d.]+[%A-Za-z가-힣]*$', token):
+                continue
             found[token] += 1
     for _label, pattern in SHAPES:
         for m in pattern.finditer(text):
