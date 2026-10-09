@@ -1296,8 +1296,11 @@ def prefixes_from_lines(lines, tex_heads, run_in_level=0, stats=None):
         m = _PDF_PREFIX_RE.match(line)
         if m:
             key = _normalize_heading(m.group(2))
-            if key and key not in numbered:
-                numbered[key] = m.group(1).strip()
+            # Every distinct number a title is printed with, in order. One
+            # was kept, so ViT's second "Self-supervision" (B.1.2, after 4.6)
+            # printed with no number while the body cited "B.1.2절".
+            if key and m.group(1).strip() not in numbered.get(key, []):
+                numbered.setdefault(key, []).append(m.group(1).strip())
         bare = _PDF_BARE_PREFIX_RE.match(before)
         if bare:
             key = _normalize_heading(line)
@@ -1308,11 +1311,21 @@ def prefixes_from_lines(lines, tex_heads, run_in_level=0, stats=None):
             plain.add(key)
         before = line
 
-    prefixes, used = [], {}
+    prefixes, used, used_joined = [], {}, {}
     for level, title, _is_numbered in tex_heads:
         key = _normalize_heading(title)
         if key in numbered:
-            prefixes.append(numbered[key])
+            candidates = numbered[key]
+            if len(candidates) > 1:
+                # A title used twice takes its numbers in order, the one
+                # that can number this level first.
+                taken = used_joined.setdefault(key, set())
+                fresh = [p for p in candidates
+                         if p not in taken and _prefix_fits_level(p, level)]
+                if fresh:
+                    taken.add(fresh[0])
+                    candidates = fresh
+            prefixes.append(candidates[0])
             stats['matched'] += 1
             continue
         # Every candidate is kept and the first that can number this level
@@ -1336,7 +1349,7 @@ def prefixes_from_lines(lines, tex_heads, run_in_level=0, stats=None):
         # extracted line holds only its beginning.
         partial = _longest_prefix_match(key, numbered)
         if partial is not None:
-            prefixes.append(numbered[partial])
+            prefixes.append(numbered[partial][0])
             stats['matched'] += 1
             stats['wrapped'] += 1
             continue
@@ -1344,7 +1357,7 @@ def prefixes_from_lines(lines, tex_heads, run_in_level=0, stats=None):
         # LaTeX side and the PDF renders as an ordinary letter.
         extended = _math_extended_match(title, key, numbered)
         if extended is not None:
-            prefixes.append(numbered[extended])
+            prefixes.append(numbered[extended][0])
             stats['matched'] += 1
             stats['wrapped'] += 1
             continue

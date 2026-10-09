@@ -25,6 +25,23 @@ def read(lines, heads, run_in_level=0):
     return mb.prefixes_from_lines(lines, heads, run_in_level)[0]
 
 
+class RepeatedTitles(unittest.TestCase):
+    """ViT has "4.6 Self-supervision" and, in the appendix, "B.1.2
+    Self-supervision". One number was kept per title, so the second printed
+    with none while the body cited "B.1.2절"."""
+
+    def test_a_title_printed_twice_takes_its_numbers_in_order(self):
+        lines = ['4.6 Self-supervision', 'Transformers show ...',
+                 'B.1.2 Self-supervision', 'We employ ...']
+        heads = [(2, 'Self-supervision', True), (3, 'Self-supervision', True)]
+        self.assertEqual(read(lines, heads), ['4.6', 'B.1.2'])
+
+    def test_a_title_printed_once_still_numbers_every_use(self):
+        lines = ['2 Related work', 'Prior ...']
+        heads = [(1, 'Related work', True)]
+        self.assertEqual(read(lines, heads), ['2'])
+
+
 class SplitLineNumbers(unittest.TestCase):
     def test_a_number_on_the_line_above_is_read(self):
         lines = ['sine Similarity.', '1', 'Introduction', 'Gradient-based ...',
