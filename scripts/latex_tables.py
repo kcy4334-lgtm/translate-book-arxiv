@@ -534,6 +534,104 @@ def _clean_colspec(spec):
     return ''.join(out) or 'l'
 
 
+def column_rules(spec):
+    r"""({boundary: 'dark'|'soft'}, columns) from a tabular preamble.
+
+    Boundary k lies before column k; boundary `columns` is the right edge.
+    `|` is a dark rule; `!{\color{lightgray}\vline}` (any `!{...\vline}`
+    holding a colour) a soft one.
+    """
+    rules, col, i = {}, 0, 0
+    while i < len(spec):
+        ch = spec[i]
+        if ch == '|':
+            rules[col] = 'dark'
+            i += 1
+        elif ch in '@!><' and i + 1 < len(spec) and spec[i + 1] == '{':
+            body, i = _brace_group(spec, i + 1)
+            if ch == '!' and '\\vline' in (body or ''):
+                rules[col] = 'soft' if '\\color' in body else 'dark'
+        elif ch == '*' and i + 1 < len(spec) and spec[i + 1] == '{':
+            count, j = _brace_group(spec, i + 1)
+            if j < len(spec) and spec[j] == '{':
+                inner, i = _brace_group(spec, j)
+                times = int(count) if count.strip().isdigit() else 1
+                for _ in range(times):
+                    sub, n = column_rules(inner)
+                    rules.update({col + k: v for k, v in sub.items()})
+                    col += n
+            else:
+                i = j
+        elif ch in 'pmbPLRCX' and i + 1 < len(spec) and spec[i + 1] == '{':
+            _, i = _brace_group(spec, i + 1)
+            col += 1
+        elif ch == 'S' and i + 1 < len(spec) and spec[i + 1] == '[':
+            close = spec.find(']', i)
+            i = close + 1 if close > 0 else len(spec)
+            col += 1
+        elif ch.isalpha():
+            col += 1
+            i += 1
+        else:
+            i += 1
+    return rules, col
+
+
+_CELL_TAG_RE = re.compile(r'<(td|th)\b([^>]*)>')
+
+
+def mark_column_rules(html, latex):
+    r"""Give the cells next to a vertical rule the class the print sheet draws.
+
+    pandoc drops every `|` in a column spec, so no table in a book carried a
+    vertical rule. ViT's Table 9 separates its three VTAB task groups with
+    grey ones, and ResNet's tables rule off every column.
+    """
+    m = _PREAMBLE_ENV_RE.search(latex)
+    if not m:
+        return html
+    i = m.end()
+    for _ in range(_TABULAR_ENVS.get(m.group(1), 0)):
+        i = re.match(r'\s*(?:\[[^\]]*\]\s*)?', latex[i:]).end() + i
+        if i < len(latex) and latex[i] == '{':
+            _, i = _brace_group(latex, i)
+    i = re.match(r'\s*(?:\[[^\]]*\]\s*)?', latex[i:]).end() + i
+    if i >= len(latex) or latex[i] != '{':
+        return html
+    spec, _end = _brace_group(latex, i)
+    rules, columns = column_rules(spec or '')
+    if not rules:
+        return html
+
+    def mark_row(row_match):
+        row, col, pieces, cursor = row_match.group(0), 0, [], 0
+        for cell in _CELL_TAG_RE.finditer(row):
+            attrs = cell.group(2)
+            span = re.search(r'colspan="(\d+)"', attrs)
+            width = int(span.group(1)) if span else 1
+            classes = []
+            if col in rules:
+                classes.append('vrule-left' + ('-soft' if rules[col] == 'soft' else ''))
+            if col + width == columns and columns in rules:
+                classes.append('vrule-right' + ('-soft' if rules[columns] == 'soft' else ''))
+            col += width
+            if not classes:
+                continue
+            existing = re.search(r'class="([^"]*)"', attrs)
+            if existing:
+                attrs = attrs.replace(existing.group(0), 'class="%s %s"' % (
+                    existing.group(1), ' '.join(classes)))
+            else:
+                attrs += ' class="%s"' % ' '.join(classes)
+            pieces.append(row[cursor:cell.start()])
+            pieces.append('<%s%s>' % (cell.group(1), attrs))
+            cursor = cell.end()
+        pieces.append(row[cursor:])
+        return ''.join(pieces)
+
+    return re.sub(r'<tr\b[^>]*>.*?</tr>', mark_row, html, flags=re.DOTALL)
+
+
 # How many brace groups sit between the environment name and the preamble.
 _TABULAR_ENVS = {'tabular': 0, 'array': 0, 'longtable': 0,
                  'tabular*': 1, 'tabularx': 1, 'tabulary': 1}
@@ -1790,6 +1888,7 @@ def expand_raw_latex_tables(md_text, pandoc=None, math_mode='mathml',
             html = mark_body_rules(html, t['bare'])
             html, _shaded = mark_shaded_rows(html, t['bare'])
             shaded_rows += _shaded
+            html = mark_column_rules(html, t['bare'])
             html, _groups = split_row_groups(html, t['bare'])
             html, _symbols = simplify_symbol_math(html)
             # A paper table can carry ten columns; at body size that wraps every

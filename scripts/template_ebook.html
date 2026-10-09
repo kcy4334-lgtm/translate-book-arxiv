@@ -417,6 +417,11 @@
         thead tr:not(:last-child) th:not([colspan]) { border-bottom: 0; }
         tbody tr.rule-above > * { border-top: 1px solid #4a5568; }
         tbody tr.rule-above-soft > * { border-top: 1px solid #cbd5e0; }
+        /* The column spec's `|` and `!{\color{lightgray}\vline}`. */
+        td.vrule-left, th.vrule-left { border-left: 1px solid #4a5568; }
+        td.vrule-left-soft, th.vrule-left-soft { border-left: 1px solid #cbd5e0; }
+        td.vrule-right, th.vrule-right { border-right: 1px solid #4a5568; }
+        td.vrule-right-soft, th.vrule-right-soft { border-right: 1px solid #cbd5e0; }
         /* The band the paper puts behind its OWN results. Unlike the group
            rules above, here the fill IS the meaning -- `\rowcolor` is how a
            results table says which lines are the authors' -- so it is a

@@ -130,6 +130,37 @@ class ColouredMarks(unittest.TestCase):
             r'\textcolor{#b65555}{●} \textcolor{red}{x}')
 
 
+class ColumnRules(unittest.TestCase):
+    """pandoc drops every `|`; no table in a book had a vertical rule."""
+
+    def test_vit_grey_rules_are_soft(self):
+        import latex_tables as lt
+        spec = (r'p{10pt}p{1.6cm}!{\color{lightgray}\vline} CCCCCCC'
+                r'!{\color{lightgray}\vline}CCCC!{\color{lightgray}\vline}C')
+        self.assertEqual(lt.column_rules(spec),
+                         ({2: 'soft', 9: 'soft', 13: 'soft'}, 14))
+
+    def test_bars_and_repeats(self):
+        import latex_tables as lt
+        self.assertEqual(lt.column_rules('|l|*{3}{c|}'),
+                         ({0: 'dark', 1: 'dark', 2: 'dark', 3: 'dark', 4: 'dark'}, 4))
+
+    def test_cells_beside_a_rule_are_marked_across_a_span(self):
+        import latex_tables as lt
+        html = ('<table><tr><th>a</th><th colspan="2">b</th></tr>'
+                '<tr><td>1</td><td>2</td><td class="x">3</td></tr></table>')
+        out = lt.mark_column_rules(html, r'\begin{tabular}{l|c|c|}x\end{tabular}')
+        self.assertIn('<th colspan="2" class="vrule-left vrule-right">b</th>', out)
+        self.assertIn('<td class="vrule-left">2</td>', out)
+        self.assertIn('<td class="x vrule-left vrule-right">3</td>', out)
+
+    def test_no_rule_no_change(self):
+        import latex_tables as lt
+        html = '<table><tr><td>1</td></tr></table>'
+        self.assertEqual(lt.mark_column_rules(html, r'\begin{tabular}{l}1\end{tabular}'),
+                         html)
+
+
 class CellFootnotes(unittest.TestCase):
     def test_a_tablefootnote_becomes_a_mark_and_a_note(self):
         # PaLM's FLOP-count row lost its explanation.
