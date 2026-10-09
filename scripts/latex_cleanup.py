@@ -655,6 +655,9 @@ _TEXT_RM_RE = re.compile(r'(\\text\s*\{)\s*\\(?:rm|normalfont)\b\s*')
 # `\verb|np.random.pareto|`: verbatim is a text-mode command. In a formula
 # texmath reads `\texttt`, with an underscore escaped so it stays one.
 _VERB_IN_MATH_RE = re.compile(r'\\verb\*?([^A-Za-z\s])(.*?)\1')
+# `$^{\emph{b}}$`, PaLM's footnote letters in a table: `\emph` is text mode;
+# in a formula texmath reads `\textit`.
+_EMPH_IN_MATH_RE = re.compile(r'\\emph(?=\s*\{)')
 
 
 def drop_math_colour(md_text):
@@ -676,6 +679,8 @@ def drop_math_colour(md_text):
         span, n = _COLOR_SWITCH_RE.subn('', span)
         count[0] += n
         span, n = _TEXT_RM_RE.subn(r'\1', span)
+        count[0] += n
+        span, n = _EMPH_IN_MATH_RE.subn(r'\\textit', span)
         count[0] += n
         span, n = _VERB_IN_MATH_RE.subn(
             lambda v: '\\texttt{%s}' % re.sub(r'(?<!\\)([_%&#$])', r'\\\1',

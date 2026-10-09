@@ -46,6 +46,11 @@ class MathColour(unittest.TestCase):
                          + 'alpha) > 1 - ' + BS + 'texttt{document' + BS
                          + '_score}$$')
 
+    def test_emph_in_a_formula_becomes_textit(self):
+        """PaLM's table footnote letters: `62.4$^{\\emph{b}}$`."""
+        out, _n = mb.drop_math_colour('62.4$^{' + BS + 'emph{b}}$')
+        self.assertEqual(out, '62.4$^{' + BS + 'textit{b}}$')
+
     def test_text_outside_math_is_left_alone(self):
         text = 'a ' + BS + 'textcolor{red}{word} in prose'
         self.assertEqual(mb.drop_math_colour(text), (text, 0))
