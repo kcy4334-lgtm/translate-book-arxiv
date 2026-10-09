@@ -29,6 +29,7 @@ import urllib.request
 
 import math_guard
 import paper_macros
+from build_common import _in_latex_comment
 
 for _stream in (sys.stdout, sys.stderr):
     try:
@@ -1889,6 +1890,50 @@ def unwrap_algorithm_figures(tex):
     return _FIGURE_ENV_RE.sub(repl, tex), count
 
 
+_FOOTNOTE_PIECE_RE = re.compile(r'\\footnote(mark|text)\b\s*(?:\[[^\]]*\])?')
+
+
+def keep_unmarked_footnotetext(tex):
+    r"""A `\footnotetext` with no `\footnotemark` waiting for it stays as text.
+
+    pandoc pairs each `\footnotetext` with the `\footnotemark` before it and
+    drops one that has none. Papers write unmarked notes exactly that way:
+    2609.11801 puts its "Work done while a visiting researcher" and "Equal
+    advising" note under the title with `\renewcommand{\thefootnote}{}`, and
+    BERT adds "See (10) in gluebenchmark.com/faq" after a table. Both books
+    lost the note. It becomes a paragraph where it stood, which is what a
+    reader of the original sees at the foot of that page. Returns (tex, n).
+    """
+    out, pending, count, i = [], 0, 0, 0
+    for m in _FOOTNOTE_PIECE_RE.finditer(tex):
+        if m.start() < i or _in_latex_comment(tex, m.start()):
+            continue
+        if m.group(1) == 'mark':
+            pending += 1
+            continue
+        if pending:
+            pending -= 1
+            continue
+        brace = m.end()
+        if brace >= len(tex) or tex[brace] != '{':
+            continue
+        body = _balanced_arg(tex, brace)
+        if body is None:
+            continue
+        end = brace + len(body) + 2
+        # Note marks set in text, which pandoc keeps as raw LaTeX and the
+        # HTML then drops: "†Equal advising" printed as "Equal advising".
+        body = re.sub(r'\\q?quad\b\s*', ' ', body)
+        body = re.sub(r'\\ddag\b\s*', '‡', body)
+        body = re.sub(r'\\dag\b\s*', '†', body)
+        out.append(tex[i:m.start()])
+        out.append('\n\n%s\n\n' % body.strip())
+        i = end
+        count += 1
+    out.append(tex[i:])
+    return ''.join(out), count
+
+
 def sanitize_tex(tex):
     """Drop markup that only styles the page, before pandoc reads it."""
     total = 0
@@ -1903,6 +1948,10 @@ def sanitize_tex(tex):
     if panels:
         print(f"Unwrapped {panels} \\subfloat panel(s) so pandoc can see the "
               f"figures inside them")
+    tex, notes = keep_unmarked_footnotetext(tex)
+    if notes:
+        print(f"Kept {notes} \\footnotetext with no \\footnotemark as text; "
+              f"pandoc drops an unpaired one")
     tex, holders = unwrap_algorithm_figures(tex)
     if holders:
         print(f"Unwrapped {holders} figure(s) that only held algorithms; "

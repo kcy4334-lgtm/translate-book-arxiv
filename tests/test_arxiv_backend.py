@@ -143,6 +143,33 @@ class AlgorithmFigureTests(unittest.TestCase):
             self.assertEqual((out, n), (tex, 0), extra)
 
 
+class UnmarkedFootnoteTextTests(unittest.TestCase):
+    """pandoc drops a `\\footnotetext` that no `\\footnotemark` waits for. The
+    demo paper's "Equal advising" note under its title and a BERT note after a
+    table were both lost that way."""
+
+    def test_an_unmarked_note_stays_as_a_paragraph(self):
+        tex = (BS + "begingroup" + BS + "renewcommand{" + BS + "thefootnote}{}%\n"
+               + BS + "footnotetext{" + BS + "textsuperscript{$*$}Visiting." + BS
+               + "quad" + BS + "textsuperscript{" + BS + "dag}Equal advising.}%\n"
+               + BS + "endgroup")
+        out, n = arxiv_backend.keep_unmarked_footnotetext(tex)
+        self.assertEqual(n, 1)
+        self.assertNotIn("footnotetext", out)
+        self.assertIn("Visiting.", out)
+        self.assertIn("{†}Equal advising.", out)
+        self.assertNotIn(BS + "dag", out)
+        self.assertIn(BS + "endgroup", out)
+
+    def test_a_note_with_its_mark_is_left_to_pandoc(self):
+        tex = "Text." + BS + "footnotemark\n\n" + BS + "footnotetext{Paired.}"
+        self.assertEqual(arxiv_backend.keep_unmarked_footnotetext(tex), (tex, 0))
+
+    def test_a_commented_note_is_left_alone(self):
+        tex = "% " + BS + "footnotetext{Old.}\n"
+        self.assertEqual(arxiv_backend.keep_unmarked_footnotetext(tex), (tex, 0))
+
+
 class AbstractCommandTests(unittest.TestCase):
     r"""Some classes take the abstract as `\abstract{...}` and print it from
     `\maketitle` (muxlab.cls; A&A's aa.cls with traditabstract). pandoc reads
