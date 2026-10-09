@@ -499,6 +499,10 @@ def _visible_text(html_text):
     # side only moved the mismatch instead of fixing it: the check went on
     # reporting a caption printed in plain sight.
     text = re.sub(r'[`\'"‘’“”]', ' ', text)
+    # And the dashes: the source writes `--` and `---`, the page prints – and
+    # —. 2609.11716's caption says "model--dataset settings", and its table,
+    # rendered and present, was reported lost and the build refused.
+    text = text.replace('—', '---').replace('–', '--')
     text = text.replace('&nbsp;', ' ').replace(' ', ' ')
     return ' '.join(text.split())
 

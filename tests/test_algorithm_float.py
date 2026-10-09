@@ -267,6 +267,16 @@ class FidelityTests(unittest.TestCase):
         html = '<p>Adaptive rounding.</p>'
         self.assertEqual(af.check_latex_float_fidelity(md, html), [])
 
+    def test_a_dash_pandoc_typeset_is_the_same_dash(self):
+        """2609.11716: "model--dataset" in the source, "model–dataset" on
+        the page; the table was there and the build refused."""
+        md = ('\\begin{table}\\caption{Values are macro-averaged over the '
+              'evaluated model--dataset settings.}\\begin{tabular}{c}1'
+              '\\end{tabular}\\end{table}\n')
+        html = ('<table><caption>Values are macro-averaged over the evaluated '
+                'model–dataset settings.</caption></table>')
+        self.assertEqual(af.check_latex_float_fidelity(md, html), [])
+
     def test_wrapping_and_tags_do_not_look_like_loss(self):
         md = 'text\n\n%s\n' % UPPER
         html = '<p>Adaptive\n  <em>rounding.</em></p>'
