@@ -40,6 +40,26 @@ class SentenceBertHeadings(unittest.TestCase):
         self.assertEqual(read(lines, heads), ['7'])
 
 
+class AFixedChapter(unittest.TestCase):
+    r"""randmat is chapter 5 of a book (`\setcounter{chapter}{5}`) and prints
+    `5.1 Introduction`. Read as level 1, two parts did not fit, the heading
+    counted as unnumbered, and a stray `40` above another heading won."""
+
+    def test_the_chapter_part_is_allowed_for(self):
+        lines = ['5.1', 'Introduction', 'Text', '40',
+                 'Random matrices with independent rows', '5.4',
+                 'Random matrices with independent rows', 'In this section']
+        heads = [(1, 'Introduction', True),
+                 (1, 'Random matrices with independent rows', True)]
+        self.assertEqual(mb.prefixes_from_lines(lines, heads, offset=1)[0],
+                         ['5.1', '5.4'])
+
+    def test_a_cited_section_in_a_title_takes_its_number(self):
+        heads = [(4, 'For Section {s: rows}', False), (4, 'Plain', False)]
+        self.assertEqual(mb.cited_titles(heads, {'s: rows': '5.4'}),
+                         [(4, 'For Section 5.4', False), (4, 'Plain', False)])
+
+
 class MathInTheTitle(unittest.TestCase):
     def test_a_formula_mid_title_under_its_own_number_line(self):
         # VAE's appendix B, as its PDF extracts.

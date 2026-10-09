@@ -1327,11 +1327,19 @@ def read_pdf_section_prefixes(temp_dir, tex_heads):
     # to find one says nothing about the numbering. Kept out of `missing` and
     # counted on its own.
     run_in_level = 0
+    # A chapter counter the source fixes and never advances puts its number
+    # in front of every section: randmat prints `5.1 Introduction`, a
+    # section numbered with two parts. Read as level 1, that number did not
+    # fit, the heading counted as unnumbered, and a stray `40` on the line
+    # above another heading was taken instead.
+    offset = 0
     try:
         with open(os.path.join(temp_dir, 'flat.tex'), 'r',
                   encoding='utf-8', errors='replace') as fh:
-            run_in_level = read_class_conventions(
-                fh.read(40000)).get('run_in_level', 0)
+            flat = fh.read()
+        run_in_level = read_class_conventions(
+            flat[:40000]).get('run_in_level', 0)
+        offset = 1 if read_fixed_counter_prefix(flat).get('chapter') else 0
     except OSError:
         pass
     pdf_path = _source_pdf(temp_dir)
@@ -1358,10 +1366,26 @@ def read_pdf_section_prefixes(temp_dir, tex_heads):
         stats['reason'] = 'could not read %s (%s)' % (os.path.basename(pdf_path), exc)
         return None, stats
 
-    return prefixes_from_lines(lines, tex_heads, run_in_level, stats)
+    # A title that cites another section prints that section's number, and
+    # the cleaned title still holds the key: randmat's ten
+    # `\paragraph{For Section \ref{s: introduction}}` read "For Section
+    # {s: introduction}" against the page's "For Section 5.1".
+    tex_heads = cited_titles(tex_heads, build_label_numbers(temp_dir))
+    return prefixes_from_lines(lines, tex_heads, run_in_level, stats, offset)
 
 
-def prefixes_from_lines(lines, tex_heads, run_in_level=0, stats=None):
+def cited_titles(tex_heads, numbers):
+    """`For Section {s: rows}` -> `For Section 5.4`, where the key is known."""
+    def cited(title):
+        return re.sub(r'\{([^{}]+)\}',
+                      lambda m: numbers.get(m.group(1).strip(), m.group(0)),
+                      title)
+    return [(level, cited(title), numbered)
+            for level, title, numbered in tex_heads]
+
+
+def prefixes_from_lines(lines, tex_heads, run_in_level=0, stats=None,
+                        offset=0):
     """[prefix or '' or None] per heading, from the PDF's text lines.
 
     The half of `read_pdf_section_prefixes` that needs no PDF, so it can be
@@ -1406,7 +1430,7 @@ def prefixes_from_lines(lines, tex_heads, run_in_level=0, stats=None):
                 # that can number this level first.
                 taken = used_joined.setdefault(key, set())
                 fresh = [p for p in candidates
-                         if p not in taken and _prefix_fits_level(p, level)]
+                         if p not in taken and _prefix_fits_level(p, level + offset)]
                 if fresh:
                     taken.add(fresh[0])
                     candidates = fresh
@@ -1424,7 +1448,7 @@ def prefixes_from_lines(lines, tex_heads, run_in_level=0, stats=None):
         # number already "used" and printed with none.
         taken = used.setdefault(key, set())
         fitting = [p for p in split.get(key, ())
-                   if p not in taken and _prefix_fits_level(p, level)]
+                   if p not in taken and _prefix_fits_level(p, level + offset)]
         if fitting:
             taken.add(fitting[0])
             prefixes.append(fitting[0])
@@ -1446,7 +1470,7 @@ def prefixes_from_lines(lines, tex_heads, run_in_level=0, stats=None):
         # Wrapped AND set apart from its number: Sentence-BERT prints `4`,
         # then `Evaluation - Semantic Textual`, then `Similarity`.
         partial = _longest_prefix_match(key, split)
-        fitting = [p for p in split.get(partial, ()) if _prefix_fits_level(p, level)]
+        fitting = [p for p in split.get(partial, ()) if _prefix_fits_level(p, level + offset)]
         if partial is not None and fitting:
             prefixes.append(fitting[0])
             stats['matched'] += 1
@@ -1464,7 +1488,7 @@ def prefixes_from_lines(lines, tex_heads, run_in_level=0, stats=None):
         # `Solution of −DKL(...), Gaussian case` on the next.
         extended = _math_extended_match(title, key, split)
         fitting = [p for p in split.get(extended, ())
-                   if _prefix_fits_level(p, level)]
+                   if _prefix_fits_level(p, level + offset)]
         if extended is not None and fitting:
             prefixes.append(fitting[0])
             stats['matched'] += 1
