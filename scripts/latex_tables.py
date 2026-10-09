@@ -54,8 +54,16 @@ _TABULAR_END = r'\end{tabular}'
 # misses it completely — the string `\begin{tabular}` is not a substring of
 # `\begin{tabular*}`. BERT's GLUE results table is written that way: the float
 # was found by no scan, converted by nothing, and reached the page as nothing.
-_TABULAR_BEGIN_RE = re.compile(r'\\begin\{tabular\*?\}')
-_TABULAR_END_RE = re.compile(r'\\end\{tabular\*?\}')
+#
+# The opening and the closing name the same environments. A second, wider
+# pattern further down this module once took this one's name and replaced it:
+# the finder then opened on `\begin{tabularx}` and on the `\begin{array}` of a
+# displayed formula, found no `\end{tabular}` to close either, and stopped
+# looking. Every table after the first such one went unconverted: ViT's
+# tabularx Table 9 stopped the build, and a display `array` above a table
+# hid it. `array` is math, never a table here.
+_TABULAR_BEGIN_RE = re.compile(r'\\begin\{(?:tabular\*?|tabularx|tabulary)\}')
+_TABULAR_END_RE = re.compile(r'\\end\{(?:tabular\*?|tabularx|tabulary)\}')
 # Wrappers that take the tabular as their last braced argument.
 _TABLE_WRAPPERS = (r'\resizebox', r'\scalebox', r'\colorbox', r'\fbox', r'\makebox')
 # Float environments a tabular is commonly parked in.
@@ -500,7 +508,8 @@ def _clean_colspec(spec):
 # How many brace groups sit between the environment name and the preamble.
 _TABULAR_ENVS = {'tabular': 0, 'array': 0, 'longtable': 0,
                  'tabular*': 1, 'tabularx': 1, 'tabulary': 1}
-_TABULAR_BEGIN_RE = re.compile(
+# Its own name: as `_TABULAR_BEGIN_RE` it replaced the finder's pattern above.
+_PREAMBLE_ENV_RE = re.compile(
     r'\\begin\{(tabular\*?|array|longtable|tabularx|tabulary)\}')
 
 
@@ -517,7 +526,7 @@ def normalise_tabular_preambles(latex):
     Returns (latex, number of preambles rewritten).
     """
     out, cursor, changed = [], 0, 0
-    for m in _TABULAR_BEGIN_RE.finditer(latex):
+    for m in _PREAMBLE_ENV_RE.finditer(latex):
         if m.start() < cursor:
             continue
         skip = _TABULAR_ENVS.get(m.group(1), 0)
