@@ -433,6 +433,10 @@ def _trim_of(options):
     return out
 
 
+# The name `apply_graphics_trim` gives a cropped copy, back to its source's.
+_TRIMMED_NAME_RE = re.compile(r'_trim(\.[A-Za-z]+)$')
+
+
 def apply_graphics_trim(md_text, temp_dir):
     r"""Crop each image the way its `\includegraphics[trim=...,clip]` asked.
 
@@ -530,10 +534,23 @@ def _figure_caption_md(label, body):
     return re.sub(r'\s*\n\s*', ' ', caption)
 
 
+def _panel_for(panels, path):
+    """The panel an image reference shows, cropped or not.
+
+    A cropped panel is the same panel under `apply_graphics_trim`'s name.
+    Looked up as written it fell through to the number in its file name,
+    which is the extraction order: ViT's figure 10 printed as figures 11, 12
+    and 13, and each of those numbers then appeared twice in the book.
+    """
+    name = os.path.basename(path)
+    return ((panels or {}).get(name)
+            or (panels or {}).get(_TRIMMED_NAME_RE.sub(r'\1', name)))
+
+
 def _last_of_float(matches, n, panels):
     """Is the n-th match (1-based) the last panel of its float?"""
     def float_of(match):
-        panel = (panels or {}).get(os.path.basename(match.group(2)))
+        panel = _panel_for(panels, match.group(2))
         return panel['float'] if panel and panel['panels'] > 1 else None
 
     if n >= len(matches):
@@ -567,7 +584,7 @@ def format_figure_blocks(md_text, lang_cfg=None, temp_dir=None):
         if m.start() < cursor:
             continue
         alt, path = m.group(1), m.group(2)
-        panel = (panels or {}).get(os.path.basename(path))
+        panel = _panel_for(panels, path)
         if panel:
             number, letter = panel['float'], panel['letter']
             wants_caption = panel['caption']
