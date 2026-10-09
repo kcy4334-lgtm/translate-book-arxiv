@@ -644,6 +644,53 @@ def expand_math_macros(md_text, temp_dir):
     return _INLINE_MATH_SPAN_RE.sub(on_span, md_text), hits[0]
 
 
+# Wrappers texmath refuses a whole formula over, whose argument is the
+# content: `\textcolor{c}{X}` and `\smash[t]{X}` keep `{X}`.
+_TEXTCOLOR_HEAD_RE = re.compile(
+    r'\\(?:textcolor\s*(?:\[[^\]]*\])?\s*\{[^{}]*\}|smash\s*(?:\[[tb]\])?)'
+    r'\s*(?=\{)')
+_COLOR_SWITCH_RE = re.compile(r'\\color\s*(?:\[[^\]]*\])?\s*\{[^{}]*\}\s*')
+# `\text{\rm(exact)}`: an old font switch inside text it cannot read.
+_TEXT_RM_RE = re.compile(r'(\\text\s*\{)\s*\\(?:rm|normalfont)\b\s*')
+
+
+def drop_math_colour(md_text):
+    r"""What texmath refuses a formula over, taken out. Returns (text, n).
+
+    texmath has no reader for `\textcolor` and refuses the whole formula:
+    2609.11716 colours each term of its decomposition, and 52 of its formulas
+    printed as raw TeX. `\color{c}` it reads but drops the colour, and fails
+    outright when a `\boldsymbol` or `\bm` follows it, which is how the same
+    paper writes its other twelve. `\textcolor{c}{X}` keeps `{X}` and
+    `\color{c}` goes: a formula in black is still a formula. `\smash` (a
+    height adjustment) and a `\rm` inside `\text{}` failed the same way in
+    the same paper.
+    """
+    count = [0]
+
+    def fix_span(m):
+        span = m.group(0)
+        span, n = _COLOR_SWITCH_RE.subn('', span)
+        count[0] += n
+        span, n = _TEXT_RM_RE.subn(r'\1', span)
+        count[0] += n
+        out, cursor = [], 0
+        for head in _TEXTCOLOR_HEAD_RE.finditer(span):
+            if head.start() < cursor:
+                continue
+            close = _balanced_group(span, head.end())
+            if close < 0:
+                continue
+            out.append(span[cursor:head.start()])
+            out.append('{%s}' % span[head.end() + 1:close - 1])
+            cursor = close
+            count[0] += 1
+        out.append(span[cursor:])
+        return ''.join(out)
+
+    return _INLINE_MATH_SPAN_RE.sub(fix_span, md_text), count[0]
+
+
 def unwrap_text_boxed_math_fonts(md_text):
     r"""`\text{\mathtt{X}}` -> `\mathtt{X}`. Returns (text, count).
 

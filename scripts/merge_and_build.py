@@ -69,6 +69,7 @@ from latex_cleanup import (
     _math_extended_match, _normalize_heading, _prefix_fits_level, _source_pdf,
     _texmath_reads, clean_heading_title, drop_directive_spans,
     drop_index_terms, enough_located, expand_math_macros, locatable_headings,
+    drop_math_colour,
     normalize_latex_leftovers, normalize_math_commands, number_sections,
     number_theorem_statements, prefixes_from_lines, read_math_macros,
     read_pdf_section_prefixes, read_tex_headings, rescue_orphan_footnotes,
@@ -2164,6 +2165,10 @@ def convert_md_to_html(temp_dir, title, lang_cfg, author=None,
         print("Math: %d formula(s) had the paper's own shorthand expanded "
               "(\\< -> \\langle); texmath knows only standard commands"
               % macro_hits)
+    md_text, colored = drop_math_colour(md_text)
+    if colored:
+        print("Math: %d colour or spacing command(s) taken out of formulas; texmath "
+              "refuses or drops them" % colored)
 
     md_text, text_fonts = rewrite_text_fonts_in_math(md_text)
     if text_fonts:
