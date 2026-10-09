@@ -36,6 +36,23 @@ class DedupeTests(unittest.TestCase):
         self.assertEqual(out.count('(outlier)'), 1)
         self.assertLess(out.index('(outlier)'), out.index('이 이상치'))
 
+    def test_a_heading_keeps_its_original_title(self):
+        """Sentence-BERT's "6 어블레이션 연구 (Ablation Study)" lost its
+        English to a body gloss of the same words three pages earlier."""
+        text = ('본문에서 어블레이션 연구(ablation study)를 예고한다.\n\n'
+                '# 6 어블레이션 연구 (Ablation Study)\n\n'
+                '이 절의 어블레이션 연구(ablation study)는 다음과 같다.\n')
+        out, removed = glossary.dedupe_glosses(text)
+        self.assertIn('# 6 어블레이션 연구 (Ablation Study)', out)
+        self.assertEqual(removed, 1)
+        self.assertEqual(out.count('(ablation study)'), 1)
+
+    def test_a_heading_gloss_is_not_the_bodys_first_use(self):
+        text = ('# 2 어블레이션 연구 (Ablation Study)\n\n'
+                '어블레이션 연구(ablation study)를 수행했다.\n')
+        out, removed = glossary.dedupe_glosses(text)
+        self.assertEqual((out, removed), (text, 0))
+
     def test_a_third_copy_goes_too(self):
         text = '재구성 오차(reconstruction error) ' * 3
         out, removed = glossary.dedupe_glosses(text)

@@ -499,6 +499,13 @@ def dedupe_glosses(text):
         inside = ' '.join(m.group(1).split())
         if not _is_first_use_gloss(inside):
             continue
+        # A heading's English is the original title, which every heading
+        # carries, not a first-use note. Removed as a repeat, a heading whose
+        # whole title is a term the body had already glossed lost it: four
+        # of ViT's headings and Sentence-BERT's "6 어블레이션 연구". Nor does
+        # it count as the term's first use, so the body keeps its own gloss.
+        if text.startswith('#', text.rfind('\n', 0, m.start()) + 1):
+            continue
         key = inside.lower()
         if key not in seen:
             seen.add(key)
