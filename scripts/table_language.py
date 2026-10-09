@@ -110,6 +110,11 @@ def header_word(cell):
     text = cell_surface(cell)
     if not text or ' ' in text:
         return None
+    # Set in code font it is an identifier, not the word: Sentence-BERT's
+    # pooling strategies are `\texttt{MEAN}`, `\texttt{MAX}`, `\texttt{CLS}`,
+    # and its correct book was stopped for "MEAN".
+    if re.search(r'\\(?:texttt|verb)\b', cell or ''):
+        return None
     folded = text.lower()
     return folded if folded in HEADER_WORDS else None
 

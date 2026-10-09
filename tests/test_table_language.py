@@ -50,6 +50,12 @@ class TheNamesSurvive(unittest.TestCase):
                      'DeepSeek-V2-Lite', 'CALVIN', 'ImageNet'):
             self.assertIsNone(tl.header_word(name), name)
 
+    def test_a_word_in_code_font_is_an_identifier(self):
+        """Sentence-BERT's pooling strategy `\\texttt{MEAN}` stopped a
+        correct build; the plain word is still caught."""
+        self.assertIsNone(tl.header_word('\\texttt{MEAN}'))
+        self.assertEqual(tl.header_word('Mean'), 'mean')
+
     def test_a_row_of_names_reports_nothing(self):
         self.assertEqual(
             tl.untranslated_header_cells(
