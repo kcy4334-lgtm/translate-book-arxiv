@@ -11,21 +11,15 @@ A fork of [deusyu/translate-book](https://github.com/deusyu/translate-book); ups
 - `KNOWLEDGE.md`: findings log: tool behaviour that surprised us, with the
   measurement that proved it. Read on unexpected output; append per SKILL.md
   Step 9. Anything a test now enforces is one line here pointing at the test
-- `scripts/convert.py`: PDF/DOCX/EPUB → Markdown chunks (via Calibre HTMLZ)
-- `scripts/manifest.py`: SHA-256 chunk tracking and merge validation
-- `scripts/glossary.py`: Term-consistency glossary; per-chunk term tables injected into sub-agent prompts
-- `scripts/chunk_context.py`: Read-only previous/next chunk excerpts injected into sub-agent prompts
-- `scripts/meta.py`: Per-chunk sub-agent observation file schema
-- `scripts/merge_meta.py`: Merges sub-agent observations into the canonical glossary as each chunk lands
-- `scripts/run_state.py`: Selective re-translation planner and run_state.json recorder
-- `scripts/repair.py`: In-place fixes for a book that is already translated: `sidecar` rewrites the raw LaTeX tables held in `chunk*.math.json`, `rehash` refreshes `manifest.json` after a chunk was edited by hand. Re-converting instead would move every chunk boundary and cost a full re-translation
-- `scripts/arxiv_backend.py`: arXiv LaTeX source → Markdown; every ingest-side fix for constructs pandoc cannot read lives here
-- `scripts/merge_and_build.py`: Merge translated chunks → HTML/DOCX/EPUB/PDF
-- `scripts/latex_cleanup.py`, `scripts/numbering.py`, `scripts/latex_tables.py`, `scripts/build_common.py`: the parts of the build split out of merge_and_build.py (LaTeX and math clean-up with section numbering; figures, floats, labels and cross-references; raw LaTeX tables; what those share). merge_and_build.py re-exports the names its callers and tests use
-- `scripts/layout.py`: Language font tables and print profiles (page size, margins, body size); the single source of truth both merge_and_build.py and calibre_html_publish.py read
-- `scripts/chromium_pdf.py`: Headless-Chromium PDF renderer and PyMuPDF page-number stamping
-- `scripts/calibre_html_publish.py`: Calibre format conversion wrapper (EPUB, and DOCX fallback)
-- `scripts/template.html`, `scripts/template_ebook.html`: HTML templates
+- `KNOWHOW.md` and `REFEREE.md`: what a way of working cost, and which
+  repeated failures belong to a tool, a brief or a role
+- Every script, with what it does, is in the README's
+  [Project Structure](README.md#project-structure) table and only there.
+  CLAUDE.md and AGENTS.md each kept a copy of that list, and each had lost
+  a different dozen scripts
+- `merge_and_build.py` was split into `latex_cleanup.py`, `numbering.py`,
+  `latex_tables.py` and `build_common.py` to stay under 256 KiB. It imports
+  back every name its callers and tests use, so those imports are not dead
 
 ## How this pipeline breaks
 

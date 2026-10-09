@@ -334,6 +334,9 @@ A temp dir belongs to one run. After changing the title, author, language, templ
 | `scripts/advisors.py` | Records which advisor was consulted, on what, and what it said |
 | `scripts/install_advisors.py` | Copies the advisor and translator definitions to `~/.claude/agents/` |
 | `corpus/shapes.json`, `referee/runs.json` | The census and the referee's run history |
+| `tools/build_plugin_branch.py` | Builds the `claude-plugin` branch from a release tag (see [Releases](#releases)) |
+| `tools/corpus_compare.py` | Runs every paper in a local corpus with one version of the skill and compares two runs, paper by paper |
+| `tools/demo_strip.py` | Renders the paper-and-book pages in `assets/demo` |
 | `tests/` | The test suite, the probes listed under [Verifying a build](#verifying-a-build), and baseline books in `tests/baselines/` |
 
 ## Development

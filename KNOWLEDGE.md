@@ -3343,7 +3343,7 @@ that ship LaTeX all build (v0.4.9 refused 7), no paper agrees less with its
 original PDF, and equation totals match the LaTeX (Maynard 106, Randmat 59,
 GAN 6). The comparison caught two regressions before release, GAN's and
 SINQ's row labels and Shor's numbers. Higgs now stops on a defect it used to
-ship. The scripts that ran this are not in the repository.
+ship. `tools/corpus_compare.py` runs it again.
 *Status: measured 2026-10-10, pandoc 3.10.2.*
 
 ---
