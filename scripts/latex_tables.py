@@ -48,8 +48,6 @@ from numbering import (
 # swallows the HTML table injected inside it. So the whole float is replaced,
 # and its `\caption{...}` is rendered separately into a real <caption>.
 
-_TABULAR_BEGIN = r'\begin{tabular}'
-_TABULAR_END = r'\end{tabular}'
 # `tabular*` is the width-setting variant, and searching for the plain spelling
 # misses it completely — the string `\begin{tabular}` is not a substring of
 # `\begin{tabular*}`. BERT's GLUE results table is written that way: the float

@@ -1675,7 +1675,6 @@ def unwrap_front_matter(tex):
 # the stop anyway.
 _TABBING_BLOCK_RE = re.compile(r'\\begin\{tabbing\}.*?\\end\{tabbing\}',
                                re.DOTALL)
-_TAB_CMDS = ('>', '=', '<', "'", '`')
 _TAB_REDEF_RE = re.compile(
     r'\\(?:re)?newcommand\s*\{?\s*\\([>=<\'`])\s*\}?\s*\{')
 _TAB_ALIAS_RE = re.compile(

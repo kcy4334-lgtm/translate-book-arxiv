@@ -1234,8 +1234,6 @@ def _label_token_re(theorem_envs):
         r'|\\label\s*\{([^}]+)\}')
 
 
-_LABEL_TOKEN_RE = _label_token_re(_DEFAULT_THEOREM_ENVS)
-
 _NUMBERED_MATH_ENVS = ('equation', 'align', 'gather', 'multline', 'eqnarray',
                        'alignat', 'flalign', 'IEEEeqnarray')
 
