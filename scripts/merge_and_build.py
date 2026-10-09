@@ -3241,6 +3241,9 @@ def main():
     parser.add_argument('--cover', default=None, help='Cover image path for EPUB output')
     parser.add_argument('--export-name', default=None, help='Optional filename stem for exported alias copies')
     parser.add_argument('--cleanup', action='store_true', help='Remove intermediate artifacts after successful build')
+    parser.add_argument('--cleanup-only', action='store_true',
+                        help='Remove intermediate artifacts and build nothing; '
+                             'for the end of a run, after the review')
     parser.add_argument('--build-only', action='store_true',
                         help='Skip the merge step and build from the existing output.md')
     parser.add_argument('--force-html', action='store_true',
@@ -3279,6 +3282,18 @@ def main():
     if not os.path.isdir(temp_dir):
         print(f"Error: Temp directory not found: {temp_dir}")
         sys.exit(1)
+
+    # The review after the build reads and repairs the chunks, so they have to
+    # outlive it. Cleaned up during the build, they were gone before the
+    # review began: an unattended run on 2026-10-09 found two defects on its
+    # pages and could fix them only in output.md, where the next re-merge
+    # would have overwritten them.
+    if args.cleanup_only:
+        if not os.path.isfile(os.path.join(temp_dir, 'output.md')):
+            print("Error: no output.md here; build the book before cleaning up")
+            sys.exit(1)
+        cleanup_intermediate_files(temp_dir)
+        return
 
     cover = args.cover
     if cover:

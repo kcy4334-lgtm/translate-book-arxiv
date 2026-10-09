@@ -1241,19 +1241,23 @@ Translate the title to the target language. For Chinese, wrap in 书名号: `《
 Run the build script with the translated title:
 
 ```bash
-python {baseDir}/scripts/merge_and_build.py --temp-dir "<temp_dir>" --title "<translated_title>" --cleanup
+python {baseDir}/scripts/merge_and_build.py --temp-dir "<temp_dir>" --title "<translated_title>"
 ```
 
 If the user provided `epub_cover`, add `--cover "<epub_cover>"`. If the user
 provided `export_name`, add `--export-name "<export_name>"`.
 
-The `--cleanup` flag removes intermediate files (chunks, input.html, etc.) after a fully successful build. If the user asked to keep intermediates, omit `--cleanup`. The `chunk*.math.json` sidecars are deliberately kept so a later re-merge can still restore formulas.
+**Do not clean up here.** The review in step 7.5 reads the chunks and fixes
+what it finds in them, and a fix made in a chunk survives the next re-merge
+where a fix made only in `output.md` does not. An unattended run that cleaned
+up during the build found two defects on its pages and had to patch
+`output.md` by hand. Clean up in step 8, once nothing is left to fix.
 
 The script reads `output_lang` from `config.txt` automatically. Optional overrides: `--lang`, `--author`.
 
 Other flags:
 - `--build-only`: skip the merge and build straight from an existing `output.md`.
-  Needed for a temp dir already cleaned with `--cleanup`, where the chunks are gone.
+  Needed for a temp dir already cleaned up, where the chunks are gone.
 - `--force-html`: regenerate HTML even when `book_doc.html` looks newer than `output.md`.
 - `--docx-engine {pandoc,calibre}`: default `pandoc`, which produces native
   editable Word equations (OMML). Calibre's DOCX writer has no math support and
@@ -1433,6 +1437,16 @@ Tell the user:
 Report what the build actually said. If a check reported a shortfall (tables
 that did not convert, citations with no target, TOC entries whose page could not
 be resolved) say so with the numbers rather than rounding it up to "done".
+
+Then, unless the user asked to keep the intermediates, remove them:
+
+```bash
+python {baseDir}/scripts/merge_and_build.py --temp-dir "<temp_dir>" --cleanup-only
+```
+
+It removes the chunks, `input.html` and the like, and keeps the
+`chunk*.math.json` sidecars so a later `--build-only` re-merge can still
+restore formulas.
 
 ### 9. Record What You Learned
 
