@@ -1631,7 +1631,11 @@ def resolve_references(md_text, temp_dir, lang_cfg=None):
             return None
         if source == 'float':
             prefix = 'fig' if slot == 'figure' else 'tab'
-            number = floats.get('%s:%s' % (prefix, name))
+            # The label as written first: PaLM labels `table:palmchilla_evals`,
+            # and rebuilt as `tab:` the key matched nothing and the reference
+            # printed raw inside a figure caption.
+            number = floats.get('%s:%s' % (kind, name),
+                                floats.get('%s:%s' % (prefix, name)))
         else:
             entry = index.get('%s:%s' % (kind, name)) or index.get(name)
             number = entry[0] if entry else None

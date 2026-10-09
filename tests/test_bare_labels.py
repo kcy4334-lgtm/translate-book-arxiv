@@ -119,6 +119,13 @@ class SynonymInFront(unittest.TestCase):
         # SBERT: `섹션 (sec_ablation_study)` printed `섹션 6절`.
         self.assertEqual(self.resolve('섹션 (sec_ablation)에서는'), '3절에서는')
 
+    def test_a_table_label_spelled_out_resolves(self):
+        # PaLM: `\cref{table:palmchilla_evals}` in a figure caption.
+        with open(os.path.join(self.temp, 'flat.tex'), 'a', encoding='utf-8') as fh:
+            fh.write('\\begin{table}\\caption{X}\\label{table:evals}\\end{table}\n')
+        self.assertEqual(self.resolve('benchmarks ((table:evals)), the line'),
+                         'benchmarks (표 1), the line')
+
     def test_the_word_alone_is_left(self):
         self.assertEqual(self.resolve('이 섹션에서는'), '이 섹션에서는')
 
