@@ -63,6 +63,23 @@ class Stranded(unittest.TestCase):
         md = '![**그림 1 (Fig. 1)** One.](images/fig0001_a.png)\n\nText.\n'
         self.assertEqual(mb.badge_stranded_captions(md, self.temp, KO), (md, 0))
 
+    def test_a_file_shown_in_two_figures_belongs_to_each_in_turn(self):
+        # DDPM: Figure 1's panel (b) is the sample grid Figure 13 shows whole.
+        self.make('\\begin{figure}\\includegraphics{a.png}\\includegraphics{grid.png}'
+                  '\\caption{Header.}\\end{figure}\n'
+                  '\\begin{figure}\\includegraphics{other.png}\\caption{Middle.}'
+                  '\\end{figure}\n'
+                  '\\begin{figure}\\includegraphics{grid.png}\\caption{Whole.}'
+                  '\\end{figure}\n',
+                  ['fig0001_a.png', 'fig0002_grid.png', 'fig0003_other.png'])
+        import numbering
+        occ = numbering.figure_panel_occurrences(self.temp)
+        got = numbering.assign_panels(
+            ['images/fig0001_a.png', 'images/fig0002_grid.png',
+             'images/fig0003_other.png', 'images/fig0002_grid.png'], occ)
+        self.assertEqual([(g['float'], g['letter']) for g in got],
+                         [(1, 'a'), (1, 'b'), (2, None), (3, None)])
+
     def test_a_caption_on_top(self):
         self.make('\\begin{figure}\\caption{Above.}\\begin{tabular}{c}'
                   '\\includegraphics{a.png}\\end{tabular}\\end{figure}\n',

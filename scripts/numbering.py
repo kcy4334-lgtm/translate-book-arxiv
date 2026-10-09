@@ -378,7 +378,36 @@ def read_float_units(temp_dir):
 
 
 def figure_panels(temp_dir):
-    """{image filename: {'float': 2, 'letter': 'b', 'panels': 3, 'caption': True}}
+    """{image filename: its FIRST panel record}; see figure_panel_occurrences."""
+    occurrences = figure_panel_occurrences(temp_dir)
+    if occurrences is None:
+        return None
+    return {name: infos[0] for name, infos in occurrences.items()}
+
+
+def assign_panels(refs, occurrences):
+    """[panel record or None] per image reference, in order.
+
+    The k-th appearance of a file is the k-th figure that includes it. DDPM
+    shows the same sample grid as Figure 1's panel (b) and again, whole, as
+    Figure 13; keyed by file name alone, Figure 13 printed as "그림 1 (b)".
+    """
+    used, out = {}, []
+    for path in refs:
+        infos = _panel_for(occurrences, path)
+        if not infos:
+            out.append(None)
+            continue
+        k = used.get(id(infos), 0)
+        used[id(infos)] = k + 1
+        out.append(infos[min(k, len(infos) - 1)])
+    return out
+
+
+def figure_panel_occurrences(temp_dir):
+    """{image filename: [{'float': 2, 'letter': 'b', 'panels': 3, 'caption': True}, ...]}
+
+    One record per figure that includes the file, in source order.
 
     A float with three \\includegraphics is ONE figure with three panels, not
     three figures. Panels are matched to extracted files by name: SINQ has 17
@@ -413,15 +442,17 @@ def figure_panels(temp_dir):
         for options, graphic in _GRAPHIC_RE.findall(tex[unit['start']:unit['stop']]):
             name = by_stem.get(_graphic_stem(graphic, options))
             # The same graphic can be included twice in one float
-            # (an overlay, a repeated panel); it is still one panel.
-            if name and name not in out and name not in resolved:
+            # (an overlay, a repeated panel); it is still one panel. In two
+            # floats it is two figures (assign_panels).
+            if name and name not in resolved:
                 resolved.append(name)
         for index, name in enumerate(resolved):
-            out[name] = {'float': unit['number'],
-                         'letter': chr(ord('a') + index) if len(resolved) > 1 else None,
-                         'panels': len(resolved),
-                         'caption': (unit['number'] is not None
-                                     and index == len(resolved) - 1)}
+            out.setdefault(name, []).append(
+                {'float': unit['number'],
+                 'letter': chr(ord('a') + index) if len(resolved) > 1 else None,
+                 'panels': len(resolved),
+                 'caption': (unit['number'] is not None
+                             and index == len(resolved) - 1)})
     return out or None
 
 
@@ -452,10 +483,10 @@ def badge_stranded_captions(md_text, temp_dir, lang_cfg=None):
     """
     lang_cfg = lang_cfg or {}
     fig_label = lang_cfg.get('figure_label', 'Figure')
-    panels = figure_panels(temp_dir) or {}
+    occurrences = figure_panel_occurrences(temp_dir) or {}
     units = [u for u in read_float_units(temp_dir)
              if u['kind'] == 'figure' and u['number'] is not None]
-    if not units or not panels:
+    if not units or not occurrences:
         return md_text, 0
     flat = os.path.join(temp_dir, 'flat.tex')
     with open(flat, 'r', encoding='utf-8', errors='replace') as fh:
@@ -467,9 +498,10 @@ def badge_stranded_captions(md_text, temp_dir, lang_cfg=None):
             f' (Fig. {number})' if fig_label != 'Figure' else '')
         if ('**%s' % label) in md_text:
             continue
-        names = [n for n, info in panels.items() if info['float'] == number]
-        refs = [m for m in _MD_IMAGE_REF_RE.finditer(md_text)
-                if os.path.basename(m.group(1)) in names]
+        all_refs = list(_MD_IMAGE_REF_RE.finditer(md_text))
+        owners = assign_panels([m.group(1) for m in all_refs], occurrences)
+        refs = [m for m, info in zip(all_refs, owners)
+                if info and info['float'] == number]
         if not refs:
             continue
         region = tex[unit['start']:unit['stop']]
@@ -666,15 +698,14 @@ def _panel_for(panels, path):
             or (panels or {}).get(_TRIMMED_NAME_RE.sub(r'\1', name)))
 
 
-def _last_of_float(matches, n, panels):
-    """Is the n-th match (1-based) the last panel of its float?"""
-    def float_of(match):
-        panel = _panel_for(panels, match.group(2))
+def _last_of_float(infos, n):
+    """Is the n-th image (1-based) the last panel of its float?"""
+    def float_of(panel):
         return panel['float'] if panel and panel['panels'] > 1 else None
 
-    if n >= len(matches):
+    if n >= len(infos):
         return True
-    return float_of(matches[n - 1]) != float_of(matches[n])
+    return float_of(infos[n - 1]) != float_of(infos[n])
 
 
 def format_figure_blocks(md_text, lang_cfg=None, temp_dir=None):
@@ -692,7 +723,7 @@ def format_figure_blocks(md_text, lang_cfg=None, temp_dir=None):
     lang_cfg = lang_cfg or {}
     fig_label = lang_cfg.get('figure_label', 'Figure')
     captioned = figures_with_captions(temp_dir)
-    panels = figure_panels(temp_dir)
+    occurrences = figure_panel_occurrences(temp_dir)
     # Panels set side by side arrive on one line, `![](a)  ![](b)`, with the
     # `\hspace` between them gone. Each must stand alone on its line to be
     # read as a figure: ViT's figure 13 printed as two bare images with its
@@ -703,6 +734,7 @@ def format_figure_blocks(md_text, lang_cfg=None, temp_dir=None):
     matches = list(_FIG_IMAGE_RE.finditer(md_text))
     if not matches:
         return md_text, 0
+    infos = assign_panels([m.group(2) for m in matches], occurrences)
 
     pieces, cursor, count = [], 0, 0
     open_group, group_caption = False, ''
@@ -710,7 +742,7 @@ def format_figure_blocks(md_text, lang_cfg=None, temp_dir=None):
         if m.start() < cursor:
             continue
         alt, path = m.group(1), m.group(2)
-        panel = _panel_for(panels, path)
+        panel = infos[n - 1]
         if panel:
             number, letter = panel['float'], panel['letter']
             wants_caption = panel['caption']
@@ -820,7 +852,7 @@ def format_figure_blocks(md_text, lang_cfg=None, temp_dir=None):
             pieces.append('\n\n::: figuregroup\n')
             open_group = True
         pieces.append(f'\n\n![{caption}]({path}){attr}\n\n')
-        if open_group and (not grouped or _last_of_float(matches, n, panels)):
+        if open_group and (not grouped or _last_of_float(infos, n)):
             if group_caption:
                 pieces.append('\n%s\n' % group_caption)
                 group_caption = ''
