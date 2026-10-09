@@ -431,6 +431,15 @@ def check_images(source, output):
 
 
 _NAME_TOKEN_RE = re.compile(r'\b[A-Z][A-Za-zÀ-ɏ.\'-]*')
+# A whole name, joining words: `University of Amsterdam`, `Technische
+# Universität Darmstadt`, `Ludwig van Beethoven`. Taken token by token, the
+# `of` was left behind as an English word, and an affiliation line counted
+# as untranslated prose.
+_NAME_PARTICLES = (r'(?:of|the|and|for|at|in|de|du|des|di|da|del|della|dos'
+                   r'|das|von|van|der|den|la|le|zu|y|e|et|für|und)')
+_NAME_RUN_RE = re.compile(
+    r"\b[A-Z][A-Za-zÀ-ɏ.'&-]*(?:\s+(?:%s\s+)*[A-Z][A-Za-zÀ-ɏ.'&-]*)*"
+    % _NAME_PARTICLES)
 
 
 def _drop_carried_names(body, source):
@@ -446,7 +455,17 @@ def _drop_carried_names(body, source):
     Untranslated PROSE is not protected by this. It is lower-case, so it stays
     in the denominator and the ratio still collapses, and long runs of it are
     `untranslated_block`'s job anyway.
+
+    Whole names first, joining words included (`_NAME_RUN_RE`), then single
+    capitalised tokens as before.
     """
+    flat = ' '.join((source or '').split())
+
+    def run(m):
+        name = ' '.join(m.group(0).split())
+        return '' if ' ' in name and name in flat else m.group(0)
+
+    body = _NAME_RUN_RE.sub(run, body)
     return _NAME_TOKEN_RE.sub(
         lambda m: '' if m.group(0) in source else m.group(0), body)
 
@@ -554,13 +573,15 @@ def is_contact_line(line):
                                                for p in parts)
 
 
-def check_untranslated_blocks(output, lang, min_words=14):
+def check_untranslated_blocks(output, lang, min_words=14, source=None):
     """A paragraph of source-language prose that never reached a translator.
 
     Bounded hard on purpose. Model names, benchmark names and citation keys
     are Latin by right, and the reference list is Latin by decision, so this
     looks only for long runs of ORDINARY WORDS in a line carrying no target
-    script at all.
+    script at all. With `source`, names the source spells the same way
+    (`_drop_carried_names`) are not counted: an affiliation line of seven
+    institutions kept in English, as the brief asks, failed 2609.11801.
     """
     ranges = _SCRIPT_RANGES.get(lang)
     if not ranges:
@@ -574,7 +595,8 @@ def check_untranslated_blocks(output, lang, min_words=14):
             continue
         if is_contact_line(line):
             continue
-        words = _LATIN_WORD_RE.findall(line)
+        counted = _drop_carried_names(line, source) if source else line
+        words = _LATIN_WORD_RE.findall(counted)
         if len(words) >= min_words:
             findings.append({
                 'check': 'untranslated_block',
@@ -1101,7 +1123,7 @@ def verify_chunk(temp_dir, chunk_name, lang):
     findings += check_placeholders(source, output, spans)
     findings += check_images(source, output)
     findings += check_translated(source, output, lang)
-    findings += check_untranslated_blocks(output, lang)
+    findings += check_untranslated_blocks(output, lang, source=source)
     findings += check_commentary(output)
     findings += check_fences(source, output)
     findings += check_structure(source, output)

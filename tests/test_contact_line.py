@@ -73,6 +73,23 @@ class TheExemptionReachesTheCheck(unittest.TestCase):
         self.assertEqual(len(found), 1)
         self.assertIn('Standard Model', found[0]['evidence'])
 
+    def test_institutions_kept_in_english_are_not_prose(self):
+        """2609.11801's affiliation line, kept in English as the brief asks.
+        Token by token, the `of` in `University of Amsterdam` stayed an
+        English word."""
+        line = ('Department of Computer Science, University of Amsterdam; '
+                'Carnegie Mellon University; Technische Universität Wien; '
+                'University of Oxford; Max Planck Institute for Intelligent '
+                'Systems')
+        source = 'Authors.\n\n' + line + '\n\nAbstract text.'
+        self.assertNotEqual(vc.check_untranslated_blocks(line, 'ko'), [])
+        self.assertEqual(
+            vc.check_untranslated_blocks(line, 'ko', source=source), [])
+
+    def test_prose_left_in_english_still_fires_with_its_source(self):
+        found = vc.check_untranslated_blocks(PROSE, 'ko', source=PROSE)
+        self.assertEqual(len(found), 1)
+
     def test_a_translated_line_is_untouched_by_either(self):
         self.assertEqual(
             vc.check_untranslated_blocks('이것은 한국어 문장이다.', 'ko'), [])
