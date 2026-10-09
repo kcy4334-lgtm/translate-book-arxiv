@@ -417,8 +417,13 @@ def check_badge_placement(md_text, lang_cfg=None):
     # is worse than none, so the shape is spelled out instead of bounded.
     badge = re.compile(
         r'(?:\\textbf\{|\*\*)\s*' + re.escape(label)
-        + r'\s+[A-Za-z]?[\d.]+(?:\s*\(Table\s+[A-Za-z]?[\d.]+\))?\s*'
-          r'(?:\}|\*\*)')
+        + r'\s+[A-Za-z]?[\d.]+(?:\s*\(Table\s+[A-Za-z]?[\d.]+\))'
+        # A badge in another language always carries "(Table N)"; a bold
+        # "표 1" without it is the paper's own reference. ResNet's figure 3
+        # caption says `\textbf{Table~\ref{tab:arch}} shows more details`,
+        # and the build refused the book for a badge on prose.
+        + ('?' if label == 'Table' else '')
+        + r'\s*(?:\}|\*\*)')
     stray = []
     total = 0
     for m in badge.finditer(md_text):
@@ -1613,4 +1618,15 @@ def expand_raw_latex_tables(md_text, pandoc=None, math_mode='mathml',
     if shaded_rows:
         print("Raw LaTeX tables: %d row(s) the paper shades marked as its own"
               % shaded_rows)
-    return ''.join(pieces), converted, failed
+    # What a commented-out float boundary leaves between two tables. ResNet
+    # writes `%\end{table}` / `%\begin{table}[t]` between two of its tables;
+    # each float took its `\begin`/`\end`, and the bare `%` in front printed
+    # as a line of its own. Never prose: nothing writes a lone `%` line --
+    # except a code listing, which is left alone.
+    parts = _CODE_FENCE_RE.split(''.join(pieces))
+    return (''.join(p if p.startswith('```') else _LONE_PERCENT_RE.sub('', p)
+                    for p in parts), converted, failed)
+
+
+_LONE_PERCENT_RE = re.compile(r'(?m)^[ \t]*%[ \t]*\n')
+_CODE_FENCE_RE = re.compile(r'(?ms)(^```.*?^```[ \t]*$)')

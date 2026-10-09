@@ -38,6 +38,24 @@ class FinderEnvironments(unittest.TestCase):
         self.assertEqual(len(found), 2)
         self.assertTrue(found[0]['bare'].endswith(BS + 'end{tabularx}'))
 
+    def test_a_commented_float_boundary_leaves_no_percent_line(self):
+        """ResNet: `%\\end{table}` / `%\\begin{table}[t]` between two tables
+        left a bare `%` printed on a line of its own."""
+        from unittest import mock
+        md = (TABLE.replace('\\end{table}', '%\n%\\end{table}')
+              + '\n%\\begin{table}[t]\n' + TABLE[len('\\begin{table}'):]
+              + '\n\n```\n%\n```\n')
+
+        def run(cmd, **kwargs):
+            return mock.Mock(returncode=0, stdout='<table><tr><td>x</td></tr></table>',
+                             stderr='')
+
+        with mock.patch.object(latex_tables.subprocess, 'run', side_effect=run):
+            out, ok, _bad = latex_tables.expand_raw_latex_tables(md, pandoc='pandoc')
+        self.assertEqual(ok, 2)
+        self.assertNotRegex(out.split('```')[0], r'(?m)^[ \t]*%[ \t]*$')
+        self.assertIn('```\n%\n```', out, 'a code listing keeps its lines')
+
     def test_the_preamble_rewrite_still_reaches_tabularx(self):
         latex = BS + 'begin{tabularx}{' + BS + 'linewidth}{@{}p{1cm}X@{}} a & b ' + BS + 'end{tabularx}'
         _out, changed = latex_tables.normalise_tabular_preambles(latex)

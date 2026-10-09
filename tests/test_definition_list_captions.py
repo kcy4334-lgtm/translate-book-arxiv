@@ -138,6 +138,14 @@ class BadgePlacementIsChecked(unittest.TestCase):
         ok, detail = mb.check_badge_placement('Just prose.\n', self.KO)
         self.assertTrue(ok, detail)
 
+    def test_a_bold_reference_is_not_a_badge(self):
+        """ResNet's figure 3 caption: `\\textbf{Table~\\ref{tab:arch}} shows
+        more details`. Resolved, it reads **표 1**, and the build refused."""
+        md = ('![**그림 3 (Fig. 3)** Architectures. **표 1** shows more '
+              'details.](images/fig0003_arch.png)\n')
+        ok, detail = mb.check_badge_placement(md, self.KO)
+        self.assertTrue(ok, detail)
+
 
 if __name__ == '__main__':
     unittest.main()
