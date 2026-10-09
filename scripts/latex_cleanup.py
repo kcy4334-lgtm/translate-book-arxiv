@@ -1460,6 +1460,16 @@ def prefixes_from_lines(lines, tex_heads, run_in_level=0, stats=None):
             stats['matched'] += 1
             stats['wrapped'] += 1
             continue
+        # The same, set apart from its number: VAE prints `B` on one line and
+        # `Solution of −DKL(...), Gaussian case` on the next.
+        extended = _math_extended_match(title, key, split)
+        fitting = [p for p in split.get(extended, ())
+                   if _prefix_fits_level(p, level)]
+        if extended is not None and fitting:
+            prefixes.append(fitting[0])
+            stats['matched'] += 1
+            stats['wrapped'] += 1
+            continue
         prefixes.append(None)
         if run_in_level and level >= run_in_level:
             stats['run_in'] += 1
@@ -1517,10 +1527,24 @@ def _math_extended_match(title, key, numbered, minimum=10):
     candidate extends the key: a heading that is a genuine prefix of another
     ("Notation" before "Notation and conventions") must stay unmatched rather
     than take its neighbour's number.
+
+    The formula can sit anywhere, so each `$...$` becomes a gap of zero or
+    more PDF words where it stood. Testing only for an extension at the end
+    missed VAE's appendix B, `Solution of $-D_{KL}(...)$, Gaussian case`,
+    which printed without its letter.
     """
     if '$' not in (title or '') or len(key) < minimum:
         return None
-    hits = [c for c in numbered if c != key and c.startswith(key)]
+    rx = ''
+    for part in re.split(r'(\$[^$]*\$)', title):
+        if len(part) > 1 and part[0] == '$' and part[-1] == '$':
+            rx += r'(?:[0-9a-z]+ )*?'
+        else:
+            rx += ''.join(re.escape(w) + ' '
+                          for w in _normalize_heading(part).split())
+    pattern = re.compile(rx)
+    hits = [c for c in numbered
+            if c != key and pattern.fullmatch(c + ' ')]
     return hits[0] if len(hits) == 1 else None
 
 

@@ -40,6 +40,16 @@ class SentenceBertHeadings(unittest.TestCase):
         self.assertEqual(read(lines, heads), ['7'])
 
 
+class MathInTheTitle(unittest.TestCase):
+    def test_a_formula_mid_title_under_its_own_number_line(self):
+        # VAE's appendix B, as its PDF extracts.
+        lines = ['B', 'Solution of −DKL(qφ(z)||pθ(z)), Gaussian case',
+                 'The variational lower bound ...']
+        heads = [(1, r'Solution of $-D_{KL}(q_{\phi}(\mathbf{z}) || '
+                     r'p_{\theta}(\mathbf{z}))$, Gaussian case', True)]
+        self.assertEqual(read(lines, heads), ['B'])
+
+
 class RepeatedTitles(unittest.TestCase):
     """ViT has "4.6 Self-supervision" and, in the appendix, "B.1.2
     Self-supervision". One number was kept per title, so the second printed

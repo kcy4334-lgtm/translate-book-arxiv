@@ -2606,6 +2606,25 @@ def convert_md_to_html(temp_dir, title, lang_cfg, author=None,
 _ANNOTATION_RE = re.compile(r'<annotation\b[^>]*>.*?</annotation>', re.DOTALL)
 
 
+def toc_markup(inner):
+    r"""A heading's inner HTML fit for a TOC link, or None for plain text.
+
+    Only for a heading holding a formula. Flattened to text, VAE's appendix B
+    read `−DKL(q𝝓(𝒛)||p𝜽(𝒛))` in the contents, every subscript set on the
+    line, while the heading itself was right. The MathML is kept without its
+    TeX annotation; links (a footnote mark) and ids, which must stay unique
+    and cannot nest inside the TOC's own link, are taken out.
+    """
+    if '<math' not in inner:
+        return None
+    html = _ANNOTATION_RE.sub('', inner)
+    html = re.sub(r'<a\b[^>]*class="[^"]*footnote-ref[^"]*"[^>]*>.*?</a>', '',
+                  html, flags=re.DOTALL)
+    html = re.sub(r'</?a\b[^>]*>', '', html)
+    html = re.sub(r'\s(?:id|name)="[^"]*"', '', html)
+    return ' '.join(html.split())
+
+
 def generate_heading_id(text, existing_ids):
     """Generate unique ID for heading"""
     base_id = re.sub(r'[^\w\s-]', '', text.lower())
@@ -2647,7 +2666,8 @@ def generate_simple_toc_html(toc_data):
                 current_level -= 1
 
         toc_html += '<li><a href="#%s">%s</a></li>\n' % (
-            heading_id, _html_lib.escape(text, quote=False))
+            heading_id,
+            item.get('html') or _html_lib.escape(text, quote=False))
 
     while current_level > 1:
         toc_html += '</ul></li>\n'
@@ -2685,7 +2705,8 @@ def insert_toc_with_bs4(html_file):
         heading_id = generate_heading_id(text, existing_ids)
         existing_ids.append(heading_id)
         heading['id'] = heading_id
-        toc_data.append({'level': level, 'text': text, 'id': heading_id})
+        toc_data.append({'level': level, 'text': text, 'id': heading_id,
+                         'html': toc_markup(heading.decode_contents())})
 
     if not toc_data:
         print("No headings found for TOC")
@@ -2751,7 +2772,8 @@ def insert_toc_with_regex(html_file):
         cursor = m.end()
 
         toc_html += '  ' * (level - 1)
-        toc_html += f'<li><a href="#{heading_id}">{clean_text}</a></li>\n'
+        entry = toc_markup(text) or clean_text
+        toc_html += f'<li><a href="#{heading_id}">{entry}</a></li>\n'
 
     pieces.append(html_content[cursor:])
     html_content = ''.join(pieces)
@@ -2820,7 +2842,8 @@ def build_print_toc(html_content, toc_label='Contents', max_level=3):
             found = re.search(r'id="([^"]+)"', attrs)
             heading_id = found.group(1) if found else heading_id
         if level <= max_level and not is_title:
-            entries.append({'level': level, 'text': text, 'id': heading_id})
+            entries.append({'level': level, 'text': text, 'id': heading_id,
+                            'html': toc_markup(inner)})
     pieces.append(html_content[cursor:])
     html_content = ''.join(pieces)
 
@@ -2836,7 +2859,8 @@ def build_print_toc(html_content, toc_label='Contents', max_level=3):
             '<span class="toc-text">%s</span>'
             '<span class="toc-dots"></span>'
             '<span class="toc-page" data-toc="%d">%s</span>'
-            '</a></li>' % (e['level'], e['id'], _html_lib.escape(e['text']), i,
+            '</a></li>' % (e['level'], e['id'],
+                           e['html'] or _html_lib.escape(e['text']), i,
                            PRINT_TOC_SENTINEL % i))
     rows.append('</ul></nav>')
     toc_html = '\n'.join(rows)

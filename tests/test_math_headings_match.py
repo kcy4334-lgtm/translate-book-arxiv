@@ -58,6 +58,22 @@ class TheFallbackBridgesIt(unittest.TestCase):
                              'choice of weight for small k')):
             self.assertEqual(self.match(title), want)
 
+    def test_a_formula_in_the_middle(self):
+        # VAE's appendix B printed without its letter.
+        title = (r'Solution of $-D_{KL}(q_{\boldsymbol{\phi}}(\mathbf{z}) || '
+                 r'p_{\boldsymbol{\theta}}(\mathbf{z}))$, Gaussian case')
+        pdf = mb._normalize_heading('Solution of −DKL(qφ(z)||pθ(z)), Gaussian case')
+        numbered = dict(self.numbered, **{pdf: 'B',
+                                          'solution of the bernoulli case': 'C'})
+        key = mb._normalize_heading(title)
+        self.assertEqual(mb._math_extended_match(title, key, numbered), pdf)
+
+    def test_a_gap_does_not_swallow_the_words_around_it(self):
+        numbered = {'bounds for x in the small case': '2'}
+        title = 'Bounds for $x$ in the large case'
+        key = mb._normalize_heading(title)
+        self.assertIsNone(mb._math_extended_match(title, key, numbered))
+
     def test_a_title_without_maths_is_not_extended(self):
         self.assertIsNone(self.match('Selberg sieve'))
 

@@ -867,6 +867,20 @@ class PrintTocTests(unittest.TestCase):
         self.assertEqual(len(found), n)
         self.assertEqual(sorted(int(x) for x in found), list(range(n)))
 
+    def test_a_formula_keeps_its_mathml(self):
+        # VAE's appendix B listed its formula with every subscript on the line.
+        html = ('<html><body><h1 id="b">B <math><semantics><msub><mi>q</mi>'
+                '<mi>ϕ</mi></msub><annotation encoding="application/x-tex">'
+                'q_\\phi</annotation></semantics></math>의 해'
+                '<a href="#fn1" class="footnote-ref" id="fnref1"><sup>1</sup></a>'
+                '</h1></body></html>')
+        out, _ = merge_and_build.build_print_toc(html, "C")
+        nav = out[out.index("<nav"):out.index("</nav>")]
+        self.assertIn('<msub><mi>q</mi><mi>ϕ</mi></msub>', nav)
+        self.assertNotIn('q_\\phi', nav)
+        self.assertNotIn('fnref1', nav)
+        self.assertEqual(nav.count('<a '), 1)
+
     def test_no_headings_means_no_toc(self):
         out, n = merge_and_build.build_print_toc("<html><body><p>x</p></body></html>", "C")
         self.assertEqual(n, 0)
@@ -1985,7 +1999,9 @@ class WebTocTextTests(unittest.TestCase):
             '<h2>B <math><semantics><mi>γ</mi>'
             '<annotation encoding="application/x-tex">\\gamma</annotation>'
             '</semantics></math>의 해</h2>')
-        self.assertIn('γ의 해', toc)
+        # The MathML stays, so subscripts render; the TeX source does not.
+        self.assertIn('<mi>γ</mi>', toc)
+        self.assertIn('의 해', toc)
         self.assertNotIn('\\gamma', toc)
 
     def test_markup_characters_in_a_title_stay_text(self):
