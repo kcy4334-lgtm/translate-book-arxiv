@@ -753,6 +753,11 @@ def _clean_bib_label(raw):
     if m:
         authors, year = m.group(1).strip().rstrip(','), m.group(2).strip()
         label = f'{authors} {year}'.strip()
+    # `alpha` marks a fourth author with a raised plus: `VLL$^+$10`. The
+    # label prints wherever it is cited and on the list, and its dollars
+    # reached VAE's page as TeX.
+    label = re.sub(r'\$\^\{?\+\}?\$', '+', label)
+    label = label.replace('$', '')
     label = re.sub(r'\\[a-zA-Z]+\s*', '', label)
     label = re.sub(r'[{}]', '', label)
     return re.sub(r'\s+', ' ', label).strip()

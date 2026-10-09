@@ -74,6 +74,12 @@ class InlinedListLabels(unittest.TestCase):
         self.assertIn('[BJP12] D. Blei.', out)
         self.assertIn('[DHS10] J. Duchi.', out)
 
+    def test_an_alpha_label_with_a_raised_plus_prints_plainly(self):
+        """VAE's `\\bibitem[VLL$^+$10]` reached the page as TeX."""
+        import arxiv_backend
+        self.assertEqual(arxiv_backend._clean_bib_label('VLL$^+$10'), 'VLL+10')
+        self.assertEqual(arxiv_backend._clean_bib_label('ABC$^{+}$12'), 'ABC+12')
+
     def test_an_author_year_list_keeps_its_numbers(self):
         md = (BS + 'begin{thebibliography}{1}\n' + BS
               + 'bibitem[{Misra et~al.(2016)}]{m}\nA. Misra.\n'
