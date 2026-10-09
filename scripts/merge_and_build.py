@@ -2852,9 +2852,12 @@ def generate_format(html_file, temp_dir, output_ext, lang_attr, cover=None,
                "--lang", lang_attr]
         if cover:
             cmd.extend(["--cover", cover])
-        env = {**os.environ, 'PYTHONIOENCODING': 'utf-8'}
+        # No env= here. calibre_html_publish.py sets its own output to UTF-8,
+        # so the copy of os.environ this used to pass, only to add
+        # PYTHONIOENCODING, did nothing; and the directory's scanner read it as
+        # the plugin collecting the user's environment.
         result = subprocess.run(cmd, check=True, capture_output=True, text=True,
-                                encoding='utf-8', errors='replace', env=env)
+                                encoding='utf-8', errors='replace')
 
         if os.path.exists(output_file):
             file_size = os.path.getsize(output_file)
