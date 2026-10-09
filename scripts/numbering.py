@@ -425,6 +425,81 @@ def figure_panels(temp_dir):
     return out or None
 
 
+_MD_IMAGE_REF_RE = re.compile(r'!\[[^\]]*\]\(([^)\s]+)\)')
+
+
+def _block_bounds(text, at):
+    """(start, end) of the blank-line-separated block holding `at`."""
+    start = text.rfind('\n\n', 0, at)
+    start = 0 if start < 0 else start + 2
+    end = text.find('\n\n', at)
+    return start, len(text) if end < 0 else end
+
+
+def badge_stranded_captions(md_text, temp_dir, lang_cfg=None):
+    r"""Number the captions `format_figure_blocks` could not reach. (text, n).
+
+    It pairs an image standing alone with the paragraph after it. A figure
+    laid out otherwise kept its caption as an ordinary paragraph, with no
+    "그림 N", while the text pointed at "그림 N": GAN's panels sit in a
+    `tabular` (a table in the markdown), attention's under a title line in
+    two minipages, and the inventory, counting in other units, passed both.
+
+    The anchor is the figure's own images, which survive translation: the
+    caption is the first paragraph after the block holding the float's last
+    image, or before the block holding its first when the source writes the
+    caption on top. Only a float that has a caption and shows no badge yet.
+    """
+    lang_cfg = lang_cfg or {}
+    fig_label = lang_cfg.get('figure_label', 'Figure')
+    panels = figure_panels(temp_dir) or {}
+    units = [u for u in read_float_units(temp_dir)
+             if u['kind'] == 'figure' and u['number'] is not None]
+    if not units or not panels:
+        return md_text, 0
+    flat = os.path.join(temp_dir, 'flat.tex')
+    with open(flat, 'r', encoding='utf-8', errors='replace') as fh:
+        tex = strip_tex_comments(fh.read())
+    count = 0
+    for unit in units:
+        number = unit['number']
+        label = f'{fig_label} {number}' + (
+            f' (Fig. {number})' if fig_label != 'Figure' else '')
+        if ('**%s' % label) in md_text:
+            continue
+        names = [n for n, info in panels.items() if info['float'] == number]
+        refs = [m for m in _MD_IMAGE_REF_RE.finditer(md_text)
+                if os.path.basename(m.group(1)) in names]
+        if not refs:
+            continue
+        region = tex[unit['start']:unit['stop']]
+        cap = _CAPTION_CMD_RE.search(region)
+        graphic = region.find('\\includegraphics')
+        on_top = cap is not None and 0 <= cap.start() < graphic
+        if on_top:
+            first, _ = _block_bounds(md_text, refs[0].start())
+            before = md_text[:first].rstrip()
+            start = before.rfind('\n\n')
+            start = 0 if start < 0 else start + 2
+            target = (start, len(before))
+        else:
+            _, last = _block_bounds(md_text, refs[-1].start())
+            after = re.match(r'\s*', md_text[last:]).end()
+            start = last + after
+            end = md_text.find('\n\n', start)
+            target = (start, len(md_text) if end < 0 else end)
+        paragraph = md_text[target[0]:target[1]]
+        head = paragraph.lstrip()
+        if (not head or head.startswith(('#', '!', '|', '+', ':::', '**'))
+                or _MD_IMAGE_REF_RE.search(paragraph)):
+            continue
+        indent = len(paragraph) - len(head)
+        md_text = (md_text[:target[0] + indent] + '**%s** ' % label
+                   + md_text[target[0] + indent:])
+        count += 1
+    return md_text, count
+
+
 def figures_with_captions(temp_dir):
     """{figure_number} for the floats that carry a \\caption in the source.
 

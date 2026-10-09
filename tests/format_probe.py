@@ -236,6 +236,48 @@ def check_caption_numbers(temp_dir, body, lang):
     return len(want), found, untranslated, disagree
 
 
+# In a <figcaption>, or in the paragraph a multi-panel figure's caption
+# becomes under its panels (VAE's Figures 4 and 5).
+_FIGURE_BADGE_RE = re.compile(
+    r"<(?:figcaption|p|caption)\b[^>]*>\s*<strong>([^<]*?)</strong>")
+
+
+def check_figure_numbers(temp_dir, body):
+    """Numbered figures the source has and the book does not show. Or None.
+
+    The inventory compares counts in different units and only fails on a
+    zero, so DDPM's book showed 9 of the 21 figures its source numbers and
+    passed. A figure's caption badge carries its number -- `그림 5 (Fig. 5)`,
+    or `Figure 5` when nothing is translated -- and the original's number is
+    what is compared.
+    """
+    flat = os.path.join(temp_dir, "flat.tex")
+    if not os.path.isfile(flat):
+        return None
+    here = os.path.dirname(os.path.abspath(__file__))
+    sys.path.insert(0, os.path.join(os.path.dirname(here), "scripts"))
+    try:
+        import merge_and_build as mb
+    except Exception:
+        return None
+    want = {str(u["number"]) for u in
+            mb.float_units(mb.strip_tex_comments(_read(flat)))
+            if u["kind"] == "figure" and u["number"] is not None}
+    seen = set()
+    for m in _FIGURE_BADGE_RE.finditer(body):
+        badge = m.group(1)
+        original = re.search(r"\(\s*Fig\.\s*([0-9A-Z.]+)\s*\)", badge)
+        if original:
+            seen.add(original.group(1).rstrip("."))
+            continue
+        plain = re.match(r"\s*(?:Figure|Fig\.)\s*(\d+(?:\.\d+)*|[A-Z]\.?\d+)",
+                         badge)
+        if plain:
+            seen.add(plain.group(1))
+    return sorted(want - seen, key=lambda n: [int(p) if p.isdigit() else p
+                                              for p in re.split(r"\.", n)])
+
+
 _CAPTION_END_RE = re.compile(
     r"</p>|</caption>|</figcaption>|</td>|</th>|</div>|</li>|<table\b")
 
@@ -503,6 +545,15 @@ def probe(temp_dir, strict=False, lang=None):
         if headed < total:
             print("   - %d table(s) have no header row, so nothing repeats "
                   "when they break across a page" % (total - headed))
+
+    if body is not None:
+        lost = check_figure_numbers(temp_dir, body)
+        if lost:
+            print()
+            print("figures the source numbers and the book does not show: %s"
+                  % ', '.join(lost[:12]))
+            fails.append("%d numbered figure(s) missing from the book"
+                         % len(lost))
 
     if lang and body is not None:
         counted = check_caption_numbers(temp_dir, body, lang)

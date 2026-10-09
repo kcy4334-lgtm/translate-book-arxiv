@@ -54,6 +54,7 @@ from numbering import (
     _FIG_IMAGE_RE, _NUMBERED_MATH_ENVS, _PANEL_WIDTH, _PANEL_WIDTH_MANY,
     _counter_label, _graphic_stem, _label_token_re, _numbers_for_block,
     _spacing_only_prefix, _xref_regex, apply_graphics_trim,
+    badge_stranded_captions,
     build_bibitem_numbers, build_float_numbers, build_label_index,
     build_label_numbers, build_subfigure_letters, counter_events,
     drop_doubled_labels, equation_numbers, figures_with_captions,
@@ -2345,6 +2346,10 @@ def convert_md_to_html(temp_dir, title, lang_cfg, author=None,
     md_text, fig_count = format_figure_blocks(md_text, lang_cfg, temp_dir)
     if fig_count:
         print(f"Figures: {fig_count} caption(s) formatted")
+    md_text, stranded = badge_stranded_captions(md_text, temp_dir, lang_cfg)
+    if stranded:
+        print(f"Figures: {stranded} caption(s) beside a panel table or titled "
+              f"panels given their figure number")
 
     md_text, grid_count = grid_tables_to_pipe(md_text)
     if grid_count:
