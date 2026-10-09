@@ -54,5 +54,32 @@ class HeadingMath(unittest.TestCase):
             self.assertNotIn('$$', mb.clean_heading_title(raw, MACROS))
 
 
+class GlossMathShorthand(unittest.TestCase):
+    r"""VAE's appendix heading kept `\qPhi` in its original-title bracket,
+    which texmath cannot read: `$- D_{KL}(\qPhi(\bz) || \pT(\bz))$` printed."""
+
+    def test_the_bracket_gets_the_same_expansion_as_the_title(self):
+        import shutil
+        import tempfile
+        import latex_cleanup
+        real = latex_cleanup.read_pdf_section_prefixes
+        latex_cleanup.read_pdf_section_prefixes = lambda d, h: (
+            ['1', '2', 'A'], {'matched': 3, 'unnumbered': 0, 'missing': 0,
+                              'wrapped': 0, 'reason': None})
+        self.addCleanup(setattr, latex_cleanup, 'read_pdf_section_prefixes', real)
+        d = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, d, True)
+        with open(os.path.join(d, 'flat.tex'), 'w', encoding='utf-8') as fh:
+            fh.write('\\newcommand{\\bz}{\\mathbf{z}}\n'
+                     '\\section{Intro}\nx\n\\section{Method}\ny\n'
+                     '\\section{Solution of $\\bz$, Gaussian case}\nz\n')
+        md = ('# 서론\n\n본문.\n\n# 방법\n\n본문.\n\n'
+              '# $\\mathbf{z}$의 해, 가우시안 경우\n\n본문.\n')
+        out, stats = mb.number_sections(md, d)
+        self.assertEqual(stats['numbered'], 3, stats)
+        self.assertIn('(Solution of $\\mathbf{z}$, Gaussian case)', out)
+        self.assertNotIn('\\bz', out)
+
+
 if __name__ == '__main__':
     unittest.main()

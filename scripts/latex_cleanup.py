@@ -1673,6 +1673,11 @@ def number_sections(md_text, temp_dir, bilingual=True):
         if bilingual and original and not _already_says(translated, original):
             gloss = _without_shared_tag(_gloss_reference(original, gloss_numbers),
                                         translated)
+            # The original title comes from flat.tex, where the paper's own
+            # math shorthand is still unexpanded; the translated title had it
+            # expanded already. texmath cannot read `\qPhi`, and VAE's
+            # appendix heading printed `$- D_{KL}(\qPhi(\bz) || \pT(\bz))$`.
+            gloss, _n = expand_math_macros(gloss, temp_dir)
             if gloss:
                 text += f' ({gloss})'
         pieces.append(md_text[cursor:m.start()])
