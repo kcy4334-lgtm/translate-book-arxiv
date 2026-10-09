@@ -60,6 +60,37 @@ class AFixedChapter(unittest.TestCase):
                          [(4, 'For Section 5.4', False), (4, 'Plain', False)])
 
 
+class FormulaLettersKept(unittest.TestCase):
+    r"""higgs_atlas: three `$H\to ...$ channel` sections keyed "channel" once
+    the formula was deleted, met a stray "channel" line, and printed with no
+    number."""
+
+    def test_the_formula_letters_find_the_number(self):
+        lines = ['channel', '4. H →ZZ(∗) →4ℓchannel', 'The search',
+                 '5. H→γγ channel', 'The search', '6. H→WW(∗)→eνµν channel']
+        heads = [(1, r'$H\to ZZ^{(*)}\to 4\ell$ channel', True),
+                 (1, r'$H{\rightarrow\,}\gamma\gamma$\ channel', True),
+                 (1, r'$H{\rightarrow\,}WW^{(*)}{\rightarrow\,}e\nu\mu\nu$ channel',
+                  True)]
+        self.assertEqual(read(lines, heads), ['4.', '5.', '6.'])
+
+    def test_a_heading_macro_is_expanded(self):
+        import shutil
+        import tempfile
+        temp = tempfile.mkdtemp(prefix='tb-hmacro-')
+        try:
+            with open(os.path.join(temp, 'flat.tex'), 'w', encoding='utf-8') as fh:
+                fh.write('\\newcommand{\\hww}{\\ensuremath{H{\\rightarrow\\,}WW}}\n'
+                         '\\section{$\\hww$ channel}\n'
+                         '\\section{\\ensuremath{H{\\rightarrow\\,}\\gamma}\\ channel}\n')
+            heads = mb.read_tex_headings(temp)
+        finally:
+            shutil.rmtree(temp, ignore_errors=True)
+        self.assertEqual([h[1] for h in heads],
+                         ['$H{\\rightarrow\\,}WW$ channel',
+                          '$H{\\rightarrow\\,}\\gamma$\\ channel'])
+
+
 class MathInTheTitle(unittest.TestCase):
     def test_a_formula_mid_title_under_its_own_number_line(self):
         # VAE's appendix B, as its PDF extracts.

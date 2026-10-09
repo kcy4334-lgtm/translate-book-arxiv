@@ -1196,6 +1196,21 @@ def clean_heading_title(raw, macros=None):
         expanded = re.sub(r'\$\s*\\ensuremath\s*\{([^{}]*)\}\s*\$',
                           r'$\1$', expanded)
         expanded = _ENSUREMATH_RE.sub(r'$\1$', expanded)
+        # Nested braces too: higgs_atlas's `\ensuremath{H{\rightarrow\,}
+        # \gamma\gamma}\ channel` was stripped to `{H{\,}}\ channel` and the
+        # heading never met its number in the PDF.
+        nested = re.search(r'\\ensuremath\s*\{', expanded)
+        if nested:
+            close = _balanced_group(expanded, nested.end() - 1)
+            if close > 0:
+                # Already inside dollars (`$\hwwenmun$`): the wrapper goes and
+                # no second pair is added, for the reason given above.
+                inside = (expanded[:nested.start()].rstrip().endswith('$')
+                          and expanded[close:].lstrip().startswith('$'))
+                fence = '' if inside else '$'
+                expanded = (expanded[:nested.start()] + fence
+                            + expanded[nested.end():close - 1] + fence
+                            + expanded[close:])
         expanded = _TITLE_UNWRAP_RE.sub(r'\1', expanded)
         if expanded == text:
             break
@@ -1227,10 +1242,14 @@ def read_tex_headings(temp_dir):
         return []
     try:
         with open(flat, 'r', encoding='utf-8', errors='replace') as fh:
-            tex = strip_tex_comments(fh.read())
+            raw = fh.read()
     except OSError:
         return []
-    macros = read_simple_macros(tex)
+    tex = strip_tex_comments(raw)
+    # The definitions are what this reads, and the stripper blanks their
+    # bodies: no heading macro was ever expanded, and higgs_atlas's
+    # `$\hwwenmun$ channel` keyed "channel".
+    macros = read_simple_macros(strip_tex_comments(raw, keep_definitions=True))
     out = []
     for m in _HEADING_CMD_RE.finditer(tex):
         open_at = m.end() - 1
@@ -1420,9 +1439,23 @@ def prefixes_from_lines(lines, tex_heads, run_in_level=0, stats=None,
             plain.add(key)
         before = line
 
+    joined = {}
+    for k in list(numbered) + list(split):
+        joined.setdefault(k.replace(' ', ''), k)
     prefixes, used, used_joined = [], {}, {}
     for level, title, _is_numbered in tex_heads:
         key = _normalize_heading(title)
+        # A formula deleted can leave a key too short to mean anything:
+        # higgs_atlas's three `$H\to ...$ channel` sections all keyed
+        # "channel", met a stray "channel" line, and printed unnumbered. The
+        # formula's own letters are what the PDF prints, so try them first.
+        kept = _math_kept_key(title)
+        if kept and kept != key:
+            # Spaces aside: the PDF runs a formula into the next word,
+            # `4ℓchannel`.
+            found = joined.get(kept.replace(' ', ''))
+            if found:
+                key = found
         if key in numbered:
             candidates = numbered[key]
             if len(candidates) > 1:
@@ -1523,6 +1556,21 @@ def enough_located(locatable, share=0.6, floor=3):
     has changed.
     """
     return max(floor, int(share * locatable))
+
+
+def _math_kept_key(title):
+    r"""The heading key with its formulas' letters kept, or None without one.
+
+    `$H\to ZZ^{(*)}\to 4\ell$ channel` -> `h zz 4 channel`, which is what the
+    PDF's `H →ZZ(∗) →4ℓchannel` normalises to: commands go, letters and
+    digits stay.
+    """
+    if '$' not in (title or ''):
+        return None
+    # `\ell` prints ℓ, which NFKC folds to l on the PDF side.
+    text = re.sub(r'\\ell(?![A-Za-z])', 'l', title)
+    text = re.sub(r'\\[A-Za-z]+', ' ', text)
+    return _normalize_heading(text.replace('$', ' '))
 
 
 def _longest_prefix_match(key, numbered, minimum=14):
