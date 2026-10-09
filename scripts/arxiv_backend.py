@@ -2564,7 +2564,53 @@ def split_captioned_minipages(tex):
     return _FIGURE_ENV_RE.sub(repl, tex), count
 
 
-_ENUM_LABEL_RE = re.compile(r'\\begin\{enumerate\}\s*\[')
+_STACKED_CAPTION_RE = re.compile(r'\\caption\s*(?:\[[^\]]*\])?\s*\{')
+_STACK_NESTING_RE = re.compile(
+    r'\\begin\{(?:minipage|subfigure|subtable|tabular)|\\subfloat|\\subfigure'
+    r'|\\captionof')
+_LABEL_AFTER_RE = re.compile(r'\s*\\label\{[^}]*\}')
+
+
+def split_stacked_captions(tex):
+    r"""A figure that stacks image, caption, image, caption becomes one
+    figure per caption. Returns (tex, n).
+
+    PaLM sets Figures 13 and 14 that way in one `figure*`, divided by a
+    `\bigskip`. pandoc keeps one caption per float, so the book printed both
+    images as panels (a) and (b) of Figure 13 and Figure 14 was gone.
+    """
+    count = 0
+
+    def repl(m):
+        nonlocal count
+        env, body = m.group(1), m.group(2)
+        caps = list(_STACKED_CAPTION_RE.finditer(body))
+        if len(caps) < 2 or _STACK_NESTING_RE.search(body):
+            return m.group(0)
+        pieces, start = [], 0
+        for cap in caps:
+            # Each piece shows its own content above its own caption.
+            if '\\includegraphics' not in body[start:cap.start()]:
+                return m.group(0)
+            end = _balanced_brace(body, cap.end() - 1)
+            if end < 0:
+                return m.group(0)
+            label = _LABEL_AFTER_RE.match(body, end)
+            while label:
+                end = label.end()
+                label = _LABEL_AFTER_RE.match(body, end)
+            pieces.append(body[start:end].strip())
+            start = end
+        if '\\includegraphics' in body[start:]:
+            return m.group(0)
+        count += 1
+        return '\n\n'.join('\\begin{%s}\n%s\n\\end{%s}' % (env, p, env)
+                           for p in pieces)
+
+    return _FIGURE_ENV_RE.sub(repl, tex), count
+
+
+_ENUM_LABEL_RE =re.compile(r'\\begin\{enumerate\}\s*\[')
 _ENUM_COUNTERS = {
     'arabic': lambda n: str(n),
     'alph': lambda n: 'abcdefghijklmnopqrstuvwxyz'[n - 1],
@@ -2737,6 +2783,10 @@ def sanitize_tex(tex):
     if split:
         print(f"Split {split} figure(s) of captioned minipages into one figure "
               f"each; pandoc keeps only the last caption of a float")
+    tex, stacked = split_stacked_captions(tex)
+    if stacked:
+        print(f"Split {stacked} figure(s) stacking image and caption twice "
+              f"into one figure each; pandoc keeps only the last caption")
     tex, layouts = unwrap_graphics_tabulars(tex)
     if layouts:
         print(f"Unwrapped {layouts} tabular(s) that only laid out a figure's "

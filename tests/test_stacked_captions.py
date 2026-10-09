@@ -1,0 +1,76 @@
+# -*- coding: utf-8 -*-
+r"""A float that stacks image, caption, image, caption is two figures.
+
+PaLM sets Figures 13 and 14 in one `figure*`, divided by `\bigskip`. The
+book printed both images as panels (a) and (b) of Figure 13, and Figure 14
+was missing.
+"""
+import os
+import sys
+import unittest
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(
+    os.path.abspath(__file__))), 'scripts'))
+
+import arxiv_backend
+import numbering
+
+PALM = ('\\begin{figure*}[ht]\n\\centering\n'
+        '\\includegraphics[width=.9\\linewidth]{figs/a.png}\n'
+        '\\caption{First {example}.}\n\\label{fig:one}\n\\bigskip\n'
+        '\\includegraphics[width=.9\\linewidth]{figs/b.png}\n'
+        '\\caption{Second.}\n\\label{fig:two}\n\\end{figure*}\n')
+
+
+class Split(unittest.TestCase):
+
+    def test_each_caption_takes_the_image_above_it(self):
+        out, n = arxiv_backend.split_stacked_captions(PALM)
+        self.assertEqual(n, 1)
+        self.assertEqual(out.count('\\begin{figure*}'), 2)
+        first, second = out.split('\\end{figure*}')[:2]
+        self.assertIn('a.png', first)
+        self.assertIn('\\label{fig:one}', first)
+        self.assertNotIn('b.png', first)
+        self.assertIn('b.png', second)
+        self.assertIn('\\label{fig:two}', second)
+
+    def test_caption_above_content_is_left(self):
+        tex = ('\\begin{figure}\\caption{One.}\\includegraphics{a}'
+               '\\caption{Two.}\\includegraphics{b}\\end{figure}')
+        self.assertEqual(arxiv_backend.split_stacked_captions(tex), (tex, 0))
+
+    def test_captioned_minipages_are_left_to_their_own_split(self):
+        tex = ('\\begin{figure}\\begin{minipage}{.5\\linewidth}\\includegraphics{a}'
+               '\\caption{One.}\\end{minipage}\\begin{minipage}{.5\\linewidth}'
+               '\\includegraphics{b}\\caption{Two.}\\end{minipage}\\end{figure}')
+        self.assertEqual(arxiv_backend.split_stacked_captions(tex), (tex, 0))
+
+    def test_one_caption_is_left(self):
+        tex = ('\\begin{figure}\\includegraphics{a}\\includegraphics{b}'
+               '\\caption{Both.}\\end{figure}')
+        self.assertEqual(arxiv_backend.split_stacked_captions(tex), (tex, 0))
+
+
+class Units(unittest.TestCase):
+
+    def test_the_second_image_belongs_to_the_second_figure(self):
+        units = numbering.float_units(PALM)
+        self.assertEqual([u['number'] for u in units], [1, 2])
+        first = PALM[units[0]['start']:units[0]['stop']]
+        second = PALM[units[1]['start']:units[1]['stop']]
+        self.assertNotIn('b.png', first)
+        self.assertIn('b.png', second)
+        self.assertEqual(units[0]['labels'], ['fig:one'])
+        self.assertEqual(units[1]['labels'], ['fig:two'])
+
+    def test_caption_above_content_still_cuts_at_the_caption(self):
+        tex = ('\\begin{figure}\\caption{One.}\\includegraphics{a}'
+               '\\caption{Two.}\\includegraphics{b}\\end{figure}')
+        units = numbering.float_units(tex)
+        self.assertIn('{a}', tex[units[0]['start']:units[0]['stop']])
+        self.assertIn('{b}', tex[units[1]['start']:units[1]['stop']])
+
+
+if __name__ == '__main__':
+    unittest.main()

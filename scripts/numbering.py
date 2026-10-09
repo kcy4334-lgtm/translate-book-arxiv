@@ -225,6 +225,25 @@ _MINIPAGE_SPAN_RE = re.compile(
 
 _CAPTIONOF_KIND_RE = re.compile(r'\\captionof\s*\{(figure|table)\}')
 
+# What a float shows, as opposed to how it is spaced or labelled.
+_FLOAT_CONTENT_RE = re.compile(
+    r'\\includegraphics|\\begin\s*\{(?:tabular|tabularx|tabu|tikzpicture'
+    r'|algorithmic|lstlisting|verbatim)\*?\}')
+
+_LABEL_AFTER_CAPTION_RE = re.compile(r'\s*\\label\s*\{[^}]*\}')
+
+
+def _after_caption(body, caption, limit):
+    """Index just past `caption`'s argument and any \\label that follows it."""
+    end = _balanced_group(body, caption.end() - 1)
+    if end < 0 or end > limit:
+        return limit
+    m = _LABEL_AFTER_CAPTION_RE.match(body, end)
+    while m and m.end() <= limit:
+        end = m.end()
+        m = _LABEL_AFTER_CAPTION_RE.match(body, end)
+    return end
+
 
 def float_units(tex):
     """One entry per figure/table number the paper actually issues.
@@ -323,6 +342,13 @@ def float_units(tex):
         # both images -- its own and figure 4's, which comes before figure
         # 4's caption -- and the book printed them as one figure.
         pages = [(p.start(), p.end()) for p in _MINIPAGE_SPAN_RE.finditer(body)]
+        # Content above the first caption means the float puts each caption
+        # under its content, so the cut goes after the previous caption and
+        # its label instead. PaLM stacks Figures 13 and 14 in one `figure*`,
+        # image-caption-image-caption; cut at the caption, Figure 13 owned
+        # both images and Figure 14 none.
+        below = bool(captions) and bool(
+            _FLOAT_CONTENT_RE.search(body, 0, captions[0].start()))
         bounds = [0]
         for prev, m in zip(captions, captions[1:]):
             cut = m.start()
@@ -330,6 +356,9 @@ def float_units(tex):
                 if s <= m.start() < e and s > prev.start():
                     cut = s
                     break
+            else:
+                if below:
+                    cut = _after_caption(body, prev, m.start())
             bounds.append(cut)
         bounds.append(len(body))
         for index in range(max(1, len(captions))):
