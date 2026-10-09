@@ -76,7 +76,7 @@ This page was written for the repository, with made-up results, so it can be sho
 - **Resumable**: SHA-256 hashes in a manifest keep stale outputs out of the merge, and a changed glossary re-translates only the chunks that used the changed terms
 - **Print-ready PDF**: headless Chromium against a real `@page` box (A4, 18/18/22/18 mm, 11.5 pt), page numbers stamped afterwards because Chrome has no margin boxes. `scripts/layout.py` holds the page geometry and fonts
 - **Output**: HTML with a floating TOC, DOCX, EPUB and PDF, with an optional EPUB cover, working folder and export name
-- **Tests**: 2,307, standard library only, run in CI
+- **Tests**: 2,310, standard library only, run in CI
 
 ## Growing the skill
 
@@ -317,6 +317,7 @@ A temp dir belongs to one run. After changing the title, author, language, templ
 | `scripts/verify_tables.py` | Checks that table numbers and structure survive translation |
 | `scripts/table_language.py` | The common table header words that must be translated |
 | `scripts/repair.py` | Repairs an already translated book in place |
+| `scripts/render_pages.py` | Renders PDF pages to PNG for the page-by-page reading in step 7.5 |
 | `scripts/merge_and_build.py` | Merge, then HTML, DOCX, EPUB and PDF |
 | `scripts/latex_cleanup.py` | For the build: drops LaTeX that would print as text, expands macros, fixes math, numbers sections |
 | `scripts/numbering.py` | For the build: figure captions, float and equation numbers, cross-references |

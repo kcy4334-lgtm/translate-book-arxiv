@@ -1352,12 +1352,22 @@ Then dispatch **one sub-agent per paper** to do what no probe can. Give each:
 
 - the built PDF and the ORIGINAL PDF (`ref_paper/<name>.pdf`),
 - `output.md`, `flat.tex`, and the `chunk*.math.json` sidecars,
-- a scratch directory of its own, and filenames prefixed with the paper.
+- `<temp_dir>/pages/` as its scratch directory, and filenames prefixed with
+  the paper.
 
-Tell it to **render both pages and read them as images** (PyMuPDF
-`page.get_pixmap(matrix=fitz.Matrix(2,2)).save(path)`) not to compare text
-dumps. Position is the whole point: a header that sits over the wrong column
-extracts identically to one that sits over the right column.
+Tell it to **render both pages and read them as images**, not to compare text
+dumps, with the skill's own command and the Read tool on the PNGs it lists:
+
+```bash
+python {baseDir}/scripts/render_pages.py "<translated.pdf>" "<temp_dir>/pages" --prefix <paper>_<target_lang> --pages 7
+python {baseDir}/scripts/render_pages.py "<original.pdf>" "<temp_dir>/pages" --prefix <paper>_src --pages 5
+```
+
+Position is the whole point: a header that sits over the wrong column
+extracts identically to one that sits over the right column. Give the agent
+these commands to run as written; a render script of its own is not one the
+skill pre-approves, and on an unattended run it was refused and no page was
+looked at.
 
 Ask for, per table and per algorithm float: the original page, the translated
 page, and either "matches" or a numbered list of concrete differences, each
@@ -1381,9 +1391,10 @@ in the body, carrying the `참고문헌` heading six pages inside its own list,
 and naming no authors on any title page. Every one of those was found by
 someone looking at pages.
 
-Dispatch **one sub-agent per paper** to render EVERY page at
-`fitz.Matrix(2, 2)` and read the images, not text dumps; a heading sitting
-on top of a figure extracts perfectly. Ask for a line per page ("p7: clean"
+Dispatch **one sub-agent per paper** to render EVERY page, with
+`python {baseDir}/scripts/render_pages.py "<book.pdf>" "<temp_dir>/pages" --prefix <paper>_<target_lang>`,
+and read the images, not text dumps; a heading sitting on top of a figure
+extracts perfectly. Ask for a line per page ("p7: clean"
 or "p7: <what is wrong>"), then findings ranked by reader impact, then what
 it could NOT verify.
 
