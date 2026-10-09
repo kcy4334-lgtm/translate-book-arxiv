@@ -238,6 +238,22 @@ class OnlyTheProseIsRewritten(unittest.TestCase):
         self.assertIn(r'\newcommand{\ie}{i.e.}', out)
         self.assertIn('x i.e. y', out)
 
+    def test_the_empty_group_after_a_bare_macro_goes_with_it(self):
+        """ViT writes `\\vit{}`; its headings read "Vision Transformer{}"."""
+        tex = (r'\newcommand{\vit}{Vision Transformer}' '\n' r'\begin{document}'
+               '\n' r'\subsection{\vit{} (\vit{})} the \vit{} works' '\n'
+               r'\end{document}')
+        out, _ = pm.expand_in_source(tex, [('flat.tex', tex)])
+        self.assertIn(r'\subsection{Vision Transformer (Vision Transformer)}',
+                      out)
+        self.assertIn('the Vision Transformer works', out)
+
+    def test_an_argument_macro_keeps_its_empty_argument(self):
+        tex = (r'\newcommand{\wrap}[1]{[#1]}' '\n' r'\begin{document}' '\n'
+               r'x \wrap{} y' '\n' r'\end{document}')
+        out, _ = pm.expand_in_source(tex, [('flat.tex', tex)])
+        self.assertIn('x [] y', out)
+
     def test_a_longer_name_is_not_matched_inside_a_longer_one(self):
         src = [('a.sty', r'\newcommand{\eta}{H}' '\n'
                          r'\newcommand{\etaX}{HX}')]

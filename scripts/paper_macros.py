@@ -1098,6 +1098,11 @@ def expand_in_source(tex, sources, paper_text=None):
             i = m.end()
             continue
         args, end = taken
+        if d.arity == 0 and tex.startswith('{}', end):
+            # `\vit{}`: the empty group only keeps the space after a macro
+            # that takes no argument, and typesets nothing. Left behind it
+            # printed: ViT's headings read "Vision Transformer{} (ViT{})".
+            end += 2
         text = body
         for n, arg in enumerate(args, 1):
             # The wrapper this macro dropped was adding a stop unless the
