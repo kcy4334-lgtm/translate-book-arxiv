@@ -55,6 +55,13 @@ class AlignRows(unittest.TestCase):
         self.assertEqual(index['eq:x'][0], '1')
         self.assertEqual(index['eq:y'][0], '2')
 
+    def test_a_label_on_an_unnumbered_row_names_the_next_numbered_one(self):
+        """GAN labels its `\\nonumber` first row and cites the (1) below."""
+        tex = _align([BS + 'label{eq:G} C &= a ' + BS + 'nonumber',
+                      '&= b', '&= c'])
+        index = self._index(tex)
+        self.assertEqual(index['eq:G'][0], '1')
+
     def test_a_starred_align_takes_none(self):
         tex = (_align(['a &= b', 'c &= d'], '*')
                + BS + 'begin{equation}y' + BS + 'label{eq:y}'

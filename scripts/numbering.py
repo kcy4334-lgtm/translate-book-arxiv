@@ -1394,16 +1394,26 @@ def build_label_index(temp_dir):
                 # `_numbers_for_block`, so the label and the printed number
                 # cannot disagree.
                 inner = latex_rows.env_body(tex, m.end(), env)
-                last = None
+                last, pending = None, []
                 for row in latex_rows.split_rows(inner):
-                    if not re.search(r'\\(?:nonumber|notag)\b', row):
-                        counters['equation'] += 1
-                        last = _counter_label('equation', counters['equation'],
-                                              parents, section_head, fixed)
-                    for lab in re.finditer(r'\\label\s*\{([^}]+)\}', row):
-                        if last is not None:
-                            numbers.setdefault(lab.group(1).strip(),
-                                               (last, 'equation'))
+                    labels = [lab.group(1).strip() for lab in
+                              re.finditer(r'\\label\s*\{([^}]+)\}', row)]
+                    if re.search(r'\\(?:nonumber|notag)\b', row):
+                        # A label in a row that takes no number names the next
+                        # row that does, as the papers print it: GAN puts
+                        # `\label{eq:G-criterion}` on a `\nonumber` first row
+                        # and cites the (4) below it.
+                        pending.extend(labels)
+                        continue
+                    counters['equation'] += 1
+                    last = _counter_label('equation', counters['equation'],
+                                          parents, section_head, fixed)
+                    for label in pending + labels:
+                        numbers.setdefault(label, (last, 'equation'))
+                    pending = []
+                for label in pending:          # none followed: the last one
+                    if last is not None:
+                        numbers.setdefault(label, (last, 'equation'))
                 skip_to = m.end() + len(inner)
                 current, kind = (last, 'equation') if last else (None, None)
             elif env in _NUMBERED_MATH_ENVS:
