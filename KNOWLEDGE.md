@@ -251,6 +251,12 @@ here; the test is the real record. This file is for the *reasoning*, the
 | No authors on the title page | [K226](#k226) |
 | Writes refused after the first batch of translators | [K228](#k228) |
 | Wondering whether a fix generalises beyond the paper that found it | [K229](#k229) |
+| No affiliations on the title page, or affiliation marks printed without affiliations | [K230](#k230) |
+| Citations resolved against the wrong reference list (several `.bbl` files) | [K231](#k231) |
+| `\citeauthor`, `\citeyearpar` or `\citet` printed raw inside a table | [K232](#k232) |
+| A chunk fails as untranslated over a university or institute name | [K233](#k233) |
+| A brace group closed early or read too far around `\{` or `\}` | [K234](#k234) |
+| KNOWLEDGE.md write refused under a plugin install | [K235](#k235) |
 
 ---
 
@@ -3299,8 +3305,7 @@ first-use gloss dedupe.
 Splitting `\author` on commas refused whole lists in six papers (Sentence-BERT,
 ViT, CafeQ, BERT, GAN, ResNet) because an affiliation or a mark held one. A
 line is an author if it reads as a name; Team, Group, Labs and AI lines are
-not. Affiliations are still not printed: the title page has no slot for them
-(open, next version).
+not. Affiliations are printed since K230.
 *Status: LOCKED, `test_latex_authors`.*
 
 ---
@@ -3345,6 +3350,70 @@ GAN 6). The comparison caught two regressions before release, GAN's and
 SINQ's row labels and Shor's numbers. Higgs now stops on a defect it used to
 ship. `tools/corpus_compare.py` runs it again.
 *Status: measured 2026-10-10, pandoc 3.10.2.*
+
+---
+
+### K230
+**The title page prints affiliations and notes from `arxiv_backend.read_title_block`.**
+Returns `{'authors': [(name, marks)], 'affiliations': [(mark, text)],
+'notes': [..]}`. Marks travel as `..` placeholders
+(`_encode_marks`), ignored by `_bare_author`. A line starting with a mark is
+an affiliation and runs to the next mark. URLs, dedications, "is/are with"
+and 20+ word lines are dropped; equal-contribution lines go to `notes`.
+`_renewed_body` reads muxlab's `\authorlist`; `_tex_group` strips comments
+first (spectre's commented `\{`). `marked_byline` prints `<sup>` only when
+affiliations or notes exist; none where the body has them (`\thanks`, ICML).
+*Status: LOCKED, `test_title_block`, `test_latex_authors`; corpus 2026-10-10.*
+
+---
+
+### K231
+**`arxiv_backend.pick_bbl` chooses the `.bbl` that matches `\jobname`.**
+A source with several `.bbl` files took the first one `glob` returned.
+`pick_bbl(root, main_tex)` prefers `<main stem>.bbl`, then a single file,
+then the sorted first with a warning. `inline_bibliography` and
+`build_citation_map` both call it.
+*Status: LOCKED, `test_arxiv_backend`.*
+
+---
+
+### K232
+**Table fragments render every natbib form per key.**
+`latex_tables._FRAGMENT_CITE_RE` catches `\cite*`, `\Cite*` and optional
+arguments; `_NATBIB_FORMS` covers `t`, `author`, `alt`, `alp`, `year`,
+`yearpar`, and a multi-key cite renders each key. `_LABEL_YEAR_TAIL_RE` splits
+the year off the label. Before: `\citeauthor` and `\citeyearpar` inside a
+table cell printed raw.
+*Status: LOCKED, `test_table_fragments`.*
+
+---
+
+### K233
+**A proper name carried from the source is not an untranslated block.**
+`verify_chunk.check_untranslated_blocks(..., source=)` drops runs matched by
+`_NAME_RUN_RE` (capitalised words joined by of/the/and/for/de/von/van) that
+also occur in the source. The demo run failed on "University of Amsterdam".
+*Status: LOCKED, `test_contact_line`.*
+
+---
+
+### K234
+**Brace matchers skip escaped braces.**
+`build_common._balanced_group` steps over `\x` (`i += 2`), and
+`_brace_group`, `arxiv_backend._balanced_arg`, `format_probe._balanced` and
+`table_probe._matching_brace` use the same rule. An unescaped matcher closed
+`\{16,32\}` early or ran past the group.
+*Status: LOCKED, `test_brace_groups`.*
+
+---
+
+### K235
+**Under a plugin install Step 9 writes to `<temp_dir>/findings.md`.**
+The plugin's skill folder is outside the working folder; the 2609.11801 run
+had its KNOWLEDGE.md write refused. SKILL.md Step 9 "**Where to write.**"
+names `findings.md`, and the final report names the file for an issue.
+`--cleanup-only` keeps it.
+*Status: GUARDED by `test_knowledge` (wording); measured on e2e14_demo 2026-10-10.*
 
 ---
 

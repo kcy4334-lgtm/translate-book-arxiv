@@ -84,7 +84,7 @@ Each paper brings LaTeX constructs the last one did not have. Four stores ship w
 
 | | what it holds |
 |---|---|
-| `KNOWLEDGE.md` | What a tool actually did, with the measurement that proved it. 229 entries |
+| `KNOWLEDGE.md` | What a tool actually did, with the measurement that proved it. 235 entries |
 | `KNOWHOW.md` | What a way of working cost, so it is not paid twice. 44 entries |
 | `REFEREE.md` | Whether a repeated failure belongs to a tool, a briefing or a role. 6 entries |
 | `corpus/shapes.json` | Every LaTeX construct each paper carried, written by the build itself. 28 papers |
