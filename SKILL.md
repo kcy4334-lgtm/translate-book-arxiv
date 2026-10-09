@@ -501,18 +501,24 @@ K47–K50 are what it costs when they are not.
 
 **Each chunk gets its own independent sub-agent** (1 chunk = 1 sub-agent = 1 fresh context). This prevents context accumulation and output truncation.
 
-**Dispatch as a work queue, not in batches.** Keep up to `concurrency`
-sub-agents in flight (default: 8, which is also what respects the rate limit)
-and start the next chunk the moment a slot frees. Do not wait for a whole
-group to finish.
+**In Claude Code, dispatch in foreground batches.** Send up to `concurrency`
+Agent calls (default: 8, which is also what respects the rate limit) in ONE
+message, each with `run_in_background: false`; they run at the same time and
+all return before your turn goes on. Then handle what landed and send the next
+batch. Run every other sub-agent of this skill the same way.
 
-Waiting for a batch means waiting for its slowest chunk, every time. Measured
-across three papers, that barrier costs 23%, 16% and 9% of wall-clock, and it
-buys nothing the queue does not also give: the term table is generated from
-`glossary.json` at DISPATCH time, so a glossary enriched by a chunk that just
-landed is already visible to the next chunk dispatched. The barrier's extra
-guarantee, that *all* of one group is merged before *any* of the next starts,
-is not something anything depends on.
+Why not a queue of background agents: the skill's `allowed-tools`, which let
+its scripts run and its files be written without asking, hold only for the
+turn that invoked the skill, and each background agent that finishes starts a
+new turn. Measured on 2026-10-09 with the plugin: the first 13 agents ran in
+the background, and every write after they finished, into the run's own
+folder, was refused, so an unattended run could not add the abstract it had
+found missing or render its pages for the visual check. In the foreground the
+whole run stays one turn. The cost is the batch barrier: each batch waits for
+its slowest chunk, measured at 23%, 16% and 9% of wall-clock on three papers.
+A runtime whose sub-agents do not end the turn can keep `concurrency` agents
+in flight and start the next chunk the moment a slot frees; the term table is
+generated from `glossary.json` at dispatch time either way.
 
 **Handle each chunk as it lands, in this order:** verify it (step 4.4), record
 it, then merge its meta (step 4.5). The order is not interchangeable,
@@ -520,7 +526,7 @@ it, then merge its meta (step 4.5). The order is not interchangeable,
 glossary before recording would file the wrong version. Nothing else has to
 wait for that chunk.
 
-**Spawn each sub-agent with the following task.** Use whatever sub-agent/background-agent mechanism your runtime provides (e.g. the Agent tool, sessions_spawn, or equivalent).
+**Spawn each sub-agent with the following task.** Use whatever sub-agent mechanism your runtime provides (e.g. the Agent tool with `run_in_background: false`, sessions_spawn, or equivalent).
 
 **Dispatch every chunk to the `translator` agent**: `translator` installed as
 a plain skill, `translate-book-arxiv:translator` installed as a plugin; use
@@ -903,8 +909,9 @@ Each sub-agent emitted an `output_chunk<NNNN>.meta.json` alongside its
 translated chunk. As each chunk lands and passes step 4.4, record it while the
 glossary is still the one that chunk was given, then merge its observations
 into the canonical glossary, so the next chunk dispatched sees the enriched
-one. Running this per chunk rather than per batch is what lets the work queue
-keep dispatching; the two subprocess calls take well under a second.
+one. Running this per chunk, before the next batch is sent, is what puts the
+terms a chunk found into the table the next batch is handed; the two
+subprocess calls take well under a second.
 
 You may also let a few completions accumulate and merge them together. What
 must not change is the order within a chunk: record before merge.

@@ -122,25 +122,37 @@ class WorkflowWiringTests(unittest.TestCase):
 
 
 class DispatchWiringTests(unittest.TestCase):
-    """Chunks are dispatched as a queue, and handled in a fixed order."""
+    """Chunks are dispatched in foreground batches, and handled in a fixed
+    order.
+
+    A work queue of background agents was faster, by the batch barrier's
+    23% / 16% / 9% of wall-clock on three papers, but in Claude Code each
+    background agent that finishes starts a new turn, and the skill's
+    allowed-tools hold only for the turn that invoked it. Measured on
+    2026-10-09: after the first background translators finished, every write
+    into the run's own folder was refused."""
 
     def setUp(self):
         self.skill = SKILL.read_text(encoding="utf-8")
 
-    DISPATCH = "**Dispatch as a work queue"
+    DISPATCH = "**In Claude Code, dispatch in foreground batches."
 
-    def test_dispatch_is_a_work_queue(self):
-        self.assertIn(self.DISPATCH, self.skill,
-                      "Step 4 must dispatch as a queue")
+    def test_dispatch_is_in_foreground_batches(self):
+        self.assertIn(self.DISPATCH, self.skill)
+        at = self.skill.index(self.DISPATCH)
+        self.assertIn("run_in_background: false", self.skill[at:at + 400])
 
-    def test_the_batch_barrier_has_not_come_back(self):
-        # Measured at 23% / 16% / 9% of wall-clock across three papers.
-        for phrase in ("Wait for the current batch to complete",
-                       "wait for the current batch to complete"):
-            self.assertNotIn(phrase, self.skill,
-                             "the batch barrier is back: it waits for the "
-                             "slowest chunk in every group and buys nothing "
-                             "the queue does not also give")
+    def test_the_spawn_line_does_not_offer_background_agents(self):
+        spawn = self.skill[self.skill.index("**Spawn each sub-agent"):]
+        spawn = spawn[:spawn.index("\n")]
+        self.assertNotIn("background-agent", spawn)
+        self.assertIn("run_in_background: false", spawn)
+
+    def test_the_cost_of_the_barrier_is_written_down(self):
+        at = self.skill.index(self.DISPATCH)
+        window = self.skill[at:at + 1800]
+        for word in ("allowed-tools", "new turn", "23%"):
+            self.assertIn(word, window)
 
     def test_a_chunk_is_recorded_before_its_meta_is_merged(self):
         """run_state files which glossary terms the chunk used."""
@@ -150,14 +162,10 @@ class DispatchWiringTests(unittest.TestCase):
                         "merging before recording files the wrong glossary "
                         "version against the chunk")
 
-    def test_the_reason_the_queue_is_safe_is_written_down(self):
-        # It is safe because the term table is built at dispatch time, so an
-        # enriched glossary reaches the next chunk without a barrier.
+    def test_the_term_table_is_built_at_dispatch_time(self):
         at = self.skill.index(self.DISPATCH)
-        window = self.skill[at:at + 1400]
-        self.assertIn("DISPATCH time", window,
-                      "say why dropping the barrier is safe, or the next "
-                      "person restores it")
+        window = self.skill[at:at + 1800]
+        self.assertIn("dispatch time", window)
 
 
 if __name__ == "__main__":

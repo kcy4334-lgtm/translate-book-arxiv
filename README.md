@@ -38,7 +38,7 @@ Split into chunks (chunk0001.md, chunk0002.md, ...)
   │  manifest.json tracks chunk hashes
   │  the reference list becomes its own chunk and is copied, not translated
   ▼
-Parallel sub-agents (work queue, 8 in flight by default)
+Parallel sub-agents (batches of 8 by default)
   │  each sub-agent: read 1 chunk → translate → write output_chunk*.md
   │  each chunk is verified, recorded and merged as it lands
   ▼
@@ -70,13 +70,13 @@ This page was written for the repository, with made-up results, so it can be sho
 - **Numbers come from the paper**: equation, theorem, section, float and subfigure numbers are read from the LaTeX source and checked against the original PDF by `tests/source_probe.py`
 - **The paper's own macros are resolved**: a paper's `.sty` is never `\input`, so pandoc would print `\ie` or `\parhead` as they are. `scripts/paper_macros.py` expands the definitions the paper ships: 4,099 calls across 21 papers, with nothing lost but the macro names on the six papers diffed word by word. When it cannot expand one safely it refuses and names the macro and the reason
 - **The reference list is copied as is**: it becomes its own chunk, usually the largest, at 27–34% of a paper's characters
-- **Parallel sub-agents**: a work queue keeps 8 translators running, each with its own context; the next chunk starts as soon as a slot frees
+- **Parallel sub-agents**: 8 translators at a time, each with its own context, in foreground batches so the skill's pre-approved commands and writes hold for the whole run
 - **Every chunk is checked before it counts**: `scripts/verify_chunk.py` compares each output with its source, the glossary it was given and the chunk it quoted
 - **Consistent terms**: a glossary built before translation, a per-chunk term table, and short read-only excerpts from the neighbouring chunks for names and pronouns
 - **Resumable**: SHA-256 hashes in a manifest keep stale outputs out of the merge, and a changed glossary re-translates only the chunks that used the changed terms
 - **Print-ready PDF**: headless Chromium against a real `@page` box (A4, 18/18/22/18 mm, 11.5 pt), page numbers stamped afterwards because Chrome has no margin boxes. `scripts/layout.py` holds the page geometry and fonts
 - **Output**: HTML with a floating TOC, DOCX, EPUB and PDF, with an optional EPUB cover, working folder and export name
-- **Tests**: 2,302, standard library only, run in CI
+- **Tests**: 2,303, standard library only, run in CI
 
 ## Growing the skill
 
@@ -272,7 +272,7 @@ An existing `glossary.json` is never overwritten; edit it between runs, or delet
 
 ### Step 2: Translate
 
-Sub-agents run as a work queue, 8 at a time by default. Each one reads one chunk (for example `chunk0042.md`), translates it with its term table and the short excerpts from the chunks around it, and writes `output_chunk0042.md` plus `output_chunk0042.meta.json`, its notes for the glossary.
+Sub-agents run in batches, 8 at a time by default. Each one reads one chunk (for example `chunk0042.md`), translates it with its term table and the short excerpts from the chunks around it, and writes `output_chunk0042.md` plus `output_chunk0042.meta.json`, its notes for the glossary.
 
 As each chunk lands it is verified (`verify_chunk.py`), recorded, and its notes merged, in that order. The reference-list chunk is written by `convert.py` and never sent to a sub-agent.
 
