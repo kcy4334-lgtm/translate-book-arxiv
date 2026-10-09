@@ -2859,6 +2859,24 @@ _LT_MARK_RE = re.compile(r'\\(endfirsthead|endhead|endfoot|endlastfoot)(?![a-zA-
 _LT_CAPTION_RE = re.compile(r'\\caption\*?\s*(?:\[[^\]]*\])?\s*\{')
 
 
+_TEXT_SUPERSCRIPT_RE = re.compile(
+    r'\$\s*\^\s*\{\s*(?:\\rm\s+|\\rm(?=[^a-zA-Z])|\\mathrm\s*\{|\\textrm\s*\{)'
+    r'([A-Za-z0-9,.*\s]{1,24}?)\s*\}?\s*\}\s*\$')
+
+
+def text_superscripts(tex):
+    r"""`$^{\rm 48}$` -> `\textsuperscript{48}`. Returns (tex, n).
+
+    A superscript the author sets upright with `\rm` or `\mathrm` is text, an
+    affiliation mark, not a formula. higgs_atlas marks 3,023 authors that
+    way; as MathML its author list became one 730 KB paragraph, Calibre found
+    no point to split it at, and the EPUB was never made. `$^{2}$` and every
+    other formula are left alone.
+    """
+    return _TEXT_SUPERSCRIPT_RE.subn(lambda m: '\\textsuperscript{%s}'
+                                     % m.group(1).strip(), tex)
+
+
 def longtables_as_floats(tex):
     r"""Each `longtable` as a `table` float holding a `tabular`. Returns (tex, n).
 
@@ -3755,6 +3773,10 @@ def build(input_file, temp_dir, arxiv_id, allow_network=True):
     if tagged:
         print(f"Rewrote {tagged} starred display(s) the paper numbers by hand "
               f"(\\addtocounter + \\tag) as ordinary numbered ones")
+    flat, marks = text_superscripts(flat)
+    if marks:
+        print(f"Wrote {marks} upright superscript mark(s) ($^{{\\rm 48}}$) as "
+              f"text superscripts rather than formulas")
     flat, longs = longtables_as_floats(flat)
     if longs:
         print(f"Set {longs} longtable(s) as table floats, so they take the "

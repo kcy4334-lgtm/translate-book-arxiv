@@ -293,6 +293,24 @@ class AlignmentEnvironmentTests(unittest.TestCase):
         self.assertIn('Right', out)
 
 
+class TextSuperscriptTests(unittest.TestCase):
+    """higgs_atlas: 3,023 `$^{\\rm 48}$` marks made one 730 KB paragraph of
+    MathML that Calibre could not split; the EPUB was never made."""
+
+    def test_upright_marks_become_text(self):
+        out, n = arxiv_backend.text_superscripts(
+            'G.~Aad$^{\\rm 48}$, A.~B$^{\\rm 164a,164b}$$^{,a}$, '
+            'C$^{\\mathrm{1,2}}$')
+        self.assertEqual(out, 'G.~Aad\\textsuperscript{48}, '
+                              'A.~B\\textsuperscript{164a,164b}$^{,a}$, '
+                              'C\\textsuperscript{1,2}')
+        self.assertEqual(n, 3)
+
+    def test_formulas_stay_formulas(self):
+        for tex in ('m$^{2}$', '$x^{\\rm T}$', '$^{\\rm T}A$', '$^{\\rm max}_i$'):
+            self.assertEqual(arxiv_backend.text_superscripts(tex), (tex, 0), tex)
+
+
 class TildeTests(unittest.TestCase):
     r"""Sentence-BERT's "(\texttildelow 65 hours)" printed as "( hours)":
     pandoc kept the unknown command and the number after it as raw LaTeX."""
