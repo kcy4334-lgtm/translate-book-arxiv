@@ -216,7 +216,7 @@ table; it says which of these documents to open for the change you are making.
 - Do not accept a sub-agent's report as evidence that its work is correct. Run `scripts/verify_chunk.py` on the file it wrote: a chunk that came back in the wrong language, lost a paragraph, or quoted evidence that is not in the source reports success exactly the way a correct one does
 - Do not declare table or figure STRUCTURE inside `@media print`. The PDF is the file that gets looked at, so a print-only rule reads as working while the EPUB and the web page go without it -- and Calibre deletes a class that no active rule matches, so the EPUB loses the markup too, not just the styling
 - Do not disable a pandoc table format to avoid a layout bug (see "How this pipeline breaks")
-- Do not add mtime-based incremental rebuild for HTML/format generation, the current skip logic is intentionally simple (existence check). Metadata/template changes require manual cleanup. This is documented in the README.
+- The build skips work by file time: `book_doc.html` is remade when `output.md` is newer than it, and each format when `book_doc.html`, an image or the cover is. A new title, template or print profile touches none of those files, so it needs `--force-html`
 
 ## Cursor Cloud specific instructions
 

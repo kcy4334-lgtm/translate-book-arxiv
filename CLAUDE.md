@@ -57,4 +57,4 @@ Verify: all output_chunk*.md files exist, manifest validation passes, output for
 - Do not reintroduce `page*` file support; it was intentionally removed
 - Do not hardcode `~/.claude/skills/` paths in SKILL.md, use `{baseDir}`
 - Do not put platform-specific tool names (Agent, sessions_spawn) in `allowed-tools` as the only option, keep the whitelist cross-platform
-- Do not add mtime-based incremental rebuild for HTML/format generation, the current skip logic is intentionally simple (existence check). Metadata/template changes require manual cleanup. This is documented in the README.
+- The build skips work by file time: `book_doc.html` is remade when `output.md` is newer than it, and each format when `book_doc.html`, an image or the cover is. A new title, template or print profile touches none of those files, so it needs `--force-html`
