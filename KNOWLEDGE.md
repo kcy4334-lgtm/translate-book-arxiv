@@ -3460,17 +3460,13 @@ PY="<python 3.8+ executable>"   # `python scripts/doctor.py` finds all of these
 - Chrome 149: `C:\Program Files\Google\Chrome\Application\chrome.exe`
 - pip packages present: PyMuPDF, python-docx, lxml, Markdown, pypandoc.
   **beautifulsoup4 is NOT installed**, so `add_toc` takes its regex path.
-- **Python through Git Bash costs ~270 s per invocation here; through
-  PowerShell it costs ~1 s.** Measured on `python -c "print('x')"`: 271.8 s
-  and 266.5 s (the second with stdin redirected to `/dev/null`, which changes
-  nothing, so it is not a stdin block) against 1.078 s. Both exit 0 with the
-  right output; it is startup latency, not a hang. It compounds badly for the
-  advisors, whose every mandated command is a Python CLI: fast-finder spent
-  51 minutes on 17 tool calls while using the FEWEST tokens of any agent in
-  the run. Wall-clock is what it costs; tokens go up only indirectly, because
-  an agent facing a 4-minute call batches its work into large probe scripts
-  instead of asking several small questions. Run the CLIs through PowerShell
-  on this host.
+- **Python through Git Bash: 0.08 s per invocation (2026-10-10).** An
+  earlier measurement here was ~270 s (271.8 s, 266.5 s, against 1.078 s
+  through PowerShell), and the advisor briefs told agents to use PowerShell.
+  That no longer holds, and PowerShell is refused under the skill's
+  `Bash(python ...)` rules (K228): the briefs now say the Bash tool. If Git
+  Bash is slow again, measure `python -c "print('x')"` before changing a
+  brief.
 
 ## Run book: a new paper start to finish
 

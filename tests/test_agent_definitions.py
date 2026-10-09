@@ -75,17 +75,31 @@ class Definitions(unittest.TestCase):
         """Without it the agent fails at its first command, silently."""
         for name in agent_files():
             fields, body = front_matter(read(os.path.join(AGENT_DIR, name)))
-            if re.search(r'python\s+scripts/\w+\.py', body):
+            if re.search(r'python\s+<skill>/scripts/\w+\.py', body):
                 self.assertIn('Bash', fields['tools'],
                               '%s: runs a script and has no Bash' % name)
 
     def test_every_script_an_agent_names_exists(self):
+        named = 0
         for name in agent_files():
             _fields, body = front_matter(read(os.path.join(AGENT_DIR, name)))
-            for script in re.findall(r'python\s+(scripts/\w+\.py)', body):
+            for script in re.findall(r'python\s+<skill>/(scripts/\w+\.py)',
+                                     body):
+                named += 1
                 self.assertTrue(
                     os.path.isfile(os.path.join(SKILL_DIR, script)),
                     '%s: names %s, which does not exist' % (name, script))
+        self.assertTrue(named, 'no agent names a script: the pattern is stale')
+
+    def test_commands_name_the_skill_folder_and_the_bash_tool(self):
+        # A relative `python scripts/x.py` needs a `cd`, and a command run
+        # through PowerShell is not covered by `Bash(python ...)`: the ViT
+        # run's question-monster had eight commands refused.
+        for name in agent_files():
+            fields, body = front_matter(read(os.path.join(AGENT_DIR, name)))
+            self.assertNotRegex(body, r'python\s+scripts/', name)
+            self.assertNotIn('PowerShell', fields['tools'], name)
+            self.assertNotRegex(body, r'through \*\*PowerShell\*\*', name)
 
     def test_none_of_them_claims_a_veto(self):
         """An advisor that can block is not an advisor; it is a gate."""

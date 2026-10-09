@@ -163,8 +163,9 @@ Spawn each by its agent name. Installed as a plain skill (by
 `install_advisors.py`) the names are `old-man`, `question-monster`,
 `fast-finder` and `referee`; installed as a plugin they carry its name,
 `translate-book-arxiv:old-man` and so on. Use whichever form your list of
-agent types shows. Give them the paths they need; they read, they do not run
-the pipeline. If neither form is listed, they are not installed: Step 0
+agent types shows. Give them the paths they need, the skill folder first
+(the folder holding this file's `scripts/`): their commands are written
+`python <skill>/scripts/...`. They read, they do not run the pipeline. If neither form is listed, they are not installed: Step 0
 reports that, and `install_advisors.py` fixes it.
 
 ## How to run commands

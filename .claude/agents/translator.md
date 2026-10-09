@@ -1,7 +1,7 @@
 ---
 name: translator
 description: Translates one chunk of a book, or the words inside a paper's tables, for the translate-book pipeline. Dispatched by the skill with a complete brief; not for direct use.
-tools: Read, Write, Edit, Bash, PowerShell, Grep
+tools: Read, Write, Edit, Bash, Grep
 model: inherit
 ---
 
