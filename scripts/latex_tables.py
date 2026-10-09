@@ -1562,6 +1562,90 @@ def drop_multicolumn_spacing(tex):
         + m.group(3), tex)
 
 
+_TIKZ_MARK_RE = re.compile(
+    r'\\tikz\s*\\(?:fill|filldraw|draw)\s*\[([^\]]*)\]\s*\([^()]*\)\s*'
+    r'(circle|rectangle)\s*(?:\([^()]*\))?\s*;')
+_GLYPHS = {'circle': '●', 'rectangle': '■'}
+
+
+def tikz_marks_to_glyphs(tex):
+    r"""`\tikz\fill[natural] (0,0) circle (.5ex);` -> `\textcolor{natural}{●}`.
+
+    A one-shape TikZ picture inside a table is a coloured mark. ViT tags each
+    of the 19 VTAB tasks in Table 9 with one, Natural, Specialized or
+    Structured, and the book printed the task names without them. Returns
+    (tex, count).
+    """
+    def glyph(m):
+        options = [o.strip() for o in m.group(1).split(',')]
+        colour = next((o for o in options if o and '=' not in o), None)
+        mark = _GLYPHS[m.group(2)]
+        return '\\textcolor{%s}{%s}' % (colour, mark) if colour else mark
+    tex, count = _TIKZ_MARK_RE.subn(glyph, tex)
+    # The mark sits in `\raisebox{0.5pt}{...}`, which pandoc drops with its
+    # content; the shift is half a point and the mark is the content.
+    out, cursor = [], 0
+    for m in arxiv_backend._RAISEBOX_RE.finditer(tex):
+        if m.start() < cursor:
+            continue
+        close = _balanced_group(tex, m.end())
+        if close < 0:
+            continue
+        out.append(tex[cursor:m.start()])
+        out.append(tex[m.end() + 1:close - 1])
+        cursor = close
+    out.append(tex[cursor:])
+    return ''.join(out), count
+
+
+_DEFINECOLOR_RE = re.compile(
+    r'\\definecolor\s*\{([^{}]+)\}\s*\{(rgb|RGB|HTML|gray)\}\s*\{([^{}]+)\}')
+
+
+def defined_colours(temp_dir):
+    """{name: '#rrggbb'} for every colour flat.tex defines."""
+    if not temp_dir:
+        return {}
+    try:
+        with open(os.path.join(temp_dir, 'flat.tex'), encoding='utf-8',
+                  errors='replace') as fh:
+            tex = fh.read()
+    except OSError:
+        return {}
+    out = {}
+    for name, model, spec in _DEFINECOLOR_RE.findall(tex):
+        try:
+            if model == 'HTML':
+                value = spec.strip().lower()
+                if not re.fullmatch(r'[0-9a-f]{6}', value):
+                    continue
+            else:
+                parts = [float(p) for p in spec.replace(' ', '').split(',')]
+                if model == 'gray':
+                    parts = parts * 3
+                scale = 1.0 if model == 'RGB' else 255.0
+                value = ''.join('%02x' % max(0, min(255, round(p * scale)))
+                                for p in parts[:3])
+        except ValueError:
+            continue
+        out[name.strip()] = '#' + value
+    return out
+
+
+def colours_by_value(tex, colours):
+    r"""`\textcolor{natural}` -> `\textcolor{#b65555}` for a defined name.
+
+    pandoc copies the name into the style attribute as it is, and a browser
+    knows `red` but not a colour the paper named itself.
+    """
+    if not colours:
+        return tex
+    return re.sub(r'\\textcolor\s*\{([^{}]+)\}',
+                  lambda m: '\\textcolor{%s}' % colours.get(m.group(1).strip(),
+                                                              m.group(1)),
+                  tex)
+
+
 _CLOSING_BREAK_RE = re.compile(
     r'(\\(?:bottomrule|hline|midrule|toprule)(?:\[[^\]]*\])?)\s*\\\\'
     r'(?:\s*\[[^\]]*\])?(\s*\\end\{(?:tabular\*?|tabularx|tabulary|longtable)\})')
@@ -1638,6 +1722,7 @@ def expand_raw_latex_tables(md_text, pandoc=None, math_mode='mathml',
     # printed "SVR" for "SVR (Misra et al., 2016)". `citation_labels` falls
     # back to flat.tex, then to the `.bib` citeproc read (K152).
     cite_labels = citation_labels(md_text, temp_dir)
+    colours = defined_colours(temp_dir)
     ref_numbers = fragment_reference_numbers(temp_dir)
     refs_done, refs_missed = 0, []
     shaded_rows = 0
@@ -1671,6 +1756,8 @@ def expand_raw_latex_tables(md_text, pandoc=None, math_mode='mathml',
                 refs_done += done
                 refs_missed.extend(missed)
                 fixed, _c = rewrite_color_declarations(fixed)
+                fixed, _d = tikz_marks_to_glyphs(fixed)
+                fixed = colours_by_value(fixed, colours)
                 t[part] = _TEXT_MACRO_RE.sub(r'\\textrm', fixed)
             if output == 'markdown':
                 body = _latex_fragment_to_markdown(t['bare'], pandoc, work,

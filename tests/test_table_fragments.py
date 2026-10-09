@@ -99,6 +99,37 @@ class Citations(unittest.TestCase):
             r'\cite{Bengio1994,Simonyan2015}', labels)[0], '[1, 2]')
 
 
+class ColouredMarks(unittest.TestCase):
+    """ViT's Table 9 tags each VTAB task with a TikZ dot in its group colour."""
+
+    def test_a_tikz_dot_becomes_a_coloured_glyph(self):
+        import latex_tables as lt
+        out, n = lt.tikz_marks_to_glyphs(
+            r'& \rotatebox{90}{\raisebox{0.5pt}{\tikz\fill[natural] (0,0) '
+            r'circle (.5ex);} Caltech101}')
+        self.assertEqual(out, r'& \rotatebox{90}{\textcolor{natural}{●} Caltech101}')
+        self.assertEqual(n, 1)
+
+    def test_a_defined_colour_is_written_as_its_value(self):
+        import tempfile
+        import shutil
+        import latex_tables as lt
+        temp = tempfile.mkdtemp(prefix='tb-colour-')
+        try:
+            with open(os.path.join(temp, 'flat.tex'), 'w', encoding='utf-8') as fh:
+                fh.write('\\definecolor{natural}{rgb}{0.7137,0.3333,0.3333}\n'
+                         '\\definecolor{pale}{HTML}{ABCDEF}\n'
+                         '\\definecolor{mid}{gray}{0.5}\n')
+            colours = lt.defined_colours(temp)
+        finally:
+            shutil.rmtree(temp, ignore_errors=True)
+        self.assertEqual(colours, {'natural': '#b65555', 'pale': '#abcdef',
+                                   'mid': '#808080'})
+        self.assertEqual(lt.colours_by_value(
+            r'\textcolor{natural}{●} \textcolor{red}{x}', colours),
+            r'\textcolor{#b65555}{●} \textcolor{red}{x}')
+
+
 class CellFootnotes(unittest.TestCase):
     def test_a_tablefootnote_becomes_a_mark_and_a_note(self):
         # PaLM's FLOP-count row lost its explanation.
