@@ -60,6 +60,15 @@ class CounterEvents(unittest.TestCase):
         self.assertEqual(mb.counter_events(
             r'\renewcommand{\thefigure}{\roman{figure}}'), [])
 
+    def test_only_the_float_counters_are_read(self):
+        """A wider pattern of the same name once replaced this one, and the
+        float walk then read every counter's reset and no negative one."""
+        tex = (r'\setcounter{section}{3}\setcounter{secnumdepth}{2}'
+               r'\setcounter{figure}{-1}')
+        self.assertEqual(mb.counter_events(tex),
+                         [(tex.index(r'\setcounter{figure}'), 'figure',
+                           'set', -1)])
+
     def test_events_come_back_in_source_order(self):
         tex = (r'\setcounter{figure}{0}'
                r'\renewcommand{\thefigure}{B\arabic{figure}}')

@@ -179,7 +179,11 @@ def unwrap_prose_environments(md_text):
 _THE_COUNTER_RE = re.compile(
     r'\\(?:re)?newcommand\s*\{?\s*\\the(figure|table)\s*\}?\s*'
     r'(\{(?:[^{}]|\{[^{}]*\})*\})')
-_SETCOUNTER_RE = re.compile(r'\\setcounter\s*\{(figure|table)\}\s*\{(-?\d+)\}')
+# Its own name. As `_SETCOUNTER_RE` it was replaced by the wider pattern
+# `read_fixed_counter_prefix` reads further down, so every counter's reset
+# reached the float walk and a negative value was not read at all.
+_FLOAT_SETCOUNTER_RE = re.compile(
+    r'\\setcounter\s*\{\s*(figure|table)\s*\}\s*\{\s*(-?\d+)\s*\}')
 
 
 def counter_events(tex):
@@ -207,7 +211,7 @@ def counter_events(tex):
         if '\\' in prefix:
             continue          # the prefix is a command; do not evaluate it
         events.append((m.start(), kind, 'prefix', prefix))
-    for m in _SETCOUNTER_RE.finditer(tex):
+    for m in _FLOAT_SETCOUNTER_RE.finditer(tex):
         events.append((m.start(), m.group(1), 'set', int(m.group(2))))
     events.sort(key=lambda e: e[0])
     return events
