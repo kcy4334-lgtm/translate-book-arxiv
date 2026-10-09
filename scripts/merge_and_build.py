@@ -2334,10 +2334,13 @@ def convert_md_to_html(temp_dir, title, lang_cfg, author=None,
         if tables_bad:
             note += f", {tables_bad} FAILED (they will be missing)"
         print(note)
-    source_md = os.path.join(temp_dir, 'pandoc_input.md') if tables_ok else prepared
-    if tables_ok:
-        with open(source_md, 'w', encoding='utf-8', newline='') as fh:
-            fh.write(expanded_md)
+    # Always its own file, tables or not. prepared.md carries the DOCX
+    # equation tags inside each formula, and the HTML numbers equations again
+    # on its own: a paper with no LaTeX table was built from prepared.md, and
+    # every number in VAE's PDF, EPUB and HTML printed twice.
+    source_md = os.path.join(temp_dir, 'pandoc_input.md')
+    with open(source_md, 'w', encoding='utf-8', newline='') as fh:
+        fh.write(expanded_md)
 
     # Tier 0 pandoc -> tier 1 python-markdown -> (only on request) regex
     success = False
