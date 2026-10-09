@@ -1264,6 +1264,12 @@ def read_class_conventions(tex):
     return _CLASS_CONVENTIONS.get(m.group(1).strip(), {})
 
 
+def _inside_subequations(tex, pos):
+    """Is `pos` inside a `subequations` group? Its rows letter one number."""
+    return (tex.rfind('\\begin{subequations}', 0, pos)
+            > tex.rfind('\\end{subequations}', 0, pos))
+
+
 def build_label_index(temp_dir):
     """{'eq:pqe': ('5', 'equation'), 'sec:single': ('4.1', 'section')}.
 
@@ -1311,7 +1317,10 @@ def build_label_index(temp_dir):
     kind = None                         # and what kind of thing that is
     suspended = []                      # section context stacked over floats
     numbers = {}
+    skip_to = -1                        # end of a block already read row by row
     for m in token_re.finditer(tex):
+        if m.start() < skip_to:
+            continue
         if m.group(1):
             in_appendix = True
             section = [0, 0, 0]
@@ -1350,7 +1359,28 @@ def build_label_index(temp_dir):
                 current, kind = None, None
                 continue
             env = m.group(4)
-            if env in _NUMBERED_MATH_ENVS:
+            if env in _ROW_NUMBERED and not _inside_subequations(tex, m.start()):
+                # Each row takes its own number, unless `\nonumber` says
+                # otherwise, and a `\label` names the row it sits in. Counted
+                # once per environment, every label in ViT's four-row align
+                # resolved to "식 (1)", and the next align's label read (2)
+                # where the paper prints (5). The same rule as
+                # `_numbers_for_block`, so the label and the printed number
+                # cannot disagree.
+                inner = latex_rows.env_body(tex, m.end(), env)
+                last = None
+                for row in latex_rows.split_rows(inner):
+                    if not re.search(r'\\(?:nonumber|notag)\b', row):
+                        counters['equation'] += 1
+                        last = _counter_label('equation', counters['equation'],
+                                              parents, section_head, fixed)
+                    for lab in re.finditer(r'\\label\s*\{([^}]+)\}', row):
+                        if last is not None:
+                            numbers.setdefault(lab.group(1).strip(),
+                                               (last, 'equation'))
+                skip_to = m.end() + len(inner)
+                current, kind = (last, 'equation') if last else (None, None)
+            elif env in _NUMBERED_MATH_ENVS:
                 counters['equation'] += 1
                 current = _counter_label('equation', counters['equation'],
                                          parents, section_head, fixed)
