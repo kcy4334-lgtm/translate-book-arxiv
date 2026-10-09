@@ -1225,6 +1225,42 @@ def _in_comment(tex, pos):
     return False
 
 
+_SUBFIGURE_ENV_RE = re.compile(
+    r'\\begin\{subfigure\}.*?\\end\{subfigure\}', re.DOTALL)
+_SUBCAPTION_CMD_RE = re.compile(r'\\(?:sub)?caption\s*(?:\[[^\]]*\])?\s*(?=\{)')
+
+
+def bold_subfigure_captions(tex):
+    r"""A subfigure's `\caption{X}` becomes a bold paragraph of its own.
+
+    pandoc writes a subfigure caption as a plain paragraph under its panel,
+    and `format_figure_blocks` knows a panel's caption by its bold. Plain, it
+    was taken for the figure's caption: VAE's figure 4 printed "Learned MNIST
+    manifold" -- panel (b)'s label -- as the figure's caption, and the real
+    caption below it as a paragraph of body text. Returns (tex, n).
+    """
+    count = 0
+
+    def in_subfigure(m):
+        nonlocal count
+        block = m.group(0)
+        out, cursor = [], 0
+        for c in _SUBCAPTION_CMD_RE.finditer(block):
+            if c.start() < cursor:
+                continue
+            close = _balanced_brace(block, c.end())
+            if close < 0:
+                continue
+            out.append(block[cursor:c.start()])
+            out.append('\n\\par\\textbf{%s}\n' % block[c.end() + 1:close - 1].strip())
+            cursor = close
+            count += 1
+        out.append(block[cursor:])
+        return ''.join(out)
+
+    return _SUBFIGURE_ENV_RE.sub(in_subfigure, tex), count
+
+
 def unwrap_subfloat(tex):
     """`\\subfloat[cap]{BODY}` -> `BODY` on its own paragraph. (text, count).
 
@@ -2263,6 +2299,10 @@ def sanitize_tex(tex):
     if raised:
         print(f"Unwrapped {raised} \\raisebox wrapper(s) round a graphic so the "
               f"panel is extracted")
+    tex, subcaps = bold_subfigure_captions(tex)
+    if subcaps:
+        print(f"Set {subcaps} subfigure caption(s) as their panel's bold label; "
+              f"plain, they read as the figure's own caption")
     tex, panels = unwrap_subfloat(tex)
     if panels:
         print(f"Unwrapped {panels} \\subfloat panel(s) so pandoc can see the "

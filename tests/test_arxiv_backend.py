@@ -264,6 +264,25 @@ class TildeTests(unittest.TestCase):
         self.assertNotIn('texttildelow', out)
 
 
+class SubfigureCaptionTests(unittest.TestCase):
+    r"""pandoc writes a subfigure's caption as a plain paragraph, which was
+    taken for the figure's caption: VAE's figure 4 printed panel (b)'s label
+    as its caption and the real one as body text."""
+
+    def test_each_subfigure_caption_becomes_a_bold_paragraph(self):
+        tex = ("\\begin{figure}\\begin{subfigure}[t]{0.3\\textwidth}"
+               "\\includegraphics{a}\n\\caption{Learned Frey Face manifold}"
+               "\\end{subfigure}\\caption{Visualisations.}\\end{figure}")
+        out, n = arxiv_backend.bold_subfigure_captions(tex)
+        self.assertEqual(n, 1)
+        self.assertIn('\\par\\textbf{Learned Frey Face manifold}', out)
+        self.assertIn('\\caption{Visualisations.}', out)
+
+    def test_a_caption_outside_a_subfigure_is_left_alone(self):
+        tex = "\\begin{figure}\\includegraphics{a}\\caption{X}\\end{figure}"
+        self.assertEqual(arxiv_backend.bold_subfigure_captions(tex), (tex, 0))
+
+
 class ManualEquationTagTests(unittest.TestCase):
     r"""VAE numbers `align*` rows by hand with
     `\newcommand{\eqnr}{\addtocounter{equation}{1}\tag{\theequation}}`. The
