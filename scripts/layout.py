@@ -133,8 +133,10 @@ LANG_CONFIG = {
     },
     'ko': {
         'lang_attr': 'ko',
-        'font_family': "'Noto Serif', 'HCR Batang', '함초롬바탕', Batang, serif",
-        'font_family_ebook': '"Noto Serif", "HCR Batang", "함초롬바탕", "Batang", serif',
+        'font_family': "'Noto Serif', 'HCR Batang', '함초롬바탕', Batang, "
+                       "NanumMyeongjo, '나눔명조', serif",
+        'font_family_ebook': '"Noto Serif", "HCR Batang", "함초롬바탕", "Batang", '
+                             '"NanumMyeongjo", "나눔명조", serif',
         'figure_label': '그림',
         'table_label': '표',
         'equation_label': '식',
@@ -245,6 +247,26 @@ DEFAULT_LANG_CONFIG = {
 
 # Private alias kept so merge_and_build.py can re-export the old name.
 _DEFAULT_LANG_CONFIG = DEFAULT_LANG_CONFIG
+
+# The faces the stacks above and in template_ebook.html name for Korean and
+# for formulas, each with a piece of the font file's name, so doctor.py checks
+# the faces a build will actually use. It used to check Noto Serif KR and
+# Noto Serif CJK, which no stack names, and passed a Linux machine whose only
+# Korean faces were those: Noto Serif CJK is CFF, Chromium writes CFF as Type3,
+# and that machine's book carried 601 Type3 font objects on 14 of its 16 pages.
+# Measured on Ubuntu 20.04 with AdamX: NanumMyeongjo and NanumGothic took it
+# to 0. The formulas fell to FreeSerif, which has no MATH table, and the
+# equation fit found no number to fit in all 20; DejaVu Math TeX Gyre, from
+# the same distribution, fitted them. Only static TrueType faces belong here.
+KOREAN_SERIF_FACES = (('HCR Batang', 'hanbatang'), ('Batang', 'batang.ttc'),
+                      ('NanumMyeongjo', 'nanummyeongjo'))
+KOREAN_SANS_FACES = (('Malgun Gothic', 'malgun'), ('Hancom Gothic', 'hancom gothic'),
+                     ('NanumGothic', 'nanumgothic'))
+# STIX Two Math and Latin Modern Math stay in the stacks, after these, but
+# not here: both ship as CFF .otf, and printed alone each came out as Type3.
+MATH_FACES = (('Cambria Math', 'cambria'),
+              ('DejaVu Math TeX Gyre', 'dejavumathtexgyre'),
+              ('Noto Sans Math', 'notosansmath'))
 
 
 def get_lang_config(lang_code):

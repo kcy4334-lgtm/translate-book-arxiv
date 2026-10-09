@@ -97,11 +97,19 @@ errors:
 
 | For | Install |
 |---|---|
-| Korean body text and headings | [Noto Serif KR and Noto Sans KR](https://fonts.google.com/noto) |
-| Formulas | any font with an OpenType MATH table: Cambria Math ships with Microsoft Office; [STIX Two Math](https://www.stixfonts.org/) is the free alternative |
+| Korean body text | a static TrueType serif: HCR Batang (Hancom Office), Batang (Windows) or NanumMyeongjo. On Debian or Ubuntu: `sudo apt install fonts-nanum` |
+| Korean headings | Malgun Gothic (Windows), Hancom Gothic or NanumGothic (in `fonts-nanum`) |
+| Formulas | a TrueType face with an OpenType MATH table: Cambria Math ships with Microsoft Office; DejaVu Math TeX Gyre (`sudo apt install fonts-dejavu-extra`) and Noto Sans Math are free |
+| English inside the text | Noto Serif and Noto Sans ([Google Fonts](https://fonts.google.com/noto)) |
+
+Chromium writes a CFF or variable font into the PDF as Type3, one object per
+glyph, so the text turns into outlines and the file grows. That rules out
+Noto Serif KR, Noto Serif CJK, STIX Two Math and Latin Modern Math even when
+they are installed. Measured on Ubuntu 20.04: with only Noto Serif CJK for
+Korean, 14 of 16 pages carried Type3; with NanumMyeongjo, none did.
 
 Translating into a different language calls for that language's own fonts;
-the two above are what the Korean pipeline was tuned and measured against.
+the ones above are what the Korean pipeline was tuned and measured against.
 
 ## 4. Check the install
 

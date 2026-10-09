@@ -442,16 +442,18 @@
                 --p-serif: 'Noto Serif', Georgia, 'Times New Roman', serif;
                 --p-sans:  'Noto Sans', 'Segoe UI', Arial, sans-serif;
                 --p-mono:  Consolas, 'Cascadia Mono', 'Courier New', monospace;
-                --p-math:  'Cambria Math', 'STIX Two Math', 'Latin Modern Math', math, serif;
+                --p-math:  'Cambria Math', 'DejaVu Math TeX Gyre', 'Noto Sans Math', 'STIX Two Math', 'Latin Modern Math', math, serif;
             }
             /* HCR Batang, not Noto Serif KR: Chromium cannot subset-embed a
                variable font and falls back to one Type3 object per glyph
-               (measured 258KB/page vs 33KB). See layout.py. */
+               (measured 258KB/page vs 33KB). NanumMyeongjo is the Linux one
+               (fonts-nanum); Noto Serif CJK is CFF, which prints as Type3
+               too. See layout.py. */
             html:lang(ko) {
-                --p-serif: 'Noto Serif', 'HCR Batang', '함초롬바탕', Batang, serif;
-                --p-sans:  'Noto Sans', 'Malgun Gothic', 'Hancom Gothic', sans-serif;
+                --p-serif: 'Noto Serif', 'HCR Batang', '함초롬바탕', Batang, NanumMyeongjo, '나눔명조', serif;
+                --p-sans:  'Noto Sans', 'Malgun Gothic', 'Hancom Gothic', NanumGothic, '나눔고딕', sans-serif;
                 --p-mono:  Consolas, 'Cascadia Mono', 'D2Coding', DotumChe, monospace;
-                --p-math:  'Cambria Math', 'STIX Two Math', math, 'Noto Serif', 'HCR Batang', serif;
+                --p-math:  'Cambria Math', 'DejaVu Math TeX Gyre', 'Noto Sans Math', 'STIX Two Math', math, 'Noto Serif', 'HCR Batang', NanumMyeongjo, serif;
             }
             /* BIZ UDMincho is the portable one: static, TrueType outlines,
                and it embeds cleanly. Without it this list held only faces

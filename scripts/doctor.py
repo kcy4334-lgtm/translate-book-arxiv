@@ -35,6 +35,8 @@ for _stream in (sys.stdout, sys.stderr):
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+import layout                                                    # noqa: E402
+
 REQUIRED = 'required'
 RECOMMENDED = 'recommended'
 OPTIONAL = 'optional'
@@ -140,12 +142,22 @@ def _font_files():
         for root, _dirs, files in os.walk(base):
             for name in files:
                 names.add(name.lower())
-    if not names:
-        listing = shutil.which('fc-list')
-        if listing:
-            out = _run([listing])
-            if out:
-                names.add(out.lower())
+    # Chromium finds its fonts through fontconfig everywhere but Windows, so
+    # what fc-list lists is what a build can use, wherever the files live. Read
+    # only when the folders above came up empty, it missed fonts that
+    # fontconfig was told about elsewhere, and reported a face absent that
+    # the build then used.
+    listing = os.name != 'nt' and shutil.which('fc-list')
+    if listing:
+        try:
+            out = subprocess.run([listing, ':', 'file'], capture_output=True,
+                                 text=True, timeout=25).stdout or ''
+        except (OSError, subprocess.SubprocessError):
+            out = ''
+        for line in out.splitlines():
+            path = line.strip().rstrip(':').strip()
+            if path:
+                names.add(os.path.basename(path).lower())
     return names
 
 
@@ -153,6 +165,14 @@ def check_font(needles, why, fonts):
     hit = next((n for n in fonts
                 if any(needle in n for needle in needles)), None)
     return bool(hit), hit, why
+
+
+def _needles(faces):
+    return tuple(needle for _name, needle in faces)
+
+
+def _names(faces):
+    return ', '.join(name for name, _needle in faces)
 
 
 SKILL_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -277,14 +297,22 @@ def probe(strict=False):
          check_module('pypandoc', 'used by the conversion path')),
         (OPTIONAL, 'beautifulsoup4',
          check_module('bs4', 'better table-of-contents generation')),
-        (RECOMMENDED, 'Noto Serif KR font',
-         check_font(('notoserifkr', 'noto serif kr', 'notoserifcjk'),
-                    'Korean body text; without it the fallback face changes '
-                    'the line breaks and therefore the page count',
+        # The faces the Korean stacks name, from layout.py, so this passes
+        # exactly when a build will use one. Checking Noto Serif CJK instead
+        # passed a Linux machine whose book then carried Type3 on 14 of 16
+        # pages: no stack names it, and Chromium writes its CFF as Type3.
+        (RECOMMENDED, 'Korean serif font',
+         check_font(_needles(layout.KOREAN_SERIF_FACES),
+                    'Korean body text (%s); without one the fallback face '
+                    'changes the line breaks, and on Linux it is Noto Serif '
+                    'CJK, which prints as Type3. On Debian or Ubuntu: '
+                    'sudo apt install fonts-nanum'
+                    % _names(layout.KOREAN_SERIF_FACES),
                     fonts)),
-        (RECOMMENDED, 'Noto Sans KR font',
-         check_font(('notosanskr', 'noto sans kr', 'notosanscjk'),
-                    'Korean headings', fonts)),
+        (RECOMMENDED, 'Korean sans font',
+         check_font(_needles(layout.KOREAN_SANS_FACES),
+                    'Korean headings (%s); fonts-nanum has NanumGothic'
+                    % _names(layout.KOREAN_SANS_FACES), fonts)),
         # Only Korean was checked here, so a run targeting Japanese or
         # Chinese got no word about its own body face. Measured on this
         # machine: with no Mincho installed the Japanese stack falls through
@@ -305,10 +333,12 @@ def probe(strict=False):
                     'Windows outside China and SimSun is the named fallback',
                     fonts)),
         (RECOMMENDED, 'a math font',
-         check_font(('cambria', 'stix', 'latinmodern-math', 'lmmath',
-                     'notosansmath', 'xits'),
-                    'formulas need an OpenType MATH table; Cambria Math ships '
-                    'with Office, STIX Two Math is the free alternative',
+         check_font(_needles(layout.MATH_FACES),
+                    'formulas need a TrueType face with an OpenType MATH '
+                    'table (%s). Cambria Math ships with Office; on Debian '
+                    'or Ubuntu: sudo apt install fonts-dejavu-extra. STIX '
+                    'Two Math and Latin Modern Math are CFF and print as '
+                    'Type3' % _names(layout.MATH_FACES),
                     fonts)),
     ]
 

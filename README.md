@@ -76,7 +76,7 @@ This page was written for the repository, with made-up results, so it can be sho
 - **Resumable**: SHA-256 hashes in a manifest keep stale outputs out of the merge, and a changed glossary re-translates only the chunks that used the changed terms
 - **Print-ready PDF**: headless Chromium against a real `@page` box (A4, 18/18/22/18 mm, 11.5 pt), page numbers stamped afterwards because Chrome has no margin boxes. `scripts/layout.py` holds the page geometry and fonts
 - **Output**: HTML with a floating TOC, DOCX, EPUB and PDF, with an optional EPUB cover, working folder and export name
-- **Tests**: 2,294, standard library only, run in CI
+- **Tests**: 2,302, standard library only, run in CI
 
 ## Growing the skill
 
@@ -127,8 +127,10 @@ Run `python scripts/doctor.py --strict` first. It reports what is installed and 
 
 | target | install |
 |---|---|
-| Korean body and headings | Noto Serif KR, Noto Sans KR ([Google Fonts](https://fonts.google.com/noto)) |
-| formulas | a font with an OpenType MATH table: Cambria Math ships with Office; [STIX Two Math](https://www.stixfonts.org/) is free |
+| Korean body and headings | HCR Batang or Batang with Malgun Gothic on Windows; on Linux `sudo apt install fonts-nanum` (NanumMyeongjo, NanumGothic) |
+| formulas | a TrueType face with an OpenType MATH table: Cambria Math ships with Office; on Linux `sudo apt install fonts-dejavu-extra` (DejaVu Math TeX Gyre) |
+
+Chromium prints a CFF or variable font as Type3, so Noto Serif KR, Noto Serif CJK, STIX Two Math and Latin Modern Math do not count even when installed. `python scripts/doctor.py` checks the faces the build will actually use.
 
 To check that a machine produces the same output, build a real PDF and measure it:
 

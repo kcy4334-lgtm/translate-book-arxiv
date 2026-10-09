@@ -207,7 +207,7 @@ table; it says which of these documents to open for the change you are making.
 
 - Do not let a shipped text file grow past 256 KiB. Anthropic's plugin directory holds every release that has one for a human reviewer; `tests/test_plugin_skill_rules.py` fails first
 - Do not put language font data or page geometry anywhere but `scripts/layout.py`; it used to be duplicated across two modules that had already drifted
-- Do not list a variable font (`Noto Serif KR`, `Noto Sans KR`) in a CJK stack; Chromium cannot subset-embed one and emits a Type3 object per glyph instead
+- Do not list a variable font (`Noto Serif KR`, `Noto Sans KR`) in a CJK stack; Chromium cannot subset-embed one and emits a Type3 object per glyph instead. A CFF face (Noto Serif CJK, STIX Two Math, Latin Modern Math) prints as Type3 the same way, so a TrueType one goes ahead of it in any stack, and `layout.py`'s face lists, which `doctor.py` checks, name only TrueType faces
 - Do not reintroduce `page*` file support; it was intentionally removed
 - Do not hardcode `~/.Codex/skills/` paths in SKILL.md, use `{baseDir}`
 - Do not put platform-specific tool names (Agent, sessions_spawn) in `allowed-tools` as the only option, keep the whitelist cross-platform
