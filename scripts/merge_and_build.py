@@ -647,8 +647,12 @@ _THEBIB_RE = re.compile(
 # citeproc renders "Surname, First, and Other. 2024. “Title.” *Venue* 1: 2-3."
 # strip_pandoc_divs has already removed the ::: {#refs} wrapper by this point,
 # so the shape of the paragraph is all there is to go on.
+# The author run is not short. Capped at 60 characters, it matched only
+# entries with few authors; once the reference list names every author, the
+# demo paper's first entry (nine names) was not an entry, and the heading
+# landed under it.
 _CITEPROC_ENTRY_RE = re.compile(
-    r'^[A-Z][^\n]{2,60}?\.\s+(?:\d{4}[a-z]?|n\.d\.)\.\s', re.MULTILINE)
+    r'^[A-Z][^\n]{2,1500}?\.\s+(?:\d{4}[a-z]?|n\.d\.)\.\s', re.MULTILINE)
 
 
 def source_has_bib_files(temp_dir):
@@ -685,14 +689,25 @@ def _citeproc_block_start(md_text):
     matches = list(_CITEPROC_ENTRY_RE.finditer(md_text))
     if len(matches) < 5:
         return -1
-    start = matches[-1].start()
-    for m in reversed(matches[:-1]):
-        between = md_text[m.start():start]
-        if _LIST_EDGE_HEADING_RE.search(between):
-            break
-        if len(_LIST_EDGE_PROSE_RE.findall(between)) > 2:
-            break
-        start = m.start()
+    # Runs of entries with no heading or body prose between them; the list is
+    # the longest run. It used to be the LAST one, walking back from the end,
+    # which held while citeproc always appended the list. The list now stays
+    # where the paper's `\bibliography` was, ahead of any appendix, and a
+    # line in the appendix that happened to look like an entry would have
+    # been taken for the list.
+    runs, run = [], [matches[0]]
+    for prev, m in zip(matches, matches[1:]):
+        between = md_text[prev.start():m.start()]
+        if (_LIST_EDGE_HEADING_RE.search(between)
+                or len(_LIST_EDGE_PROSE_RE.findall(between)) > 2):
+            runs.append(run)
+            run = []
+        run.append(m)
+    runs.append(run)
+    best = max(runs, key=len)
+    if len(best) < 5:
+        return -1
+    start = best[0].start()
     # do not swallow a heading that sits directly above the first entry
     head = md_text.rfind('\n#', 0, start)
     if head != -1 and md_text[head:start].count('\n\n') <= 1:
