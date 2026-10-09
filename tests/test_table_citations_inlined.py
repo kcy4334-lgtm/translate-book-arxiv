@@ -62,7 +62,30 @@ class InlinedListLabels(unittest.TestCase):
         tex = ('estimators in section~' + BS + 'ref{subsec:est} or Adagrad~'
                + BS + 'cite{duchi}')
         out = latex_tables.resolve_float_links(tex, '', d)
-        self.assertEqual(out, 'estimators in section~1.1 or Adagrad~(DHS10)')
+        self.assertEqual(out, 'estimators in section~1.1 or Adagrad~[DHS10]')
+
+    def test_an_alphabetic_reference_list_is_labelled_as_cited(self):
+        """VAE's body cited [BJP12]; its list was numbered [1] to [17]."""
+        md = (BS + 'begin{thebibliography}{2}\n' + BS + 'bibitem[BJP12]{blei}\n'
+              'D. Blei.\n' + BS + 'bibitem[DHS10]{duchi}\nJ. Duchi.\n'
+              + BS + 'end{thebibliography}\n')
+        out, n = mb.expand_thebibliography(md, '참고문헌')
+        self.assertEqual(n, 2)
+        self.assertIn('[BJP12] D. Blei.', out)
+        self.assertIn('[DHS10] J. Duchi.', out)
+
+    def test_an_author_year_list_keeps_its_numbers(self):
+        md = (BS + 'begin{thebibliography}{1}\n' + BS
+              + 'bibitem[{Misra et~al.(2016)}]{m}\nA. Misra.\n'
+              + BS + 'end{thebibliography}\n')
+        self.assertIn('[1] A. Misra.', mb.expand_thebibliography(md, 'R')[0])
+
+    def test_a_citation_group_takes_the_papers_brackets(self):
+        import arxiv_backend
+        self.assertEqual(arxiv_backend.cite_group(['BJP12', 'DHS10']),
+                         '[BJP12, DHS10]')
+        self.assertEqual(arxiv_backend.cite_group(['Kingma et al. 2014']),
+                         '(Kingma et al. 2014)')
 
     def test_the_table_finds_the_keys_in_flat_tex(self):
         d = tempfile.mkdtemp()

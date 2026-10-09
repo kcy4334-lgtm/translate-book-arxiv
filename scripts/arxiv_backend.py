@@ -777,6 +777,19 @@ def build_citation_map(root):
     return mapping
 
 
+def cite_group(labels):
+    """One citation group as the paper prints it.
+
+    Author-year labels go in parentheses, `(Kingma et al. 2014; ...)`. An
+    alphabetic label, `BJP12`, goes in square brackets, `[BJP12, DHS10]`,
+    as the `alpha` style prints it, and as the reference list now labels its
+    entries; in parentheses VAE's citations matched nothing in its list.
+    """
+    if labels and not any(re.search(r'\s', label) for label in labels):
+        return '[' + ', '.join(labels) + ']'
+    return '(' + '; '.join(labels) + ')'
+
+
 def resolve_citation_keys(text, citation_map):
     r"""Turn `[@key1; @key2]` into `(Author Year; Author Year)`.
 
@@ -798,7 +811,7 @@ def resolve_citation_keys(text, citation_map):
                 return m.group(0)  # unknown key: leave the whole group as-is
             labels.append(label)
         resolved[0] += 1
-        return '(' + '; '.join(labels) + ')'
+        return cite_group(labels)
 
     out = _CITE_TOKEN_RE.sub(handle, text)
 

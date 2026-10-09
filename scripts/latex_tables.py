@@ -1354,7 +1354,7 @@ def resolve_fragment_citations(tex, labels):
         if m.group(1) in ('t', 'author', 'alt'):
             head, _sep, year = joined.rpartition(' ')
             return '%s (%s)' % (head, year) if head else joined
-        return '(%s)' % joined
+        return arxiv_backend.cite_group(shown)
 
     return _FRAGMENT_CITE_RE.sub(sub, tex), count[0]
 

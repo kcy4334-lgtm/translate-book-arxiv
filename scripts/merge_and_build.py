@@ -22,6 +22,7 @@ from pathlib import Path
 import json
 
 import algorithm_float
+import arxiv_backend
 import glossary
 import math_guard
 import layout
@@ -719,6 +720,8 @@ def _citeproc_block_start(md_text):
 
 
 _THEBIB_ENTRY_RE = re.compile(r'\\bibitem\s*(?:\[[^\]]*\])?\s*\{[^{}]*\}')
+# The same, with the optional label kept: `[BJP12]`, or None when absent.
+_THEBIB_ENTRY_LABEL_RE = re.compile(r'\\bibitem\s*(?:\[([^\]]*)\])?\s*\{[^{}]*\}')
 # A command separated from its argument by a LINE BREAK. A space there is fine;
 # a newline is not, and pandoc fails the whole fragment over it.
 _BIB_ARG_GAP_RE = re.compile(r'(\\[A-Za-z]+)[ \t]*\r?\n[ \t]*(?=\{)')
@@ -800,7 +803,19 @@ def expand_thebibliography(md_text, label, pandoc=None):
     #
     # `[n]` and not `n.`: the citations print `[1]` and a multi-key one
     # prints `[1, 3]`, so the list has to answer in the same notation.
-    rendered = ['[%d] %s' % (i + 1, text) for i, text in enumerate(rendered)]
+    #
+    # Except where the `.bbl` carries alphabetic labels, `[BJP12]`: the body
+    # prints those (the backend resolved its citations from the same labels),
+    # and a list numbered [1] to [17] under citations reading "(BJP12)" gave
+    # VAE's reader nothing to match. An author-year label ("Kingma et al.
+    # 2014") keeps the numbers: its author is the way into the list.
+    keys = [lab.group(1) for lab in _THEBIB_ENTRY_LABEL_RE.finditer(inner)]
+    tags = [arxiv_backend._clean_bib_label(k) if k else '' for k in keys]
+    if (len(tags) == len(rendered) and all(tags)
+            and not any(re.search(r'\s', t) for t in tags)):
+        rendered = ['[%s] %s' % (tag, text) for tag, text in zip(tags, rendered)]
+    else:
+        rendered = ['[%d] %s' % (i + 1, text) for i, text in enumerate(rendered)]
 
     return (md_text[:m.start()] + '\n\n# %s\n\n' % label
             + '\n\n'.join(rendered) + '\n\n' + md_text[m.end():],
