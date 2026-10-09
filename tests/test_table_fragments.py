@@ -49,6 +49,26 @@ class Citations(unittest.TestCase):
         got, _n = mb.resolve_fragment_citations(r'\citet{clark-2018}', labels)
         self.assertEqual(got, 'Clark et al. (2018)')
 
+    def test_each_natbib_form_prints_as_natbib_prints_it(self):
+        labels = mb.build_citation_labels(BIB)
+        cases = {r'\citeauthor{clark-2018}': 'Clark et al.',
+                 r'\citealt{clark-2018}': 'Clark et al. 2018',
+                 r'\citealp{clark-2018}': 'Clark et al., 2018',
+                 r'\citeyear{clark-2018}': '2018',
+                 r'\citeyearpar{clark-2018}': '(2018)',
+                 r'\citet*{clark-2018}': 'Clark et al. (2018)',
+                 r'\Citet{clark-2018}': 'Clark et al. (2018)'}
+        for tex, want in cases.items():
+            self.assertEqual(mb.resolve_fragment_citations(tex, labels)[0],
+                             want, tex)
+
+    def test_citet_of_two_keys_gives_each_its_year(self):
+        labels = mb.build_citation_labels(BIB)
+        got, _n = mb.resolve_fragment_citations(
+            r'\citet{hendrycks-2021,clark-2018}', labels)
+        self.assertEqual(got,
+                         'Hendrycks et al. (2021a); Clark et al. (2018)')
+
     def test_two_keys_in_one_call(self):
         labels = mb.build_citation_labels(BIB)
         got, _n = mb.resolve_fragment_citations(

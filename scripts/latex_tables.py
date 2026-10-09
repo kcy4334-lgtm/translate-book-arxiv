@@ -1054,8 +1054,10 @@ def simplify_symbol_math(html):
 
 _BIBITEM_LABEL_RE = re.compile(r'\\bibitem\s*\[([^\]]*)\]\s*\{([^{}]*)\}')
 _LABEL_YEAR_RE = re.compile(r'^(.*?)\(\s*([^()]*?)\s*\)')
+# `\citet*` (every author) and `\Citet` (capitalised) too; neither matched,
+# and the command stayed in the table for pandoc to drop.
 _FRAGMENT_CITE_RE = re.compile(
-    r'\\cite([a-zA-Z]*)\s*(?:\[[^\]]*\])*\s*\{([^{}]*)\}')
+    r'\\[Cc]ite([a-zA-Z]*)\*?\s*(?:\[[^\]]*\])*\s*\{([^{}]*)\}')
 # `\text{PQE}` is amsmath's, and outside math pandoc drops it with its body.
 # CafeQ's table 7 printed no header at all over the column it is sorted by.
 # `\textrm` says the same thing in both modes.
@@ -1331,6 +1333,15 @@ def fragment_reference_numbers(temp_dir):
     return numbers
 
 
+# natbib's author-year forms, per key; `\citep` and the rest are a group in
+# parentheses (`cite_group`). `\citeauthor` printed `A (2020)` and `\citealp`
+# `(A 2020)` while every one was read as `\citet` or `\citep`.
+_NATBIB_FORMS = {'t': '%(a)s (%(y)s)', 'author': '%(a)s', 'alt': '%(a)s %(y)s',
+                 'alp': '%(a)s, %(y)s', 'year': '%(y)s',
+                 'yearpar': '(%(y)s)'}
+_LABEL_YEAR_TAIL_RE = re.compile(r'\s((?:19|20)\d{2}[a-z]?)$')
+
+
 def resolve_fragment_citations(tex, labels):
     """Render a raw table's `\\citep{key}` the way the body renders it.
 
@@ -1348,11 +1359,17 @@ def resolve_fragment_citations(tex, labels):
         if not keys or len(shown) != len(keys):
             return m.group(0)
         count[0] += 1
-        joined = '; '.join(shown)
-        if m.group(1) in ('t', 'author', 'alt'):
-            head, _sep, year = joined.rpartition(' ')
-            return '%s (%s)' % (head, year) if head else joined
-        return arxiv_backend.cite_group(shown)
+        form = _NATBIB_FORMS.get(m.group(1).lower())
+        if not form:
+            return arxiv_backend.cite_group(shown)
+        out = []
+        for label in shown:
+            year = _LABEL_YEAR_TAIL_RE.search(label)
+            if not year:
+                return arxiv_backend.cite_group(shown)   # alpha: `[BJP12]`
+            out.append(form % {'a': label[:year.start()].rstrip(),
+                               'y': year.group(1)})
+        return '; '.join(out)
 
     return _FRAGMENT_CITE_RE.sub(sub, tex), count[0]
 
