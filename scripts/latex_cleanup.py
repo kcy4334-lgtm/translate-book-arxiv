@@ -876,7 +876,11 @@ def rewrite_subcaptions(md_text, stats):
 
 
 _FOOTNOTE_DEF_RE = re.compile(r'(?m)^\[\^([^\]\s]+)\]:[ \t]*')
-_FOOTNOTE_REF_RE = re.compile(r'\[\^([^\]\s]+)\](?!:)')
+# A reference is any `[^x]` but a definition, and a definition opens a line.
+# A colon after it proves nothing mid-sentence: VAE writes "a diagonal
+# covariance structure[^2]: $$...", its note was taken for unreferenced and
+# moved to the title page, and the marker printed as `[^2]`.
+_FOOTNOTE_REF_RE = re.compile(r'(?m)(?<!^)\[\^([^\]\s]+)\]|^\[\^([^\]\s]+)\](?!:)')
 _FIRST_HEADING_RE = re.compile(r'(?m)^#{1,6} ')
 
 
@@ -919,7 +923,7 @@ def rescue_orphan_footnotes(md_text):
     page-1 footnotes belong in the original. A note that IS referenced is left
     exactly where it is -- it is a working footnote and must stay one.
     """
-    refs = set(_FOOTNOTE_REF_RE.findall(md_text))
+    refs = {a or b for a, b in _FOOTNOTE_REF_RE.findall(md_text)}
     spans, bodies = [], []
     for m in _FOOTNOTE_DEF_RE.finditer(md_text):
         if m.group(1) in refs:

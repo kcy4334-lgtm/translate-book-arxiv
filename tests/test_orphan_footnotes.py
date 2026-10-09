@@ -41,6 +41,13 @@ class Rescue(unittest.TestCase):
         out, _n = mb.rescue_orphan_footnotes(md)
         self.assertNotIn('[^1]:', out)
 
+    def test_a_reference_followed_by_a_colon_is_a_reference(self):
+        """VAE: "covariance structure[^2]: $$...$$". Read as unreferenced,
+        the note went to the title page and `[^2]` printed in the text."""
+        md = '# 방법\n\n공분산 구조[^2]: $$x$$\n\n[^2]: 단순화한 선택이다.\n'
+        out, n = mb.rescue_orphan_footnotes(md)
+        self.assertEqual((out, n), (md, 0))
+
     def test_a_referenced_note_is_left_exactly_where_it_is(self):
         """It is a working footnote and must stay one."""
         md = '# 초록\n\n본문[^a]입니다.\n\n[^a]: 진짜 각주.\n'
