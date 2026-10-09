@@ -131,7 +131,8 @@ def plugin_agents(entries):
     """
     out = []
     for mode, sha, size, path in entries:
-        if path.startswith('.claude/agents/') and path.endswith('.md')                 and path.count('/') == 2:
+        if (path.startswith('.claude/agents/') and path.endswith('.md')
+                and path.count('/') == 2):
             out.append((mode, sha, size, 'agents/' + path.rsplit('/', 1)[-1]))
     return out
 
@@ -181,7 +182,7 @@ def plugin_skill(text):
         elif tool:
             tools.append(tool)
     tools += rules
-    line ='allowed-tools: ' + ', '.join(tools)
+    line = 'allowed-tools: ' + ', '.join(tools)
     return out[:m.start()] + line + out[m.end():]
 
 

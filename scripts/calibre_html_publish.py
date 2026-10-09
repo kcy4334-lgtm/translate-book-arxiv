@@ -9,9 +9,7 @@ import os
 import sys
 import subprocess
 import argparse
-import tempfile
 import shutil
-from pathlib import Path
 import re
 
 import layout

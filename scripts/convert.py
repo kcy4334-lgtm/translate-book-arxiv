@@ -1292,6 +1292,7 @@ def segment_blocks_by_bibliography(blocks):
     flush()
     return segments
 
+
 def split_markdown_structured(md_file, temp_dir, target_size=6000, math_guard_on=True):
     """Split markdown into structural chunks.
 
@@ -1682,24 +1683,7 @@ def main():
         if os.path.exists(input_html_path):
             print(f"Skipping HTMLZ conversion - input.html already exists")
 
-            metadata = {}
-            config_file = os.path.join(temp_dir, "config.txt")
-            if os.path.exists(config_file):
-                try:
-                    with open(config_file, 'r', encoding='utf-8') as f:
-                        for line in f:
-                            if '=' in line:
-                                key, value = line.strip().split('=', 1)
-                                if key == 'original_title':
-                                    metadata['title'] = value
-                                elif key == 'creator':
-                                    metadata['creator'] = value
-                                elif key == 'publisher':
-                                    metadata['publisher'] = value
-                                elif key == 'source_language':
-                                    metadata['language'] = value
-                except Exception as e:
-                    print(f"Warning: Could not read metadata from config: {e}")
+            metadata = _metadata_from_config(temp_dir)
 
             input_md = os.path.join(temp_dir, "input.md")
             _abort_on_strip_cache_conflict(

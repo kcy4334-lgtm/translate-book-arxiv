@@ -38,7 +38,6 @@ from __future__ import unicode_literals
 
 import argparse
 import filecmp
-import io
 import os
 import shutil
 import sys

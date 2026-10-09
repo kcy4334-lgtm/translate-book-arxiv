@@ -24,7 +24,6 @@ crowded page is the equation number and which is a superscript.
 The largest size that leaves a real gap wins. An equation that already fits
 is not touched, which is all of them in most papers.
 """
-import os
 import re
 
 # Tried largest first. 1.0 means "leave it alone", and is always tried, so a

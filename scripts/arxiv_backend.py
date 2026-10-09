@@ -1549,26 +1549,6 @@ def _brace_end(text, open_at):
     return -1
 
 
-def _starts_in_comment(text, pos):
-    r"""Is `pos` after an unescaped `%` on its own line?
-
-    planck writes `%\institute{L2 \and Earth}` and U-Net `%\authorrunning{*}`.
-    Rewriting those changes nothing a reader sees — but the brace scan does not
-    stop at end of line, so a commented-out `\address{` whose `}` never comes
-    would run into live text below and take it. Six such matches exist across
-    the corpus, so this is measured, not hypothetical.
-    """
-    i = text.rfind('\n', 0, pos) + 1
-    while i < pos:
-        if text[i] == '\\':
-            i += 2
-            continue
-        if text[i] == '%':
-            return True
-        i += 1
-    return False
-
-
 def _rewrite_braced_command(tex, name, keep_body):
     """`\\name[opt]{body}` -> body, or nothing. Returns (text, count)."""
     # The optional argument has to be consumed with the command: `\address[a]`
@@ -1581,7 +1561,11 @@ def _rewrite_braced_command(tex, name, keep_body):
         m = head.search(tex, at)
         if not m:
             return tex, count
-        if _starts_in_comment(tex, m.start()):
+        # planck writes `%\institute{L2 \and Earth}` and U-Net
+        # `%\authorrunning{*}`. The brace scan does not stop at the end of a
+        # line, so a commented-out `\address{` whose `}` never comes would
+        # run into live text below and take it. The corpus has six.
+        if _in_comment(tex, m.start()):
             at = m.end()
             continue
         if m.end() >= len(tex) or tex[m.end()] != '{':
@@ -1608,7 +1592,7 @@ def _rewrite_two_arg(tex, name, keep):
         m = head.search(tex, at)
         if not m:
             return tex, count
-        if _starts_in_comment(tex, m.start()):
+        if _in_comment(tex, m.start()):
             at = m.end()
             continue
         args, pos = [], m.end()
@@ -2193,7 +2177,6 @@ def unwrap_graphics_tabulars(tex):
     count = 0
 
     def in_figure(m):
-        nonlocal count
         body = m.group(2)
 
         def tabular(t):
@@ -3128,9 +3111,6 @@ def build(input_file, temp_dir, arxiv_id, allow_network=True):
         print(f"Expanded {sum(macro_report['expanded'].values())} call(s) of "
               f"the paper's own macros: "
               + ', '.join(f'\\{k} x{v}' for k, v in top[:6]))
-    # Reported, not swallowed. A refusal leaves the name printing verbatim in
-    # the book, and the silent version of that is how it went unnoticed until
-    # a reader found `\ie` in the middle of a Korean sentence (K110).
     flat, declared = declare_class_theorems(flat)
     if declared:
         print(f"Declared {declared} theorem-like environment(s) the document "
@@ -3139,6 +3119,9 @@ def build(input_file, temp_dir, arxiv_id, allow_network=True):
     if tagged:
         print(f"Rewrote {tagged} starred display(s) the paper numbers by hand "
               f"(\\addtocounter + \\tag) as ordinary numbered ones")
+    # Reported, not swallowed. A refusal leaves the name printing verbatim in
+    # the book, and the silent version of that is how it went unnoticed until
+    # a reader found `\ie` in the middle of a Korean sentence (K110).
     used_refusals = {k: v for k, v in macro_report['refused'].items()
                      if re.search(r'\\%s(?![A-Za-z])' % re.escape(k), flat)}
     if used_refusals:
