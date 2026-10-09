@@ -1058,6 +1058,13 @@ _TEX_NOISE = (
     # raw LaTeX: Sentence-BERT's "(~65 hours)" printed as "( hours)", the
     # figure its whole argument rests on. `\textasciitilde{}` it reads.
     (re.compile(r'\\texttildelow(?![A-Za-z])\s*(?:\{\})?'), r'\\textasciitilde{}'),
+    # scrextend's `addmargin` indents a block, which is what `quote` is, and
+    # `quote` pandoc reads. Kept, PaLM's worked examples -- the input, the
+    # scoring, the model's answer -- reached the HTML as raw LaTeX and were
+    # dropped, and the build refused the book.
+    (re.compile(r'\\begin\{addmargin\*?\}\s*(?:\[[^\]]*\])?\s*\{[^{}]*\}'),
+     r'\\begin{quote}'),
+    (re.compile(r'\\end\{addmargin\*?\}'), r'\\end{quote}'),
 )
 
 _TABLE_NOTE_RE = re.compile(r'\\tnote\s*\{([^{}]*)\}')

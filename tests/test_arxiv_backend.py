@@ -252,6 +252,15 @@ if __name__ == "__main__":
     unittest.main()
 
 
+class AddmarginTests(unittest.TestCase):
+    """PaLM's worked examples sit in scrextend's `addmargin`."""
+
+    def test_addmargin_becomes_quote(self):
+        out = arxiv_backend.sanitize_tex(
+            '\\begin{addmargin}[2em]{1em}\nInput (0-shot)\n\\end{addmargin}')
+        self.assertIn('\\begin{quote}\nInput (0-shot)\n\\end{quote}', out)
+
+
 class TildeTests(unittest.TestCase):
     r"""Sentence-BERT's "(\texttildelow 65 hours)" printed as "( hours)":
     pandoc kept the unknown command and the number after it as raw LaTeX."""
