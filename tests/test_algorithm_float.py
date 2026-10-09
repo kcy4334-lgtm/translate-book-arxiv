@@ -49,6 +49,20 @@ CAMEL = r"""\begin{algorithm}[t]\caption{SINQ normalisation.}
 \end{algorithm}"""
 
 
+class MathEdgeTests(unittest.TestCase):
+    r"""VAE writes `\State $\bX^M \gets $ Random minibatch of $M$ datapoints`.
+    A `$` with a space before it does not close in markdown, so the math ran
+    on through the words to the next dollar and printed as TeX."""
+
+    def test_the_space_inside_the_dollars_goes(self):
+        out = af._clean_argument(r'$\bX^M \gets $ Random minibatch of $M$')
+        self.assertEqual(out, r'$\bX^M \gets$ Random minibatch of $M$')
+
+    def test_an_escaped_dollar_is_not_math(self):
+        self.assertEqual(af._clean_argument(r'costs \$ 5 and $ x $'),
+                         r'costs \$ 5 and $x$')
+
+
 class ParseTests(unittest.TestCase):
     def test_uppercase_macros_are_understood(self):
         io_lines, steps = af.parse_body(UPPER)

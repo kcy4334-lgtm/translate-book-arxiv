@@ -169,7 +169,13 @@ def _text_markup(text):
             while close < len(text) and not (text[close] == '$'
                                              and text[close - 1] != '\\'):
                 close += 1
-            out.append(text[i:close + 1])
+            # No space just inside the dollars. LaTeX does not care; the
+            # markdown reader does, and a `$` with a space before it does not
+            # close: VAE writes `$\bX^M \gets $ Random minibatch`, and the
+            # math ran on into the words until the next dollar.
+            inner = text[i + 1:close]
+            out.append('$%s$' % inner.strip() if close < len(text) and inner.strip()
+                       else text[i:close + 1])
             i = close + 1
             continue
         m = _TEXT_STYLE_RE.match(text, i)
