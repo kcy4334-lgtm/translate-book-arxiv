@@ -1221,8 +1221,8 @@ bibtex key: CafeQ shipped five, one of them standing beside a citation that
 had rendered perfectly, in a build where all 61 labels had been harvested
 from the paper's own `.bbl` and were sitting in the map the resolver held.
 Nothing failed and no count moved; one pattern was narrower than its input.
-A split `\citep{A, B}` also arrives as `@A [@B]`, so the two halves are
-rejoined rather than printed as two brackets in a row.
+~~`@A [@B]` is a split `\citep{A, B}`, so the halves are rejoined.~~ It is
+`\citet{A, B}`; rejoined, one citation folded into another. See [K221](#k221).
 *Status: LOCKED, `test_citation_intext.py`; bare and bracketed forms, the
 in-parenthesis case, and email / unknown-key / escaped-`@` safety.*
 
