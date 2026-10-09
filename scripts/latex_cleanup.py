@@ -229,7 +229,12 @@ _SPACING_INLINE_RE = re.compile(
 # A literal [word] that pandoc escaped as \[word\]; the markdown reader then
 # reads \[...\] as DISPLAY MATH under tex_math_single_backslash and renders it
 # in math italic. Only unescaped when the content is plainly not math.
-_ESCAPED_BRACKET_RE = re.compile(r'\\\[([^\\\]$]{1,40}?)\\\]')
+#
+# Up to a citation list's length, not 40 characters: Shor's
+# `\[Teich et al. 1988, Lloyd 1993, ..., Chuang and Yamomoto 1995\]` stayed
+# display maths, and since equation numbers are assigned to display formulas
+# in order, every number after it landed one formula late.
+_ESCAPED_BRACKET_RE = re.compile(r'\\\[([^\\\]$\n]{1,400}?)\\\]')
 
 
 # `\subcaption{Cayley SGD.}` labels one panel of a multi-panel float.
@@ -1078,7 +1083,11 @@ def normalize_latex_leftovers(md_text):
         # `%` and `°` belong here too: they are units, never a formula on
         # their own, and `\[%\]` -- the escaped `[\%]` of an Overhead column
         # -- was read back as display maths and rendered as nothing.
-        if re.fullmatch(r'[\w \-/,.%°]+', inner):
+        # A longer one has to read as prose too: three words of three letters
+        # or more, which a formula of that length does not have.
+        if re.fullmatch(r'[\w  \-/,.;:&%°]+', inner) and (
+                len(inner) <= 40
+                or len(re.findall(r'[A-Za-z]{3,}', inner)) >= 3):
             stats['brackets'] += 1
             return '[' + inner + ']'
         return m.group(0)
