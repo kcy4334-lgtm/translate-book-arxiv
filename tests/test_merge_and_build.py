@@ -1959,6 +1959,40 @@ class EmptyCodeSpanTests(unittest.TestCase):
         self.assertEqual(self.clean(text), text)
 
 
+@unittest.skipUnless(merge_and_build.BS4_AVAILABLE, "bs4 not installed")
+class WebTocTextTests(unittest.TestCase):
+    """The sidebar entry is the heading as a reader sees it.
+
+    The bs4 path read headings with `get_text()`, which takes a formula's TeX
+    annotation along with its glyphs, so VAE's appendix entry printed the
+    formula and then its source. The print TOC and the regex path already
+    left the annotation out.
+    """
+
+    def toc(self, body):
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "book.html")
+            Path(path).write_text(
+                '<html><body><div class="toc-content"></div>\n%s\n'
+                '</body></html>' % body, encoding="utf-8")
+            with contextlib.redirect_stdout(io.StringIO()):
+                merge_and_build.insert_toc_with_bs4(path)
+            html = Path(path).read_text(encoding="utf-8")
+        return re.search(r'class="toc-content">(.*?)</div>', html, re.S).group(1)
+
+    def test_a_formula_in_a_heading_lists_without_its_source(self):
+        toc = self.toc(
+            '<h2>B <math><semantics><mi>γ</mi>'
+            '<annotation encoding="application/x-tex">\\gamma</annotation>'
+            '</semantics></math>의 해</h2>')
+        self.assertIn('γ의 해', toc)
+        self.assertNotIn('\\gamma', toc)
+
+    def test_markup_characters_in_a_title_stay_text(self):
+        toc = self.toc('<h2>a &lt;b&gt; &amp; c</h2>')
+        self.assertIn('a &lt;b&gt; &amp; c', toc)
+
+
 class WebTocAnchorTests(unittest.TestCase):
     """The floating TOC in book.html linked to #heading-1, #heading-2 … and
     none of those anchors existed: the code built `<h2>text</h2>` and

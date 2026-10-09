@@ -2609,7 +2609,8 @@ def generate_simple_toc_html(toc_data):
                 toc_html += '</ul></li>\n'
                 current_level -= 1
 
-        toc_html += f'<li><a href="#{heading_id}">{text}</a></li>\n'
+        toc_html += '<li><a href="#%s">%s</a></li>\n' % (
+            heading_id, _html_lib.escape(text, quote=False))
 
     while current_level > 1:
         toc_html += '</ul></li>\n'
@@ -2635,7 +2636,12 @@ def insert_toc_with_bs4(html_file):
 
     for heading in soup.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6']):
         level = int(heading.name[1])
-        text = heading.get_text().strip()
+        # Without the formula's TeX annotation, as the print TOC and the
+        # regex path already read it: `get_text()` took both, and VAE's
+        # appendix entry in the sidebar read "−DKL(q𝝓(𝒛)||p𝜽(𝒛))- D_{KL}(...".
+        text = ' '.join(''.join(
+            s for s in heading.find_all(string=True)
+            if s.find_parent('annotation') is None).split())
         if not text:
             continue
 
