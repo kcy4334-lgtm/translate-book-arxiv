@@ -2863,6 +2863,57 @@ _LT_MARK_RE = re.compile(r'\\(endfirsthead|endhead|endfoot|endlastfoot)(?![a-zA-
 _LT_CAPTION_RE = re.compile(r'\\caption\*?\s*(?:\[[^\]]*\])?\s*\{')
 
 
+_TOGGLE_RE = re.compile(
+    r'\\(newtoggle|toggletrue|togglefalse|settoggle|iftoggle|nottoggle)'
+    r'\s*\{\s*([^{}]+?)\s*\}')
+
+
+def resolve_toggles(tex):
+    r"""Evaluate etoolbox's `\iftoggle{x}{yes}{no}`. Returns (tex, n).
+
+    Nothing evaluated it, and pandoc keeps it as text: DDPM chooses every
+    figure file with `\includegraphics{\iftoggle{hqfigures}{hq/a.pdf}{a.jpg}}`,
+    so eight of its figures printed as "[Figure: \iftoggle..." with the image
+    gone. The toggles are read in document order, a commented line counting
+    for nothing, as TeX reads them; a toggle never declared is left alone.
+    """
+    state, out, cursor, count = {}, [], 0, 0
+    for m in _TOGGLE_RE.finditer(tex):
+        if m.start() < cursor or _in_latex_comment(tex, m.start()):
+            continue
+        cmd, name = m.group(1), m.group(2)
+        if cmd == 'newtoggle':
+            state.setdefault(name, False)
+        elif cmd in ('toggletrue', 'togglefalse'):
+            state[name] = cmd == 'toggletrue'
+        elif cmd == 'settoggle':
+            value = re.match(r'\s*\{\s*(true|false)\s*\}', tex[m.end():])
+            if value:
+                state[name] = value.group(1) == 'true'
+        elif name in state:
+            yes_open = re.match(r'\s*\{', tex[m.end():])
+            if not yes_open:
+                continue
+            yes_at = m.end() + yes_open.end() - 1
+            yes_end = _balanced_brace(tex, yes_at)
+            no_open = re.match(r'\s*\{', tex[yes_end:]) if yes_end > 0 else None
+            if not no_open:
+                continue
+            no_at = yes_end + no_open.end() - 1
+            no_end = _balanced_brace(tex, no_at)
+            if no_end < 0:
+                continue
+            take = state[name] if cmd == 'iftoggle' else not state[name]
+            chosen = (tex[yes_at + 1:yes_end - 1] if take
+                      else tex[no_at + 1:no_end - 1])
+            out.append(tex[cursor:m.start()])
+            out.append(chosen)
+            cursor = no_end
+            count += 1
+    out.append(tex[cursor:])
+    return ''.join(out), count
+
+
 _TEXT_SUPERSCRIPT_RE = re.compile(
     r'\$\s*\^\s*\{\s*(?:\\rm\s+|\\rm(?=[^a-zA-Z])|\\mathrm\s*\{|\\textrm\s*\{)'
     r'([A-Za-z0-9,.*\s]{1,24}?)\s*\}?\s*\}\s*\$')
@@ -3726,6 +3777,11 @@ def build(input_file, temp_dir, arxiv_id, allow_network=True):
     print(f"Main LaTeX file: {os.path.relpath(main_tex, work_dir)}")
 
     flat = flatten_tex(main_tex, work_dir)
+    # First, before anything reads a file name or a figure out of the text.
+    flat, toggled = resolve_toggles(flat)
+    if toggled:
+        print(f"Evaluated {toggled} etoolbox \\iftoggle choice(s) the way the "
+              f"paper's own toggles set them")
     if not flat.strip():
         print("Flattened LaTeX source is empty.")
         return False, {}

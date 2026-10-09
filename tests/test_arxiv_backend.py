@@ -300,6 +300,32 @@ class AlignmentEnvironmentTests(unittest.TestCase):
         self.assertIn('\\section*{Abstract}\nA search.', out)
 
 
+class ToggleTests(unittest.TestCase):
+    """DDPM picks every figure file with etoolbox's \\iftoggle."""
+
+    TEX = ('\\newtoggle{hqfigures}\n% \\toggletrue{hqfigures}\n'
+           '\\togglefalse{hqfigures}  % low quality\n\\begin{document}\n'
+           '\\includegraphics{\\iftoggle{hqfigures}{hq/a.pdf}{images/a.jpg}}\n'
+           '\\nottoggle{hqfigures}{small}{large}\n'
+           '\\iftoggle{unknown}{x}{y}\n')
+
+    def test_the_toggle_as_set_decides(self):
+        out, n = arxiv_backend.resolve_toggles(self.TEX)
+        self.assertIn('\\includegraphics{images/a.jpg}', out)
+        self.assertIn('\nsmall\n', out)
+        self.assertEqual(n, 2)
+
+    def test_an_undeclared_toggle_is_left(self):
+        out, _n = arxiv_backend.resolve_toggles(self.TEX)
+        self.assertIn('\\iftoggle{unknown}{x}{y}', out)
+
+    def test_a_later_setting_wins(self):
+        out, _n = arxiv_backend.resolve_toggles(
+            self.TEX.replace('\\begin{document}', '\\toggletrue{hqfigures}\n'
+                             '\\begin{document}'))
+        self.assertIn('\\includegraphics{hq/a.pdf}', out)
+
+
 class TextSuperscriptTests(unittest.TestCase):
     """higgs_atlas: 3,023 `$^{\\rm 48}$` marks made one 730 KB paragraph of
     MathML that Calibre could not split; the EPUB was never made."""
