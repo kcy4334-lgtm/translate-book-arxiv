@@ -184,6 +184,17 @@ class UnprefixedReferences(unittest.TestCase):
         self.assertIn('보조정리 28', got)
         self.assertNotIn('정리 28', got.replace('보조정리 28', ''))
 
+    def test_an_assumption_keeps_its_word(self):
+        """AdamX: `Assumption~\\ref{ass:bounded}` printed "가정 정리 1"."""
+        import layout
+        leads = layout.get_lang_config('ko')['theorem_words']
+        got, _ = mb.resolve_unprefixed_references(
+            '가정 (ass:bounded)이 성립한다고 하자.',
+            {'ass:bounded': ('1', 'theorem')}, self.WORDS, self.FORMATS,
+            lead_words=leads)
+        self.assertIn('가정 1', got)
+        self.assertNotIn('정리', got)
+
     def test_declaration_site_keeps_its_name(self):
         # `**정리 32** (Gaussian).` states the theorem; it does not point at it.
         text = '**정리 32** (Gaussian). 다음이 성립한다.'

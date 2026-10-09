@@ -154,8 +154,11 @@ LANG_CONFIG = {
         # apart -- only the translator knows this particular number is a
         # Lemma. Without the list, resolving "보조정리 (Rudelson)" appends the
         # generic word and prints "보조정리 정리 28".
+        # 가정 too: AdamX cites `Assumption~\ref{ass:bounded}`, and without
+        # it the page read "가정 정리 1".
         'theorem_words': ('보조정리', '따름정리', '정리', '명제', '정의',
-                          '비고', '예제', '예', '사실', '관찰', '추측', '주장'),
+                          '비고', '예제', '예', '사실', '관찰', '추측', '주장',
+                          '가정', '공리', '성질', '조건', '문제', '참고', '주의'),
         'references_label': '참고문헌',
         'toc_label': '목차',
         'pdf_font': 'HCR Batang',
