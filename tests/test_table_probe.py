@@ -20,6 +20,40 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import table_probe as tp
 
 
+class ResNetNesting(unittest.TestCase):
+    r"""ResNet defines `\tabincell` as a tabular and puts one in each of four
+    header cells. The template counted as table 1, the inner ones ended their
+    table early, and a correct book drew 40 findings."""
+
+    TEX = (r'\newcommand{\tabincell}[2]{\begin{tabular}{@{}#1@{}}#2\end{tabular}}'
+           '\n' r'\begin{tabular}{l|c}' '\n'
+           r'\begin{tabular}{@{}c@{}}LOC \\ method\end{tabular} & err \\' '\n'
+           r'\hline' '\n' r'A & 1.5 \\' '\n' r'B & 2.5 \\' '\n'
+           r'\end{tabular}' '\n')
+
+    def test_the_template_and_the_inner_tabular_are_not_tables(self):
+        units = tp.tabular_units(self.TEX)
+        self.assertEqual(len(units), 1)
+        self.assertEqual(units[0][0], 2)
+
+    def test_a_table_inside_a_cell_is_that_cells_text(self):
+        html = ('<table><tr><td><table><tr><td>LOC</td></tr><tr><td>method'
+                '</td></tr></table></td><td>err</td></tr>'
+                '<tr><td>A</td><td>1.5</td></tr></table><table><tr><td>x'
+                '</td></tr></table>')
+        blocks = tp.outer_tables(html)
+        self.assertEqual(len(blocks), 2)
+        self.assertEqual(tp.html_rows(blocks[0])[0],
+                         [('LOC method', 1), ('err', 1)])
+        self.assertEqual(len(tp.html_rows(blocks[0])), 2)
+
+    def test_a_cline_is_not_a_row_label(self):
+        body = (r'\multirow{2}{*}{method} & \multicolumn{2}{c}{err} \\'
+                r'\cline{2-3}' '\n' r'& val & test \\')
+        rows = tp.source_rows(body)
+        self.assertTrue(tp._blank_first_cell(rows[1]))
+
+
 class ViTTableNine(unittest.TestCase):
     """ViT's VTAB table: grey rules in the colspec, TikZ dots in the header."""
 

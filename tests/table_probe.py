@@ -126,11 +126,16 @@ def tabular_units(tex):
     check that had nothing wrong to say.
     """
     out = []
-    for m in TABULAR_RE.finditer(tex):
-        body = m.group(2)
+    for kind, body in _outer_tabulars(tex):
+        # A macro's template, not a table: ResNet's `\tabincell` is
+        # `\begin{tabular}{@{}#1@{}}#2\end{tabular}`. Counted, it was table 1,
+        # and every one of the book's 19 tables was compared with the source
+        # table before it -- 40 findings on a correct book.
+        if re.search(r'#\d', body):
+            continue
         pos = re.match(r'\s*(?:\[[^\]]*\])?\s*', body).end()
         # `tabular*` and `tabularx` take a width argument before the colspec.
-        if m.group(1) in ('tabular*', 'tabularx'):
+        if kind in ('tabular*', 'tabularx'):
             if pos < len(body) and body[pos] == '{':
                 close = _matching_brace(body, pos)
                 if close < 0:
@@ -154,6 +159,62 @@ def tabular_units(tex):
     return out
 
 
+_TABLE_TAG_RE = re.compile(r'<(/?)table\b[^>]*>')
+
+
+def outer_tables(html):
+    """Each <table> not inside another, whole: a cell's own table is its text."""
+    out, depth, start = [], 0, 0
+    for m in _TABLE_TAG_RE.finditer(html):
+        if not m.group(1):
+            if depth == 0:
+                start = m.start()
+            depth += 1
+        elif depth:
+            depth -= 1
+            if depth == 0:
+                out.append(_inner_as_text(html[start:m.end()]))
+    return out
+
+
+def _inner_as_text(block):
+    """The outer table with every table inside it reduced to its words."""
+    head = block.find('>') + 1
+    tail = block.rfind('<')
+    inner = block[head:tail]
+    for _ in range(8):
+        m = re.search(r'(?s)<table\b(?:(?!<table\b).)*?</table>', inner)
+        if not m:
+            break
+        words = ' '.join(re.sub(r'<[^>]+>', ' ', m.group(0)).split())
+        inner = inner[:m.start()] + words + inner[m.end():]
+    return block[:head] + inner + block[tail:]
+
+
+_TABULAR_TAG_RE = re.compile(
+    r'\\(begin|end)\{(tabular\*?|tabularx|tabulary|longtable)\}')
+
+
+def _outer_tabulars(tex):
+    r"""(kind, body) for each tabular not inside another one.
+
+    A tabular inside a cell is that cell's text. ResNet's \tabincell expands
+    to one in four header cells of a table, and a non-greedy match ended the
+    table at the first inner `\end{tabular}`.
+    """
+    out, depth, start, kind = [], 0, 0, None
+    for m in _TABULAR_TAG_RE.finditer(tex):
+        if m.group(1) == 'begin':
+            if depth == 0:
+                start, kind = m.end(), m.group(2)
+            depth += 1
+        elif depth:
+            depth -= 1
+            if depth == 0:
+                out.append((kind, tex[start:m.start()]))
+    return out
+
+
 _GRAPHIC_RE = re.compile(r'\\includegraphics\s*(?:\[[^\]]*\])?\s*\{[^{}]*\}')
 # The same allowance as the build's: breaks, cell separators, spacing.
 _LAYOUT_LEFTOVER_RE = re.compile(
@@ -171,7 +232,11 @@ def source_rows(body):
     """
     body = COMMENT_RE.sub('', body)
     body = re.sub(r'\\(?:top|mid|bottom)rule(?:\[[^\]]*\])?', '', body)
-    body = re.sub(r'\\cmidrule\s*(?:\([lr]{1,2}\))?\s*\{[^}]*\}', '', body)
+    # `\cline{2-3}` too: left in, its `2-3` was the first cell of ResNet's
+    # `& val & test`, so a correctly blank cell under a `\multirow` read as
+    # a stranded row label.
+    body = re.sub(r'\\(?:cmidrule|cline)\s*(?:\([lr]{1,2}\))?\s*\{[^}]*\}',
+                  '', body)
     # The optional argument has to go with the command. `\addlinespace[2pt]`
     # left its `[2pt]` behind in the next row's first cell, so seven of
     # AlphaQ's `\multirow` continuations counted as labelled and the probe
@@ -376,7 +441,7 @@ def probe(temp_dir, lang='ko', strict=False):
     # Without the comments: Sentence-BERT has a whole table commented out,
     # and it was counted as an eighth table missing from a correct book.
     units = tabular_units(COMMENT_RE.sub('', read(flat)))
-    blocks = TABLE_EL_RE.findall(_page_markup(read(html_path)))
+    blocks = outer_tables(_page_markup(read(html_path)))
     print('source tabulars: %d      tables in the book: %d'
           % (len(units), len(blocks)))
 
