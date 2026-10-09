@@ -880,6 +880,11 @@ def format_figure_blocks(md_text, lang_cfg=None, temp_dir=None):
             # its last one (`_panel_letters`). Without this they took the
             # whole figure's number, once per image.
             label = ''
+            if not sub_md:
+                # pandoc makes a <figure> only of an image with alt text; a
+                # bare image in the group took the caption's full-width row
+                # and Neural ODE's Figure 10 ran over eight pages.
+                sub_md = '\\ '
         if grouped and caption_md:
             # The float's caption belongs under the whole float, not under
             # whichever panel happened to carry it in the source. SINQ's
