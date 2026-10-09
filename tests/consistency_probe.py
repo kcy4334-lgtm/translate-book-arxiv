@@ -306,6 +306,12 @@ def check_glosses(text):
         if is_citation(english) or '$' in english:
             # `평균 제로샷 정확도(Avg. $\uparrow$)` is a column label, not a gloss.
             continue
+        if _RAW_REF_RE.fullmatch(english):
+            # `디노이징 목적 함수(eq:flow_loss)` is a reference the build turns
+            # into "식 (2)", not an English gloss. Read as one, 2609.11801 was
+            # failed for three collisions on every run, `eq:flow_loss` among
+            # them as one English with three Korean renderings.
+            continue
         # Keep the original casing for ko_to_en: the acronym test below needs
         # it (PTQ is an acronym, ptq is not). Fold case only when grouping the
         # other way, where Block and block are one word.

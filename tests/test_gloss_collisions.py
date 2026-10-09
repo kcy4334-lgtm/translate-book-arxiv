@@ -71,6 +71,13 @@ class Collisions(unittest.TestCase):
     def test_a_citation_is_not_a_gloss(self):
         self.assertEqual(cp.check_glosses('이 양자화(Tseng et al. 2024c)는'), [])
 
+    def test_a_reference_key_is_not_a_gloss(self):
+        """2609.11801 failed on `(eq:flow_loss)` read as English beside three
+        different Korean phrases; the build turns it into "식 (2)"."""
+        text = ('국소 손실(eq:flow_loss)과 디노이징 목적 함수(eq:flow_loss), '
+                '플로우 학습(eq:flow_loss)을 보라.')
+        self.assertEqual(cp.check_glosses(text), [])
+
     def test_context_words_do_not_make_three_renderings(self):
         text = ('4.1절에서는 어블레이션(ablation)을 했고, '
                 '모델에서 수행한 어블레이션(ablation)도 있다.')
