@@ -632,8 +632,10 @@ carries each formula's TeX source in
 leaves the rendered glyph AND its source, so a heading with math in it reads
 `γ\gamma의 데이터 없는 기본값` in the TOC, the PDF bookmarks and the print TOC,
 three separate call sites, all making the same mistake. The same blind spot
-inflates any count of "leftover LaTeX" (K32).
-*Status: LOCKED, `_ANNOTATION_RE` in merge_and_build.py and chromium_pdf.py.*
+inflates any count of "leftover LaTeX" (K32). There was a fourth: the sidebar
+of `book.html`, built with bs4's `get_text()`, kept it until VAE's appendix
+heading showed up there with its source.
+*Status: LOCKED, `_ANNOTATION_RE` in merge_and_build.py and chromium_pdf.py; `WebTocTextTests`.*
 
 ### K37
 **A `\label` after `\end{figure}` names the enclosing section, not the float.**
@@ -3270,7 +3272,8 @@ symptom to look for.
 **The table finder and the colspec reader must agree on every tabular variant.**
 A wider pattern named `_TABULAR_BEGIN_RE` shadowed the finder's, so a
 `tabularx` or a display `array` opened a table that never closed and every
-later table went unconverted. The column format lost siunitx `S`, a paper's
+later table went unconverted. numbering.py had the same fault in
+`_SETCOUNTER_RE`: a module-level name assigned twice keeps the second. The column format lost siunitx `S`, a paper's
 own column letters and `*{n}{c}`: PaLM's `ll SS|SSSS` became `ll|` and pandoc
 gave the table up. A table citation resolves only if the keys are read from
 the inlined .bbl before the list is rendered, including acl_natbib's braced
@@ -3333,13 +3336,14 @@ A render script an agent writes itself is not pre-approved either, hence
 
 ### K229
 **The fixes of v0.5.0 were judged on the corpus, not on the three papers that found them.**
-The worry with fixing from three e2e papers is overfitting. Every change was
-rerun on the 28-paper corpus (`scratchpad/corpus2`, `run.py` + `compare.py`)
-against v0.4.9: the 25 papers with LaTeX all build (v0.4.9 refused 7),
-agreement with the original PDFs was never worse on any paper, and equation
-totals match LaTeX exactly (Maynard 106, Randmat 59, GAN 6). Two regressions
-the corpus caught (GAN/SINQ labels, Shor's numbers) were fixed before
-release. Higgs now fails loudly on garbage that used to pass silently.
+Three papers found them, so each was checked for fitting only those three:
+every paper in the corpus was converted, dry-run and probed with v0.4.9 and
+with the new code, and the probe logs compared paper by paper. The 25 papers
+that ship LaTeX all build (v0.4.9 refused 7), no paper agrees less with its
+original PDF, and equation totals match the LaTeX (Maynard 106, Randmat 59,
+GAN 6). The comparison caught two regressions before release, GAN's and
+SINQ's row labels and Shor's numbers. Higgs now stops on a defect it used to
+ship. The scripts that ran this are not in the repository.
 *Status: measured 2026-10-10, pandoc 3.10.2.*
 
 ---
