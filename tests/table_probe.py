@@ -133,7 +133,8 @@ def tabular_units(tex):
         # `\begin{tabular}{@{}#1@{}}#2\end{tabular}`. Counted, it was table 1,
         # and every one of the book's 19 tables was compared with the source
         # table before it -- 40 findings on a correct book.
-        if re.search(r'#\d', body):
+        # Unescaped: BERT's leaderboard prints `\#1 Ensemble`.
+        if re.search(r'(?<!\\)#\d', body):
             continue
         pos = re.match(r'\s*(?:\[[^\]]*\])?\s*', body).end()
         # `tabular*` and `tabularx` take a width argument before the colspec.
@@ -411,9 +412,16 @@ def check_table(index, columns, body, block):
                         'rendered' % (index, columns, widest))
 
     src_rows = source_rows(body)
-    if src_rows and abs(len(src_rows) - len(rows)) > 1:
+    # Rows with something in them, on both sides. GPT-3's poem table spaces
+    # its stanzas with `\\ \\` and `& \\`; the page keeps those blank rows and
+    # the source count did not, five apart on a faithful table.
+    src_full = [r for r in src_rows if re.sub(r'[&\s~{}]', '', r)]
+    # A row of graphics has no text and is still a row: GPT-3's plot grids.
+    page_full = [r for r in ROW_RE.findall(block)
+                 if CELL_RE.search(r) and (strip_tags(r) or '<img' in r)]
+    if src_rows and abs(len(src_full) - len(page_full)) > 1:
         findings.append('table %d: %d row(s) in the source, %d rendered'
-                        % (index, len(src_rows), len(rows)))
+                        % (index, len(src_full), len(page_full)))
 
     src_nums = printed_numbers(body)
     out_nums = numbers_of(' '.join(t for r in rows for t, _s in r))

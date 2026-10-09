@@ -36,6 +36,19 @@ class ResNetNesting(unittest.TestCase):
         self.assertEqual(len(units), 1)
         self.assertEqual(units[0][0], 2)
 
+    def test_a_printed_hash_is_not_a_template(self):
+        # BERT: `\#1 Ensemble - nlnet`.
+        tex = r'\begin{tabular}{ll}\#1 Ensemble & 86.0 \\\end{tabular}'
+        self.assertEqual(len(tp.tabular_units(tex)), 1)
+
+    def test_blank_spacing_rows_are_not_counted_on_either_side(self):
+        # GPT-3's poem table: `\\ \\` and `& \\` between stanzas.
+        body = 'a & b \\\\\n \\\\ \\\\\n & \\\\\nc & d \\\\'
+        page = ('<table><tr><td>a</td><td>b</td></tr><tr><td></td><td></td>'
+                '</tr><tr><td></td><td></td></tr><tr><td></td><td></td></tr>'
+                '<tr><td>c</td><td>d</td></tr></table>')
+        self.assertEqual(tp.check_table(1, 2, body, page), [])
+
     def test_a_table_inside_a_cell_is_that_cells_text(self):
         html = ('<table><tr><td><table><tr><td>LOC</td></tr><tr><td>method'
                 '</td></tr></table></td><td>err</td></tr>'
