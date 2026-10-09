@@ -295,9 +295,13 @@ def check_collapsed_tables(temp_dir):
     html = os.path.join(temp_dir, 'book_doc.html')
     if not os.path.isfile(html):
         return 0, []
-    text = _read(html)
+    # Without the stylesheet: its comments name `<table>` and `<th>`, and a
+    # match opened inside one ran on to the first real table's end, so a
+    # comment read as a collapsed table and failed a book whose tables were
+    # all correct (2609.11801, 2026-10-09).
+    text = _STYLE_RE.sub(' ', _read(html))
     bad, examples = 0, []
-    for table in re.findall(r'<table.*?</table>', text, re.DOTALL):
+    for table in re.findall(r'<table\b.*?</table>', text, re.DOTALL):
         for cell in _CELL_RE.findall(table):
             # `--mathml` keeps the original TeX in `<annotation>` so a reader
             # can copy the formula out. It is never displayed, and it is TeX
