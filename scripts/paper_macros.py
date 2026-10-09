@@ -1169,6 +1169,36 @@ def _math_spans(tex, defs):
     return spans
 
 
+_TEXTBOX_RE = re.compile(r'\\(?:mbox|hbox|text|textrm)\s*\{')
+
+
+def _math_out_of_textboxes(body):
+    r"""`\mbox{fb$^{-1}$}` -> `\mbox{fb}^{-1}`, for use inside a formula.
+
+    In a formula the inner `$` closes the formula instead: higgs_atlas's
+    `$4.8\:\ifb$` reached the page as `$4.8\:\mbox{fb$` and a stray `^{-1}$`.
+    """
+    for _ in range(MAX_DEPTH):
+        hit = None
+        for m in _TEXTBOX_RE.finditer(body):
+            close = _group_end(body, m.end() - 1)
+            if close > 0 and '$' in body[m.end():close - 1]:
+                hit = (m, close)
+                break
+        if not hit:
+            return body
+        m, close = hit
+        parts = body[m.end():close - 1].split('$')
+        out = []
+        for i, part in enumerate(parts):
+            if i % 2:
+                out.append(part)                 # was maths already
+            elif part:
+                out.append('\\mbox{%s}' % part)
+        body = body[:m.start()] + ''.join(out) + body[close:]
+    return body
+
+
 def _cyclic_names(out):
     """Names in `out` ({name: (arity, body)}) that reach themselves."""
     calls = {n: set(re.findall(r'\\([A-Za-z]+)', b)) & set(out)
@@ -1234,6 +1264,7 @@ def math_definitions(tex, sources):
         if d is None or d.optional:
             continue
         body = _GLUE_RE.sub('', _resolve_ifmmode(d.body, math=True))
+        body = _math_out_of_textboxes(body)
         if _MACHINERY_RE.search(body) or '@' in body:
             continue
         called = re.findall(r'\\([A-Za-z]+)', body)

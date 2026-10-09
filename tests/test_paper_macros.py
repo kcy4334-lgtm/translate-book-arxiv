@@ -530,6 +530,13 @@ class PackageMacrosInsideFormulas(unittest.TestCase):
         tex, names = pm.math_definitions(doc, [('flat.tex', doc), ('x.sty', sty)])
         self.assertEqual((tex, names), (doc, []))
 
+    def test_maths_inside_a_text_box_is_lifted_out(self):
+        # higgs_atlas: `$4.8\:\ifb$` with `\ifb` = `\mbox{fb$^{-1}$}`.
+        sty = r'\def\ifb{\mbox{fb$^{-1}$}}' '\n'
+        doc = '\\begin{document}$4.8\\:\\ifb$\\end{document}'
+        tex, names = pm.math_definitions(doc, [('flat.tex', doc), ('x.sty', sty)])
+        self.assertIn('\\newcommand{\\ifb}{\\mbox{fb}^{-1}}', tex)
+
     def test_the_true_branch_of_ifmmode(self):
         self.assertEqual(pm._resolve_ifmmode(r'\ifmmode A\else B\fi', math=True),
                          ' A')

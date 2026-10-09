@@ -302,6 +302,8 @@ _OLD_FONT_CALL_RE = re.compile(r'\\(rm|bf|it|sf|tt|sc|cal)\s*(?=\{)')
 # without braces, so the same substitution works here.
 _OLD_FONT_BARE_RE = re.compile(
     r'\\(rm|bf|it|sf|tt|sc|cal)(?=\s+[^\s{])')
+_OLD_FONT_BEFORE_FONT_RE = re.compile(
+    r'\\(?:rm|bf|it|sf|tt|sc|cal)\s+(?=\\math(?:rm|bf|it|sf|tt|cal)\s*\{)')
 
 # `\textsc` is the OTHER half of the problem, and it must be treated
 # differently: in text mode it is correct LaTeX and pandoc renders small caps,
@@ -880,6 +882,10 @@ def normalize_math_commands(md_text):
         # `{\rm x}` would have its command rewritten before the group rule
         # could see the shape it matches on.
         text = _OLD_FONT_CALL_RE.sub(rewrite_call, text)
+        # A bare switch in front of a font command already set does nothing:
+        # higgs_atlas writes `\sigma_{i, \rm {\rm SM}}`, the group became
+        # `\mathrm{SM}`, and the bare rule below made it `\mathrm \mathrm{SM}`.
+        text = _OLD_FONT_BEFORE_FONT_RE.sub('', text)
         # Last, the bare switch with no group either side. It has to run after
         # both, or it would rewrite the command inside `{\rm x}` before the
         # group rule could recognise that shape.
@@ -891,6 +897,11 @@ def normalize_math_commands(md_text):
         text, braced = _ACCENT_ON_COMMAND_RE.subn(
             lambda m: '\\%s{%s}' % (m.group(1), m.group(2)), text)
         stats['accents'] += braced
+        # `\-` is a discretionary hyphen and prints nothing; texmath has no
+        # reader for it and refused higgs_atlas's `$100{\--}160$`. Inside
+        # formulas only: in markdown prose `\-` is an escaped hyphen.
+        text = _INLINE_MATH_SPAN_RE.sub(
+            lambda m: re.sub(r'(?<!\\)\\-', '', m.group(0)), text)
         return text
 
     held = sorted([(m.start(), m.end(), 'code')

@@ -166,5 +166,21 @@ class AccentArgumentBraces(unittest.TestCase):
         self.assertEqual(stats['accents'], 2)
 
 
+class HiggsFormulas(unittest.TestCase):
+    """Three shapes texmath refused in higgs_atlas."""
+
+    def test_a_switch_in_front_of_its_own_group_is_dropped(self):
+        out, _s = mb.normalize_math_commands(r'$\sigma_{i, \rm {\rm SM}}$')
+        self.assertEqual(out, r'$\sigma_{i, \mathrm{SM}}$')
+
+    def test_a_discretionary_hyphen_in_a_formula_goes(self):
+        out, _s = mb.normalize_math_commands(r'range $100{\--}160$ GeV')
+        self.assertEqual(out, r'range $100{-}160$ GeV')
+
+    def test_an_escaped_hyphen_in_prose_stays(self):
+        out, _s = mb.normalize_math_commands(r'\- not a list item')
+        self.assertEqual(out, r'\- not a list item')
+
+
 if __name__ == '__main__':
     unittest.main()
