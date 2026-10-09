@@ -462,30 +462,36 @@ def figure_panel_occurrences(temp_dir):
             if stem in stems and stem not in resolved:
                 resolved.append(stem)
                 where[stem] = m.start()
-        letters = _panel_letters(region, resolved, where)
+        letters, cells = _panel_letters(region, resolved, where, with_cells=True)
         for index, name in enumerate(resolved):
             out.setdefault(name, []).append(
                 {'float': unit['number'],
                  'letter': letters[index],
+                 'cell': cells[index],
                  'panels': len(resolved),
                  'caption': (unit['number'] is not None
                              and index == len(resolved) - 1)})
     return out or None
 
 
-def _panel_letters(region, resolved, where):
+def _panel_letters(region, resolved, where, with_cells=False):
     """The letter each image prints under, or None.
+
+    With `with_cells`, also the captioned subfigure each image stands in
+    (an index, or None), so the images of one subfigure can be stacked.
 
     By image when the float has no subfigure environments, as before. With
     them, by the captioned subfigure an image stands in, printed once under
     its last image: Neural ODE's Figure 10 has three panels of two plots
     each, "(a) 30 time points", and lettering every image ran to (f).
     """
+    none = [None] * len(resolved)
     if len(resolved) < 2:
-        return [None] * len(resolved)
+        return (none, none) if with_cells else none
     spans = [s for s in _panel_spans(region) if _panel_is_lettered(s[2])]
     if not spans:
-        return [chr(ord('a') + i) for i in range(len(resolved))]
+        by_image = [chr(ord('a') + i) for i in range(len(resolved))]
+        return (by_image, none) if with_cells else by_image
     owner = []
     for stem in resolved:
         at = where[stem]
@@ -496,6 +502,11 @@ def _panel_letters(region, resolved, where):
         last = all(owner[j] != panel for j in range(i + 1, len(owner)))
         letters.append(chr(ord('a') + panel) if panel is not None and last
                        else None)
+    if with_cells:
+        # A cell is worth stacking only when it holds more than one image.
+        cells = [panel if panel is not None and owner.count(panel) > 1
+                 else None for panel in owner]
+        return letters, cells
     return letters
 
 
@@ -912,7 +923,19 @@ def format_figure_blocks(md_text, lang_cfg=None, temp_dir=None):
         if grouped and not open_group:
             pieces.append('\n\n::: figuregroup\n')
             open_group = True
+        # The images of one subfigure stack in one column, as the paper
+        # sets them: Neural ODE's Figure 10 is three columns of two plots.
+        cell = panel.get('cell') if (grouped and panel) else None
+        before = infos[n - 2] if n > 1 else None
+        after = infos[n] if n < len(infos) else None
+        same = lambda other: (other is not None and cell is not None
+                              and other.get('float') == panel['float']
+                              and other.get('cell') == cell)
+        if cell is not None and not same(before):
+            pieces.append('\n\n:::: panelstack\n')
         pieces.append(f'\n\n![{caption}]({path}){attr}\n\n')
+        if cell is not None and not same(after):
+            pieces.append('\n::::\n\n')
         if open_group and (not grouped or _last_of_float(infos, n)):
             if group_caption:
                 pieces.append('\n%s\n' % group_caption)

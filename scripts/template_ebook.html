@@ -874,8 +874,17 @@
             }
             /* A panel's other images: their caption is a held space, and
                its letter prints under the panel's last image. */
-            .figuregroup > figure:has(> img.panel-more) > figcaption {
+            .figuregroup figure:has(> img.panel-more) > figcaption {
                 display: none;
+            }
+            /* One subfigure's images, stacked in one column of the group. */
+            .figuregroup > .panelstack {
+                flex: 1 1 0; min-width: 0; margin: 4pt 0;
+                display: flex; flex-direction: column; justify-content: flex-end;
+            }
+            .panelstack > figure { margin: 2pt 0; }
+            .panelstack > figure img {
+                width: 100%; height: auto; max-height: 150mm;
             }
             .figuregroup > p {
                 flex: 1 0 100%; order: 99;
