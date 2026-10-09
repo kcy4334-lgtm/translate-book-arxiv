@@ -45,6 +45,13 @@ class RepeatedTitles(unittest.TestCase):
     Self-supervision". One number was kept per title, so the second printed
     with none while the body cited "B.1.2절"."""
 
+    def test_the_same_with_the_number_on_its_own_line(self):
+        """The ViT PDF sets the number apart: `4.6`, then the title."""
+        lines = ['4.6', 'Self-supervision', 'Transformers show ...',
+                 'B.1.2', 'Self-supervision', 'We employ ...']
+        heads = [(2, 'Self-supervision', True), (3, 'Self-supervision', True)]
+        self.assertEqual(read(lines, heads), ['4.6', 'B.1.2'])
+
     def test_a_title_printed_twice_takes_its_numbers_in_order(self):
         lines = ['4.6 Self-supervision', 'Transformers show ...',
                  'B.1.2 Self-supervision', 'We employ ...']

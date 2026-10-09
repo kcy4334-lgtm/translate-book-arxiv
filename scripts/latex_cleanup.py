@@ -1400,11 +1400,16 @@ def prefixes_from_lines(lines, tex_heads, run_in_level=0, stats=None):
         # A title the paper uses twice takes the candidates in order: CafeQ
         # has `2 Related work` in the body and `A Related work` in the
         # appendix, and first-wins gave both of them 2.
-        seen = used.get(key, 0)
-        fitting = [p for p in split.get(key, ()) if _prefix_fits_level(p, level)]
-        if len(fitting) > seen:
-            used[key] = seen + 1
-            prefixes.append(fitting[seen])
+        # Used numbers are tracked as a set, not a count: the count was shared
+        # across levels but indexed a list filtered by level, so ViT's second
+        # "Self-supervision" (B.1.2, a level below 4.6) found its one fitting
+        # number already "used" and printed with none.
+        taken = used.setdefault(key, set())
+        fitting = [p for p in split.get(key, ())
+                   if p not in taken and _prefix_fits_level(p, level)]
+        if fitting:
+            taken.add(fitting[0])
+            prefixes.append(fitting[0])
             stats['matched'] += 1
             stats['split'] = stats.get('split', 0) + 1
             continue
