@@ -32,7 +32,7 @@ import urllib.request
 import latex_rows
 import math_guard
 import paper_macros
-from build_common import _in_latex_comment
+from build_common import _balanced_group as _balanced_brace, _in_latex_comment
 
 for _stream in (sys.stdout, sys.stderr):
     try:
@@ -1171,19 +1171,6 @@ def _unwrap_boxed_once(tex):
 
 
 _RESIZEBOX_RE = re.compile(r'\\(?:resize|scale)box\s*\*?\s*\{')
-
-
-def _balanced_brace(text, open_at):
-    """Index just past the `{...}` group starting at open_at, or -1."""
-    depth = 0
-    for i in range(open_at, len(text)):
-        if text[i] == '{':
-            depth += 1
-        elif text[i] == '}':
-            depth -= 1
-            if depth == 0:
-                return i + 1
-    return -1
 
 
 def unwrap_resizebox(tex):

@@ -19,6 +19,9 @@ import re
 from manifest import create_manifest, file_hash, load_manifest
 import arxiv_backend
 import backends
+# One finder for both callers: the copy that lived here had to be kept in
+# step with it by hand.
+from calibre_html_publish import find_calibre_convert
 import math_guard
 # The calibrated answer to "what does a citation look like".
 # One copy, so the splitter and the checker cannot drift apart.
@@ -31,48 +34,6 @@ for _stream in (sys.stdout, sys.stderr):
         _stream.reconfigure(encoding='utf-8', errors='replace')
     except (AttributeError, ValueError, OSError):
         pass
-
-# [] = unresolved, [None] = definitively absent
-_CALIBRE_CACHE = []
-
-
-def find_calibre_convert():
-    """Find ebook-convert command from Calibre installation.
-
-    The Windows installer does not add Calibre to PATH, so the standard install
-    locations must be probed explicitly. Result is cached.
-    """
-    if _CALIBRE_CACHE:
-        return _CALIBRE_CACHE[0]
-
-    exe = 'ebook-convert.exe' if os.name == 'nt' else 'ebook-convert'
-    possible_paths = [
-        shutil.which('ebook-convert'),
-        os.environ.get('CALIBRE_EBOOK_CONVERT'),
-        r"C:\Program Files\Calibre2\ebook-convert.exe",
-        r"C:\Program Files (x86)\Calibre2\ebook-convert.exe",
-        os.path.join(os.environ.get('LOCALAPPDATA', ''), 'Programs', 'Calibre2', exe),
-        "/Applications/calibre.app/Contents/MacOS/ebook-convert",
-        "/usr/bin/ebook-convert",
-        "/usr/local/bin/ebook-convert",
-        "/opt/homebrew/bin/ebook-convert",
-        "ebook-convert"  # If in PATH
-    ]
-
-    for path in [p for p in possible_paths if p]:
-        try:
-            result = subprocess.run([path, "--version"], capture_output=True, text=True,
-                                    encoding='utf-8', errors='replace', timeout=15)
-            if result.returncode == 0:
-                print(f"Found Calibre ebook-convert: {path}")
-                _CALIBRE_CACHE.append(path)
-                return path
-        except (FileNotFoundError, OSError, subprocess.TimeoutExpired):
-            continue
-
-    _CALIBRE_CACHE.append(None)
-    return None
-
 
 def convert_to_htmlz(input_file, htmlz_file, calibre_path):
     """Convert input file to HTMLZ using Calibre"""
