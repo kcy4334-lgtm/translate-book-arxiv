@@ -75,7 +75,13 @@ URL_RE = re.compile(r'^(?:https?://|www\.|doi:|arXiv:)', re.IGNORECASE)
 # A column separator that escaped from a table never matches, because a
 # separator is written BARE -- which is the whole difference between the two,
 # and the source is the only place it is still visible.
-ESCAPABLE = '&%#_$'
+#
+# `{` and `}` too: a set written `\{16, 32\}` prints its braces, and ViT's
+# "ViT-B/{16,32}" and VAE's "{0.01, 0.02, 0.1}" are the papers' own notation.
+ESCAPABLE = '&%#_${}'
+# The letters MathML prints a formula in (𝒛, 𝜽, 𝝓). A `|` beside them is the
+# formula's own bar: VAE's KL divergence `D_KL(q || p)` in a heading.
+MATH_LETTERS_RE = re.compile('[\U0001D400-\U0001D7FF]')
 
 
 def source_tex(temp_dir):
@@ -112,6 +118,8 @@ def candidates(text, source=''):
         if not token or len(token) < 2 or URL_RE.match(token):
             continue
         if set(token) & SYNTAX and not written_as_literal(token, source):
+            if set(token) & SYNTAX <= {'|'} and MATH_LETTERS_RE.search(token):
+                continue
             found[token] += 1
     for _label, pattern in SHAPES:
         for m in pattern.finditer(text):

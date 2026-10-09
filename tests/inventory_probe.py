@@ -127,7 +127,11 @@ def names_authors(tex):
 def page_inventory(html, lang):
     refs_word = {'ko': '참고문헌', 'zh': '参考文献', 'ja': '参考文献'}.get(
         lang, 'References')
-    refs = re.search(r'(?s)<h[1-6][^>]*>\s*%s\s*</h[1-6]>(.*)'
+    # A number in front and the original title behind are both allowed: a
+    # paper that writes `\section*{References}` itself gets
+    # "참고문헌 (References)", and ViT's correct list was reported missing.
+    refs = re.search(r'(?s)<h[1-6][^>]*>\s*(?:[\dA-Z.]+\s+)?%s'
+                     r'(?:\s*\([^()<]*\))?\s*</h[1-6]>(.*)'
                      % re.escape(refs_word), html)
     return {
         'bibliography entries': (len(re.findall(r'<p\b', refs.group(1)))

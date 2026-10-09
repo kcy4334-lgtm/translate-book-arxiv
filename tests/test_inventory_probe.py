@@ -90,6 +90,11 @@ class BothDirections(unittest.TestCase):
     def test_silent_when_the_page_has_everything(self):
         self.assertEqual(self.run_probe(COMPLETE), 0)
 
+    def test_a_reference_heading_with_its_original_title_counts(self):
+        """ViT writes `\\section*{References}`: "참고문헌 (References)"."""
+        self.assertEqual(self.run_probe(COMPLETE.replace(
+            '<h1>참고문헌</h1>', '<h1>참고문헌 (References)</h1>')), 0)
+
     def test_speaks_up_when_the_reference_list_is_gone(self):
         self.assertEqual(
             self.run_probe(COMPLETE.replace('<h1>참고문헌</h1><p>D. Knuth.</p>',

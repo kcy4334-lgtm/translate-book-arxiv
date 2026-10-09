@@ -26,6 +26,29 @@ def page(text):
     return '<html><body><p>%s</p></body></html>' % text
 
 
+class NotationThePaperPrints(unittest.TestCase):
+    """ViT's `ViT-B/\\{16,32\\}`, VAE's `\\{0.01, 0.02, 0.1\\}` and the bars of
+    its `D_{KL}(q || p)` are on the page because the paper put them there."""
+
+    def test_an_escaped_brace_set_is_the_papers_own(self):
+        source = r'models ViT-B/\{16,32\} with steps \{0.01, 0.02, 0.1\}'
+        found = lp.candidates(lp.visible(page(
+            'models ViT-B/{16,32} with steps {0.01, 0.02, 0.1}')), source)
+        self.assertEqual(dict(found), {})
+
+    def test_a_bare_brace_is_still_markup(self):
+        found = lp.candidates(lp.visible(page('see {-2em}here')),
+                              r'see \vspace{-2em}here')
+        self.assertIn('{-2em}here', found)
+
+    def test_a_formula_bar_in_rendered_math_letters(self):
+        found = lp.candidates('−DKL(q\U0001D753(\U0001D49B)||p\U0001D73D(\U0001D49B))')
+        self.assertEqual(dict(found), {})
+
+    def test_a_bar_in_plain_text_is_still_flagged(self):
+        self.assertIn('a||b', lp.candidates('see a||b here'))
+
+
 class LeaksThatReachedAPage(unittest.TestCase):
     """Each of these printed to a reader in a real build."""
 

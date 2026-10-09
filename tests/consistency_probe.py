@@ -490,10 +490,27 @@ def check_broken_math(html):
     return blank, len(re.findall(r'<merror\b', html))
 
 
+def _kept_in_english(temp_dir):
+    """Glossary terms whose rendering is the English itself: names."""
+    kept = set()
+    path = os.path.join(temp_dir, 'glossary.json')
+    if os.path.isfile(path):
+        try:
+            with io.open(path, encoding='utf-8') as handle:
+                for entry in json.load(handle).get('terms', []):
+                    source = (entry.get('source') or '').strip()
+                    if source and source == (entry.get('target') or '').strip():
+                        kept.add(source.lower())
+        except (ValueError, OSError):
+            pass
+    return kept
+
+
 def check_chunks(temp_dir, lang):
     """Each translated chunk against its untouched English source."""
     problems = []
     bulk = []
+    kept = _kept_in_english(temp_dir)
     for src_path in sorted(glob.glob(os.path.join(temp_dir, 'chunk*.md'))):
         name = os.path.basename(src_path)
         if name.startswith('output_'):
@@ -518,8 +535,12 @@ def check_chunks(temp_dir, lang):
         # A single-token heading is a name the paper itself uses -- AlphaQ,
         # SINQ -- and translating it would be wrong. Only a multi-word English
         # heading is a heading the translator skipped.
+        # The same holds for a longer name the glossary keeps in English:
+        # ViT's "Vision Transformer (ViT)" is the model, and was failed.
         english = [t for _h, t in out_h
-                   if ' ' in t.strip() and not in_target_script(t, lang)]
+                   if ' ' in t.strip() and not in_target_script(t, lang)
+                   and re.sub(r'\s*\([^()]*\)', '', t).strip().lower()
+                   not in kept]
         if english:
             problems.append('%s: heading not translated %s' % (name, english[:3]))
 
