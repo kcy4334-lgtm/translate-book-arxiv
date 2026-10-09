@@ -89,6 +89,16 @@ class MoreLengthsAndRowEnds(unittest.TestCase):
         self.assertEqual(tp.colspec_columns(r'c|L{1in}|L{1in}|L{1in}|L{1in}'), 5)
 
 
+class NeverTypeset(unittest.TestCase):
+    def test_comment_environment_and_iffalse_are_skipped(self):
+        # 2609.11867 keeps an older table inside \begin{comment}.
+        tex = (r'\begin{comment}\begin{tabular}{lcc}a&b&c\\\end{tabular}'
+               r'\end{comment}\iffalse\begin{tabular}{l}x\\\end{tabular}\fi'
+               r'\begin{tabular}{lcccc}a&b&c&d&e\\\end{tabular}')
+        units = tp.tabular_units(tp._SKIPPED_RE.sub('', tex))
+        self.assertEqual([c for c, _b in units], [5])
+
+
 class ViTTableNine(unittest.TestCase):
     """ViT's VTAB table: grey rules in the colspec, TikZ dots in the header."""
 

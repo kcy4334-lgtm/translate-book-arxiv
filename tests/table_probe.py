@@ -161,6 +161,11 @@ def tabular_units(tex):
     return out
 
 
+# Source LaTeX never typesets. 2609.11867 keeps an older version of its table
+# inside `\begin{comment}`, and it was counted as a table the book had lost.
+_SKIPPED_RE = re.compile(
+    r'(?s)\\begin\{comment\}.*?\\end\{comment\}|\\iffalse\b.*?\\fi\b')
+
 _TABLE_TAG_RE = re.compile(r'<(/?)table\b[^>]*>')
 
 
@@ -457,7 +462,7 @@ def probe(temp_dir, lang='ko', strict=False):
 
     # Without the comments: Sentence-BERT has a whole table commented out,
     # and it was counted as an eighth table missing from a correct book.
-    units = tabular_units(COMMENT_RE.sub('', read(flat)))
+    units = tabular_units(_SKIPPED_RE.sub('', COMMENT_RE.sub('', read(flat))))
     blocks = outer_tables(_page_markup(read(html_path)))
     print('source tabulars: %d      tables in the book: %d'
           % (len(units), len(blocks)))
