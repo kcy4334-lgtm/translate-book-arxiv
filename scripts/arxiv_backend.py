@@ -1392,6 +1392,10 @@ _TEX_NOISE = (
     # author and abstract, the title page still showed the title (it comes
     # from the metadata), and the abstract was gone without a word.
     (re.compile(r'\\(?:begin|end)\{(?:flushleft|flushright|frontmatter)\}'), ''),
+    # cleveref's number-only form. pandoc has no reader for it, and DDPM's
+    # "the variational bound \labelcref{eq:vb}" printed `cref{eq:vb}` in
+    # code type. As `\cref` it resolves like every other reference.
+    (re.compile(r'\\labelcref(?=\s*\{)'), r'\\cref'),
     # `\rowcolor` is deliberately NOT in here. The damage described above is
     # `\cellcolor`'s: it sits inside a row, between two `&`, where it overruns
     # a simple table's ruler. `\rowcolor` sits in front of the first cell, and

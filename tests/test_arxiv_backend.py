@@ -292,6 +292,12 @@ class AlignmentEnvironmentTests(unittest.TestCase):
         self.assertIn('G.~Aad', out)
         self.assertIn('Right', out)
 
+    def test_labelcref_becomes_cref(self):
+        out = arxiv_backend.sanitize_tex(
+            'the variational bound~\\labelcref{eq:vb} can be')
+        self.assertIn('\\cref{eq:vb}', out)
+        self.assertNotIn('labelcref', out)
+
     def test_elsarticle_frontmatter_is_unwrapped(self):
         out = arxiv_backend.sanitize_tex(
             '\\begin{frontmatter}\n\\title{T}\n\\section*{Abstract}\nA search.'
