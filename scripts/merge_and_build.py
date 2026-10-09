@@ -2425,7 +2425,8 @@ def convert_md_to_html(temp_dir, title, lang_cfg, author=None,
     if rows_tagged:
         print(f"Equations: {rows_tagged} row(s) of multi-line blocks numbered")
     docx_md, docx_ok, docx_bad = expand_raw_latex_tables(
-        md_text, math_mode=math_mode, output='markdown', temp_dir=temp_dir)
+        md_text, math_mode=math_mode, output='markdown', temp_dir=temp_dir,
+        lang_cfg=lang_cfg)
     # pandoc builds book.docx straight from this file and never sees the HTML
     # the other formats are styled through, so the equation number has to go
     # inside the formula here.
@@ -2441,7 +2442,8 @@ def convert_md_to_html(temp_dir, title, lang_cfg, author=None,
         print(note)
 
     expanded_md, tables_ok, tables_bad = expand_raw_latex_tables(
-        md_text, math_mode=math_mode, output='html', temp_dir=temp_dir)
+        md_text, math_mode=math_mode, output='html', temp_dir=temp_dir,
+        lang_cfg=lang_cfg)
     if tables_ok or tables_bad:
         note = f"Raw LaTeX tables: {tables_ok} converted to HTML"
         if tables_bad:

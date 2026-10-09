@@ -746,7 +746,9 @@ def _source_file(temp_dir, source):
     return None
 
 
-_CAPTION_MATH_SPLIT_RE = re.compile(r'((?<!\\)\$[^$]+\$)')
+# A footnote reference is kept too: its brackets balance, and as entities
+# PaLM's Figure 7 printed `Lite.[^12]PaLM` with the note unlinked.
+_CAPTION_MATH_SPLIT_RE = re.compile(r'((?<!\\)\$[^$]+\$|\[\^[^\]\s]+\])')
 
 
 def _figure_caption_md(label, body):
@@ -767,7 +769,7 @@ def _figure_caption_md(label, body):
     # two halves of the caption. And only outside `$...$`, where a bracket is
     # the formula's own and `\[` would break it.
     caption = ''.join(
-        part if part.startswith('$')
+        part if part.startswith(('$', '[^'))
         else part.replace('[', '&#91;').replace(']', '&#93;')
         for part in _CAPTION_MATH_SPLIT_RE.split(caption))
     # One line: implicit_figures needs the image alone in its paragraph, and a
@@ -1794,46 +1796,15 @@ def resolve_unprefixed_references(md_text, index, words, formats,
     return pattern.sub(sub, md_text), hits[0]
 
 
-def resolve_references(md_text, temp_dir, lang_cfg=None):
-    """Turn [@key] into [N] and (fig:x) into 'Figure N'.
+def _xref_context(temp_dir, lang_cfg):
+    """(render_xref, words, formats, floats, index) for one book.
 
-    Returns (text, stats). Anything that cannot be resolved is left exactly as
-    it was, so it stays visible rather than silently becoming a wrong number.
+    `render_xref(kind, name)` gives one label as the reader should see it,
+    or None. Shared by the markdown pass and the raw tables, which never
+    meet it: PaLM's table captions printed `[fig:contd_training_results]`.
     """
-    lang_cfg = lang_cfg or {}
     fig_label = lang_cfg.get('figure_label', 'Figure')
     tab_label = lang_cfg.get('table_label', 'Table')
-    stats = {'cites': 0, 'cites_missed': 0, 'xrefs': 0, 'xrefs_missed': 0,
-             'subrefs': 0}
-
-    sub_letters = build_subfigure_letters(temp_dir)
-
-    def subref_sub(m):
-        letter = sub_letters.get(m.group(1).strip())
-        if letter is None:
-            return m.group(0)
-        stats['subrefs'] += 1
-        return letter
-
-    md_text = _SUBREF_RE.sub(subref_sub, md_text)
-
-    bib = build_bibitem_numbers(md_text)
-
-    def cite_sub(m):
-        keys = _CITE_KEY_RE.findall(m.group(1))
-        # Only rewrite when EVERY key resolves; a half-numbered citation is
-        # worse than an untouched one.
-        if not keys or any(k not in bib for k in keys):
-            stats['cites_missed'] += 1
-            return m.group(0)
-        stats['cites'] += 1
-        return '[' + ', '.join(str(bib[k]) for k in keys) + ']'
-
-    if bib:
-        md_text = _CITE_RE.sub(cite_sub, md_text)
-    else:
-        stats['cites_missed'] = len(_CITE_RE.findall(md_text))
-
     floats = build_float_numbers(temp_dir)
     index = build_label_index(temp_dir)
     words = {'figure': fig_label, 'table': tab_label}
@@ -1876,6 +1847,83 @@ def resolve_references(md_text, temp_dir, lang_cfg=None):
             return None
         template = formats.get(slot, '{label} {number}')
         return template.format(label=words[slot], number=number)
+    return render_xref, words, formats, floats, index
+
+
+def reference_renderer(temp_dir, lang_cfg=None):
+    r"""A function: the keys of one `\cref{...}` -> `Figure 27, Table 3`.
+
+    It returns None unless every key resolves, the rule `resolve_references`
+    keeps. For LaTeX that never becomes markdown before pandoc reads it: the
+    raw tables, whose `\cref` pandoc would print as the bare key.
+    """
+    if not temp_dir or not os.path.isfile(os.path.join(temp_dir, 'flat.tex')):
+        return lambda keys: None
+    render_xref = _xref_context(temp_dir, lang_cfg or {})[0]
+
+    def render(keys):
+        out, kind = [], None
+        for piece in keys.split(','):
+            piece = piece.strip()
+            if not piece:
+                continue
+            head = _XREF_PART_RE.match(piece)
+            if head:
+                kind, name = head.group(1).lower(), head.group(2)
+            elif kind:
+                name = piece
+            else:
+                return None
+            rendered = render_xref(kind, name)
+            if rendered is None:
+                return None
+            out.append(rendered)
+        return ', '.join(out) or None
+    return render
+
+
+def resolve_references(md_text, temp_dir, lang_cfg=None):
+    """Turn [@key] into [N] and (fig:x) into 'Figure N'.
+
+    Returns (text, stats). Anything that cannot be resolved is left exactly as
+    it was, so it stays visible rather than silently becoming a wrong number.
+    """
+    lang_cfg = lang_cfg or {}
+    fig_label = lang_cfg.get('figure_label', 'Figure')
+    tab_label = lang_cfg.get('table_label', 'Table')
+    stats = {'cites': 0, 'cites_missed': 0, 'xrefs': 0, 'xrefs_missed': 0,
+             'subrefs': 0}
+
+    sub_letters = build_subfigure_letters(temp_dir)
+
+    def subref_sub(m):
+        letter = sub_letters.get(m.group(1).strip())
+        if letter is None:
+            return m.group(0)
+        stats['subrefs'] += 1
+        return letter
+
+    md_text = _SUBREF_RE.sub(subref_sub, md_text)
+
+    bib = build_bibitem_numbers(md_text)
+
+    def cite_sub(m):
+        keys = _CITE_KEY_RE.findall(m.group(1))
+        # Only rewrite when EVERY key resolves; a half-numbered citation is
+        # worse than an untouched one.
+        if not keys or any(k not in bib for k in keys):
+            stats['cites_missed'] += 1
+            return m.group(0)
+        stats['cites'] += 1
+        return '[' + ', '.join(str(bib[k]) for k in keys) + ']'
+
+    if bib:
+        md_text = _CITE_RE.sub(cite_sub, md_text)
+    else:
+        stats['cites_missed'] = len(_CITE_RE.findall(md_text))
+
+    render_xref, words, formats, floats, index = _xref_context(
+        temp_dir, lang_cfg)
 
     def xref_sub(m):
         parts = _xref_parts(m.group(1).lower(), m.group(2).strip())

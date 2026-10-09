@@ -24,7 +24,7 @@ from build_common import (
 
 from numbering import (
     build_bibitem_numbers, build_float_numbers, build_label_index,
-    read_float_units,
+    fix_particles, read_float_units, reference_renderer,
 )
 
 
@@ -1429,6 +1429,30 @@ def resolve_fragment_references(tex, numbers):
     return out, total - len(missed), sorted(set(missed))
 
 
+_FRAGMENT_CREF_RE = re.compile(r'\\(?:[cC]ref|autoref)\s*\{([^{}]+)\}')
+
+
+def resolve_fragment_crefs(tex, render):
+    r"""`\cref{fig:x}` inside a raw table -> `그림 27`. (text, done, missed).
+
+    Unlike `\ref`, cleveref prints the word itself, so the word is supplied
+    here, the way the markdown pass supplies it. PaLM's table captions printed
+    `[fig:contd_training_results]` fourteen times. A key that does not
+    resolve stays as written.
+    """
+    missed = []
+
+    def swap(m):
+        rendered = render(m.group(1))
+        if rendered is None:
+            missed.append(m.group(1).strip())
+            return m.group(0)
+        return rendered
+
+    out, total = _FRAGMENT_CREF_RE.subn(swap, tex)
+    return out, total - len(missed), sorted(set(missed))
+
+
 def fragment_reference_numbers(temp_dir):
     r"""{label: printed number} for anything a `\ref` inside a float names.
 
@@ -1799,7 +1823,7 @@ def footnotes_to_notes(tex):
 
 
 def expand_raw_latex_tables(md_text, pandoc=None, math_mode='mathml',
-                            output='html', temp_dir=None):
+                            output='html', temp_dir=None, lang_cfg=None):
     """Convert raw LaTeX tables into real tables.
 
     `output='html'` gives HTML tables carrying the sizing classes the print
@@ -1831,6 +1855,7 @@ def expand_raw_latex_tables(md_text, pandoc=None, math_mode='mathml',
     cite_labels = citation_labels(md_text, temp_dir)
     colours = defined_colours(temp_dir)
     ref_numbers = fragment_reference_numbers(temp_dir)
+    render_cref = reference_renderer(temp_dir, lang_cfg)
     refs_done, refs_missed = 0, []
     shaded_rows = 0
     pieces, cursor = [], 0
@@ -1862,6 +1887,13 @@ def expand_raw_latex_tables(md_text, pandoc=None, math_mode='mathml',
                     fixed, ref_numbers)
                 refs_done += done
                 refs_missed.extend(missed)
+                fixed, done, missed = resolve_fragment_crefs(fixed, render_cref)
+                refs_done += done
+                refs_missed.extend(missed)
+                if done:
+                    # The translator wrote a particle after a key it could
+                    # not read as a number; agree it with the number now.
+                    fixed, _p = fix_particles(fixed, lang_cfg)
                 fixed, _c = rewrite_color_declarations(fixed)
                 fixed, _d = tikz_marks_to_glyphs(fixed)
                 fixed = colours_by_value(fixed, colours)
@@ -1875,8 +1907,15 @@ def expand_raw_latex_tables(md_text, pandoc=None, math_mode='mathml',
                 if t['caption']:
                     cap = _latex_fragment_to_markdown(t['caption'], pandoc, work,
                                                       'cap%d.tex' % n)
+                    cap = (cap or '').replace('\n', ' ').strip()
                     if cap:
-                        body = '**%s**\n\n%s' % (cap.replace('\n', ' ').strip(), body)
+                        # The badge `number_table_captions` put in front is
+                        # bold already. Wrapped in bold again, the DOCX of
+                        # 23 of 25 corpus books printed
+                        # `****표 32 (Table 32)** ...**`, asterisks included.
+                        if not cap.startswith('**'):
+                            cap = '**%s**' % cap
+                        body = '%s\n\n%s' % (cap, body)
                 if t.get('notes'):
                     note = _latex_fragment_to_markdown(t['notes'], pandoc, work,
                                                        'note%d.tex' % n)

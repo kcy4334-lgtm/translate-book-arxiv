@@ -365,5 +365,20 @@ class ColumnSpecsPandocCannotRead(unittest.TestCase):
         self.assertEqual(got, latex)
 
 
+
+@unittest.skipUnless(mb.resolve_pandoc(), 'needs pandoc')
+class DocxCaption(unittest.TestCase):
+    """23 of 25 corpus DOCX files printed `****표 32 (Table 32)** ...**`."""
+
+    def test_a_numbered_caption_is_bold_once(self):
+        md = ('\\begin{table}\\caption{\\textbf{표 1 (Table 1)} Results.}\n'
+              '\\begin{tabular}{cc}\na & b \\\\\n1 & 2 \\\\\n\\end{tabular}\n'
+              '\\end{table}\n')
+        out, ok, _bad = mb.expand_raw_latex_tables(md, output='markdown')
+        self.assertEqual(ok, 1)
+        self.assertIn('**표 1 (Table 1)** Results.', out)
+        self.assertNotIn('***', out)
+
+
 if __name__ == '__main__':
     unittest.main()

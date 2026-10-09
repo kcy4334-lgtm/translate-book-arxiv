@@ -54,6 +54,14 @@ class HeadingMath(unittest.TestCase):
         for raw in (r'Constraints on $\tx$', r'On \tx and $\tx$'):
             self.assertNotIn('$$', mb.clean_heading_title(raw, MACROS))
 
+    def test_a_bare_group_and_a_control_space_print_nothing(self):
+        # PaLM's `\paragraph{{PaLM}\ 540B}` was glossed "({PaLM} 540B)".
+        self.assertEqual(mb.clean_heading_title(r'{PaLM}\ 540B', MACROS),
+                         'PaLM 540B')
+        self.assertEqual(mb.clean_heading_title(r'Sets \{a\} and $\{b\}$',
+                                                MACROS),
+                         r'Sets {a} and $\{b\}$')
+
 
 class GlossMathShorthand(unittest.TestCase):
     r"""VAE's appendix heading kept `\qPhi` in its original-title bracket,

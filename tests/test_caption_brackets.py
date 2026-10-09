@@ -41,6 +41,20 @@ class CaptionBrackets(unittest.TestCase):
         self.assertIn('[41]', html)
         self.assertNotIn('display="block"', html)
 
+    @unittest.skipUnless(mb.resolve_pandoc(), 'needs pandoc')
+    def test_a_footnote_reference_stays_a_footnote(self):
+        # PaLM's Figure 7 printed `Lite.[^12]PaLM` with the note unlinked.
+        alt = numbering._figure_caption_md('그림 7', 'BIG-bench Lite.[^12]PaLM [41]')
+        self.assertIn('[^12]', alt)
+        html = subprocess.run(
+            [mb.resolve_pandoc(), '--from', mb.pandoc_from('ko'), '--to',
+             'html5', '--mathml'],
+            input='![%s](images/fig0007_lite.png)\n\n[^12]: The tasks.\n' % alt,
+            capture_output=True, text=True, encoding='utf-8').stdout
+        self.assertIn('footnote-ref', html)
+        self.assertNotIn('[^12]', html)
+        self.assertIn('[41]', html)
+
 
 if __name__ == '__main__':
     unittest.main()

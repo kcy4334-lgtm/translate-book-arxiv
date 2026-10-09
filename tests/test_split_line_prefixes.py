@@ -88,7 +88,7 @@ class FormulaLettersKept(unittest.TestCase):
             shutil.rmtree(temp, ignore_errors=True)
         self.assertEqual([h[1] for h in heads],
                          ['$H{\\rightarrow\\,}WW$ channel',
-                          '$H{\\rightarrow\\,}\\gamma$\\ channel'])
+                          '$H{\\rightarrow\\,}\\gamma$ channel'])
 
 
 class MathInTheTitle(unittest.TestCase):

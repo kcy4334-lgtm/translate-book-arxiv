@@ -234,7 +234,14 @@ _SPACING_INLINE_RE = re.compile(
 # `\[Teich et al. 1988, Lloyd 1993, ..., Chuang and Yamomoto 1995\]` stayed
 # display maths, and since equation numbers are assigned to display formulas
 # in order, every number after it landed one formula late.
-_ESCAPED_BRACKET_RE = re.compile(r'\\\[([^\\\]$\n]{1,400}?)\\\]')
+#
+# An inline formula may stand inside: PaLM's `[en/es/ru/tr/vi $\rightarrow$
+# en]`. pandoc writes every formula with dollars, so a `$` inside `\[..\]`
+# means the brackets are text; read as display maths, the line printed
+# `$$en/es/ru/tr/vi $\rightarrow$ en$$`.
+_ESCAPED_BRACKET_RE = re.compile(
+    r'\\\[((?:[^\\\]$\n]|\$[^$\n]{1,80}\$){1,400}?)\\\]')
+_INLINE_MATH_RE = re.compile(r'\$[^$\n]{1,80}\$')
 
 
 # `\subcaption{Cayley SGD.}` labels one panel of a multi-panel float.
@@ -1114,7 +1121,11 @@ def normalize_latex_leftovers(md_text):
     md_text = ''.join(pieces)
 
     def unbracket(m):
-        inner = m.group(1)
+        whole = m.group(1)
+        inner = _INLINE_MATH_RE.sub(' ', whole)
+        if inner != whole and re.fullmatch(r'[\w  \-/,.;:&%°()]*', inner):
+            stats['brackets'] += 1
+            return '[' + whole + ']'
         # Math would carry operators, digits-with-symbols, or backslashes.
         # `%` and `°` belong here too: they are units, never a formula on
         # their own, and `\[%\]` -- the escaped `[\%]` of an Overhead column
@@ -1258,8 +1269,12 @@ def clean_heading_title(raw, macros=None):
     # Strip unknown commands OUTSIDE math only. `Sensitivity of $\\gamma$` would
     # otherwise become `Sensitivity of $$` -- the command removed, the empty
     # delimiters left behind.
+    # A bare group and a control space print nothing of their own: PaLM's
+    # `\paragraph{{PaLM}\ 540B}` was glossed "PaLM 540B ({PaLM} 540B)".
     def strip_outside_math(chunk):
-        return re.sub(r'\\[A-Za-z]+\s*', '', chunk)
+        chunk = re.sub(r'\\[A-Za-z]+\s*', '', chunk.replace('\\ ', ' '))
+        chunk = re.sub(r'(?<!\\)[{}]', '', chunk)
+        return chunk.replace('\\{', '{').replace('\\}', '}')
 
     pieces, cursor = [], 0
     for span in re.finditer(r'\$[^$\n]+\$', text):

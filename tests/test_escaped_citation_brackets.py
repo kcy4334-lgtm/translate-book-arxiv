@@ -39,6 +39,15 @@ class EscapedCitationBrackets(unittest.TestCase):
         out, _stats = latex_cleanup.normalize_latex_leftovers(text)
         self.assertIn(BS + '[', out)
 
+    def test_a_formula_inside_text_brackets_stays_a_formula(self):
+        # PaLM's language list: `[en/es/ru/tr/vi $\to$ en]`, written with \rightarrow.
+        text = ('sentences. ' + BS + '[en/es/ru/tr/vi $' + BS + 'rightarrow$ en'
+                + BS + ']')
+        out, stats = latex_cleanup.normalize_latex_leftovers(text)
+        self.assertEqual(out, 'sentences. [en/es/ru/tr/vi $' + BS
+                         + 'rightarrow$ en]')
+        self.assertEqual(stats['brackets'], 1)
+
 
 if __name__ == '__main__':
     unittest.main()
