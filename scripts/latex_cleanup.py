@@ -1467,6 +1467,18 @@ _GLOSS_REF_RE = re.compile(
 
 
 _TRAILING_TAG_RE = re.compile(r'\s*(\([^()]{1,12}\))\s*$')
+_INLINE_MATH_RE = re.compile(r'(?<!\\)\$[^$]+\$')
+
+
+def _math_from(translated, gloss):
+    """The gloss with each `$...$` replaced by the translated title's own,
+    in order -- only when both carry the same number of them."""
+    ours = _INLINE_MATH_RE.findall(translated)
+    theirs = _INLINE_MATH_RE.findall(gloss)
+    if not ours or len(ours) != len(theirs):
+        return gloss
+    spans = iter(ours)
+    return _INLINE_MATH_RE.sub(lambda _m: next(spans), gloss)
 
 
 def _without_shared_tag(gloss, translated):
@@ -1674,9 +1686,12 @@ def number_sections(md_text, temp_dir, bilingual=True):
             gloss = _without_shared_tag(_gloss_reference(original, gloss_numbers),
                                         translated)
             # The original title comes from flat.tex, where the paper's own
-            # math shorthand is still unexpanded; the translated title had it
-            # expanded already. texmath cannot read `\qPhi`, and VAE's
-            # appendix heading printed `$- D_{KL}(\qPhi(\bz) || \pT(\bz))$`.
+            # math shorthand is still unexpanded; texmath cannot read `\qPhi`,
+            # and VAE's appendix heading printed
+            # `$- D_{KL}(\qPhi(\bz) || \pT(\bz))$`. The translated title holds
+            # the same formulas, in the same order and fully expanded -- the
+            # translator only ever saw placeholders -- so take them from there.
+            gloss = _math_from(translated, gloss)
             gloss, _n = expand_math_macros(gloss, temp_dir)
             if gloss:
                 text += f' ({gloss})'

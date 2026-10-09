@@ -18,6 +18,7 @@ import unittest
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(
     os.path.abspath(__file__))), 'scripts'))
 
+import latex_cleanup  # noqa: E402
 import merge_and_build as mb
 
 MACROS = {'tx': r'\ensuremath{M}'}
@@ -79,6 +80,20 @@ class GlossMathShorthand(unittest.TestCase):
         self.assertEqual(stats['numbered'], 3, stats)
         self.assertIn('(Solution of $\\mathbf{z}$, Gaussian case)', out)
         self.assertNotIn('\\bz', out)
+
+    def test_a_macro_with_an_argument_takes_the_titles_own_formula(self):
+        """`\\bz` is `\\bb{z}`, and `\\bb` takes an argument: only the
+        translated title, restored from its sidecar, has it in full."""
+        got = latex_cleanup._math_from(
+            '$- D_{KL}(q(\\mathbf{z}) || p(\\mathbf{z}))$의 해',
+            'Solution of $- D_{KL}(\\qPhi(\\bz) || \\pT(\\bz))$, Gaussian case')
+        self.assertEqual(
+            got, 'Solution of $- D_{KL}(q(\\mathbf{z}) || p(\\mathbf{z}))$, '
+                 'Gaussian case')
+
+    def test_different_counts_leave_the_gloss_alone(self):
+        self.assertEqual(latex_cleanup._math_from('$a$와 $b$', 'Of $x$'),
+                         'Of $x$')
 
 
 if __name__ == '__main__':
