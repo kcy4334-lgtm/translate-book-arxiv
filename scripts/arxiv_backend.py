@@ -2844,6 +2844,71 @@ _BIB_ANCHOR = 'TBREFERENCELISTANCHOR'
 _BIBLIOGRAPHY_CMD_RE = re.compile(r'\\bibliography\s*\{[^{}]*\}')
 
 
+_REFS_END_RE = re.compile(
+    r'\\end\s*\{thebibliography\}|\\bibliography\s*\{[^{}]*\}'
+    r'|\\printbibliography(?:\[[^\]]*\])?')
+_NEXT_SECTION_RE = re.compile(
+    r'\\(?:part|chapter|section|subsection)\*?\s*(?:\[[^\]]*\]\s*)?\{')
+_FLOAT_OPEN_RE = re.compile(r'\\begin\s*\{(figure|table|SCfigure)(\*?)\}')
+# What may stand between the list and the next section beside the floats.
+_BETWEEN_RE = re.compile(
+    r'\\appendix\b|\\clearpage\b|\\newpage\b|\\cleardoublepage\b'
+    r'|\\bibliographystyle\s*\{[^{}]*\}|\s+')
+
+
+def floats_out_of_references(tex):
+    r"""Move floats written between the reference list and the next section
+    into that section, after its first paragraph. Returns (tex, n).
+
+    VAE writes Figures 4 and 5 after `\appendix` and before
+    `\section{Visualisations}`; LaTeX could not fit them on the references'
+    last page and set them after the section's opening paragraph. pandoc
+    keeps source order, so the book printed both figures between the last
+    reference and appendix A, belonging to neither. Only when nothing but
+    floats, `\appendix`, page breaks and comments stand in that gap.
+    """
+    ends = list(_REFS_END_RE.finditer(tex))
+    if not ends:
+        return tex, 0
+    start = ends[-1].end()
+    section = _NEXT_SECTION_RE.search(tex, start)
+    if not section:
+        return tex, 0
+    gap = tex[start:section.start()]
+    floats, rest, at = [], [], 0
+    for m in _FLOAT_OPEN_RE.finditer(gap):
+        if m.start() < at:
+            continue
+        close = re.compile(r'\\end\s*\{%s%s\}' % (m.group(1), re.escape(m.group(2))))
+        c = close.search(gap, m.end())
+        if not c:
+            return tex, 0
+        rest.append(gap[at:m.start()])
+        floats.append(gap[m.start():c.end()])
+        at = c.end()
+    rest.append(gap[at:])
+    residue = re.sub(r'(?<!\\)%[^\n]*', '', ''.join(rest))
+    if not floats or _BETWEEN_RE.sub('', residue):
+        return tex, 0
+    head_end = _balanced_brace(tex, section.end() - 1)
+    if head_end < 0:
+        return tex, 0
+    # The end of the section's first paragraph, unless something structural
+    # comes first; then straight after the heading.
+    insert = head_end
+    body = re.match(r'(?:\s*\\label\s*\{[^{}]*\})?\s*', tex[head_end:])
+    first = head_end + body.end()
+    blank = re.compile(r'\n[ \t]*\n').search(tex, first)
+    stop = blank.start() if blank else len(tex)
+    if first < stop and not re.match(r'\\(?:begin|section|subsection|part|chapter)\b',
+                                     tex[first:]):
+        insert = stop
+    moved = '\n\n' + '\n\n'.join(floats) + '\n'
+    out = (tex[:start] + ''.join(rest) + tex[section.start():insert] + moved
+           + tex[insert:])
+    return out, len(floats)
+
+
 def _anchor_bibliography(tex):
     for m in _BIBLIOGRAPHY_CMD_RE.finditer(tex):
         line_start = tex.rfind('\n', 0, m.start()) + 1
@@ -3596,6 +3661,10 @@ def build(input_file, temp_dir, arxiv_id, allow_network=True):
     if tagged:
         print(f"Rewrote {tagged} starred display(s) the paper numbers by hand "
               f"(\\addtocounter + \\tag) as ordinary numbered ones")
+    flat, moved = floats_out_of_references(flat)
+    if moved:
+        print(f"Moved {moved} float(s) from between the reference list and the "
+              f"next section into that section, where the paper prints them")
     # Reported, not swallowed. A refusal leaves the name printing verbatim in
     # the book, and the silent version of that is how it went unnoticed until
     # a reader found `\ie` in the middle of a Korean sentence (K110).
