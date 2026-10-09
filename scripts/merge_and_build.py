@@ -83,6 +83,7 @@ from latex_tables import (
     build_citation_labels_from_bib, check_badge_placement,
     count_raw_latex_tables, expand_raw_latex_tables, find_raw_latex_tables,
     fragment_reference_numbers, grid_tables_to_pipe, header_row_count,
+    resolve_float_links,
     labelled_group_starts, mark_body_rules, mark_shaded_rows,
     markdown_table_captions, normalise_tabular_preambles,
     number_table_captions, promote_header_rows, read_one_argument_macros,
@@ -2290,6 +2291,10 @@ def convert_md_to_html(temp_dir, title, lang_cfg, author=None,
     # so both prepared copies carry them: raw HTML survives only the HTML path,
     # which is the trap the two table copies exist to avoid. Everything the
     # float contains -- `$...$` included -- then travels the ordinary route.
+    # Their citations and references first: kept as LaTeX this far, they
+    # were never resolved, and pandoc drops the commands.
+    md_text = algorithm_float._FLOAT_RE.sub(
+        lambda m: resolve_float_links(m.group(0), md_text, temp_dir), md_text)
     md_text, algo_ok, algo_bad = algorithm_float.expand_algorithm_floats(
         md_text, lang=lang_cfg.get('lang_attr', 'en'))
     if algo_ok or algo_bad:

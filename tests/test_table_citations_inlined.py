@@ -44,6 +44,26 @@ class InlinedListLabels(unittest.TestCase):
         labels = mb.build_citation_labels(FLAT)
         self.assertEqual(labels['MisraEW16'], 'Misra et al. 2016')
 
+    def test_an_alphabetic_label_is_used_as_it_stands(self):
+        """VAE's `.bbl` writes `\\bibitem[DHS10]{duchi2010adaptive}`."""
+        labels = mb.build_citation_labels(BS + 'bibitem[DHS10]{duchi2010adaptive} x')
+        self.assertEqual(labels, {'duchi2010adaptive': 'DHS10'})
+
+    def test_an_algorithm_float_gets_its_citation_and_reference(self):
+        """VAE's algorithm: "section~\\ref{...}", "Adagrad~\\cite{...}"."""
+        import latex_tables
+        d = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, d, True)
+        with open(os.path.join(d, 'flat.tex'), 'w', encoding='utf-8') as fh:
+            fh.write(BS + 'section{Intro}' + BS + 'subsection{Est}' + BS
+                     + 'label{subsec:est}\n' + BS + 'begin{thebibliography}{1}\n'
+                     + BS + 'bibitem[DHS10]{duchi}\nD.\n' + BS
+                     + 'end{thebibliography}\n')
+        tex = ('estimators in section~' + BS + 'ref{subsec:est} or Adagrad~'
+               + BS + 'cite{duchi}')
+        out = latex_tables.resolve_float_links(tex, '', d)
+        self.assertEqual(out, 'estimators in section~1.1 or Adagrad~(DHS10)')
+
     def test_the_table_finds_the_keys_in_flat_tex(self):
         d = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, d, True)

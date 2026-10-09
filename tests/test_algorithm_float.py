@@ -58,6 +58,18 @@ class MathEdgeTests(unittest.TestCase):
         out = af._clean_argument(r'$\bX^M \gets $ Random minibatch of $M$')
         self.assertEqual(out, r'$\bX^M \gets$ Random minibatch of $M$')
 
+    def test_a_tie_is_a_space(self):
+        """VAE's "section~2.3" and "Adagrad~(DHS10)" printed the tilde."""
+        self.assertEqual(af._clean_argument('SGD or Adagrad~(DHS10) and $a~b$'),
+                         'SGD or Adagrad (DHS10) and $a~b$')
+
+    def test_the_caption_is_cleaned_too(self):
+        tex = ('\\begin{algorithm}\\caption{Either estimator in section~2.3 '
+               'works, \\textbf{really}.}\\begin{algorithmic}\\State $x$'
+               '\\end{algorithmic}\\end{algorithm}')
+        md = af.algorithm_to_markdown(tex, 1)
+        self.assertIn('Either estimator in section 2.3 works, **really**.', md)
+
     def test_an_escaped_dollar_is_not_math(self):
         self.assertEqual(af._clean_argument(r'costs \$ 5 and $ x $'),
                          r'costs \$ 5 and $x$')

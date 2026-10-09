@@ -188,7 +188,13 @@ def _text_markup(text):
             out.append('%s%s%s' % (mark, inner, mark) if inner else '')
             i = end
             continue
-        out.append(text[i])
+        if text[i] == '\\' and i + 1 < len(text) and text[i + 1] == '~':
+            out.append(text[i:i + 2])      # `\~` is an accent, not a space
+            i += 2
+            continue
+        # LaTeX's tie is a space that does not break. Outside math nothing
+        # else reads it: VAE's "section~2.3" and "Adagrad~[3]" printed it.
+        out.append(' ' if text[i] == '~' else text[i])
         i += 1
     return ''.join(out)
 
@@ -308,7 +314,7 @@ def algorithm_to_markdown(tex, number, lang='en'):
 
     head = '**%s %d.**' % (labels['algorithm'], number)
     if caption:
-        head = '%s %s' % (head, caption)
+        head = '%s %s' % (head, ' '.join(_text_markup(caption).split()))
     if label:
         head = '%s {#%s}' % (head, label)
     out = [head, '']

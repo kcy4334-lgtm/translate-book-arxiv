@@ -1133,6 +1133,12 @@ def build_citation_labels(md_text):
             label = label[1:-1]
         split = _LABEL_YEAR_RE.match(label)
         if not split:
+            # An alphabetic label, `[DHS10]`: the body prints it as it
+            # stands, so this does too. VAE's algorithm cited
+            # `\cite{duchi2010adaptive}` and the box printed the command.
+            cleaned = arxiv_backend._clean_bib_label(label)
+            if cleaned:
+                labels[m.group(2).strip()] = cleaned
             continue
         authors = split.group(1).replace('~', ' ').strip()
         year = re.sub(r'[{}]', '', split.group(2)).strip()
@@ -1208,6 +1214,44 @@ def build_citation_labels_from_bib(temp_dir):
                     who = '%s et al.' % surnames[0]
                 labels.setdefault(key.strip(), '%s %s' % (who, year))
     return labels
+
+
+def citation_labels(md_text, temp_dir):
+    r"""{key: 'Authors Year'}, from wherever this paper keeps its list.
+
+    The inlined `\bibitem` list in the text, else the one in flat.tex (the
+    text's was rendered to plain entries before tables are expanded), else
+    the `.bib` citeproc read.
+    """
+    labels = build_citation_labels(md_text)
+    if not labels and temp_dir:
+        try:
+            with open(os.path.join(temp_dir, 'flat.tex'), encoding='utf-8',
+                      errors='replace') as fh:
+                labels = build_citation_labels(fh.read())
+        except OSError:
+            pass
+    return labels or build_citation_labels_from_bib(temp_dir)
+
+
+_EQREF_RE = re.compile(r'\\eqref\s*\{([^{}]+)\}')
+
+
+def resolve_float_links(tex, md_text, temp_dir):
+    r"""A raw float's `\cite`, `\ref` and `\eqref`, resolved. Returns tex.
+
+    An algorithm float, like a table, is kept as LaTeX past the point where
+    the body's references and citations are resolved. VAE's algorithm said
+    "section~\ref{subsec:our_estimator}" and "Adagrad~\cite{duchi2010adaptive}";
+    pandoc dropped both commands and the page read "section~" and "Adagrad~".
+    """
+    tex, _n = resolve_fragment_citations(tex, citation_labels(md_text, temp_dir))
+    numbers = fragment_reference_numbers(temp_dir)
+    tex = _EQREF_RE.sub(lambda m: '\\ref{%s}' % m.group(1)
+                        if m.group(1).strip() not in numbers
+                        else '(%s)' % numbers[m.group(1).strip()], tex)
+    tex, _done, _missed = resolve_fragment_references(tex, numbers)
+    return tex
 
 
 _FRAGMENT_REF_RE = re.compile(r'\\ref\s*\{([^{}]+)\}')
@@ -1492,23 +1536,11 @@ def expand_raw_latex_tables(md_text, pandoc=None, math_mode='mathml',
         return md_text, 0, len(tables)
 
     converted = failed = 0
-    cite_labels = build_citation_labels(md_text)
-    if not cite_labels and temp_dir:
-        # The inlined list is not in the text any more: `resolve_bibliography`
-        # has already rendered it to plain entries, and the keys went with it.
-        # Sentence-BERT's table printed "SVR" for "SVR (Misra et al., 2016)"
-        # and its captions lost the datasets they credit. flat.tex still has
-        # the list as the paper wrote it.
-        try:
-            with open(os.path.join(temp_dir, 'flat.tex'), encoding='utf-8',
-                      errors='replace') as fh:
-                cite_labels = build_citation_labels(fh.read())
-        except OSError:
-            pass
-    if not cite_labels:
-        # No inlined `\bibitem` list. The paper shipped a `.bib` and let
-        # citeproc render it, so the keys live there instead (K152).
-        cite_labels = build_citation_labels_from_bib(temp_dir)
+    # The inlined list is not in the text any more by this point:
+    # `resolve_bibliography` has rendered it, and Sentence-BERT's table
+    # printed "SVR" for "SVR (Misra et al., 2016)". `citation_labels` falls
+    # back to flat.tex, then to the `.bib` citeproc read (K152).
+    cite_labels = citation_labels(md_text, temp_dir)
     ref_numbers = fragment_reference_numbers(temp_dir)
     refs_done, refs_missed = 0, []
     shaded_rows = 0
