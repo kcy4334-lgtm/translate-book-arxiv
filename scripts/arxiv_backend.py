@@ -1383,6 +1383,11 @@ _TEX_NOISE = (
     (re.compile(r'(?m)^[ \t]*\\(?:begin|end)'
                 r'\{(?:subappendices|appendices|appendix)\}'
                 r'[ \t]*$\n?'), ''),
+    # Alignment, no content. With `+raw_tex` pandoc 3.10.2 reads `center` but
+    # keeps `flushleft` and `flushright` raw, and the HTML writer drops them
+    # whole: higgs_atlas's author list -- 3,000 names and their institutes --
+    # vanished from the book and the build stopped on it.
+    (re.compile(r'\\(?:begin|end)\{(?:flushleft|flushright)\}'), ''),
     # `\rowcolor` is deliberately NOT in here. The damage described above is
     # `\cellcolor`'s: it sits inside a row, between two `&`, where it overruns
     # a simple table's ruler. `\rowcolor` sits in front of the first cell, and

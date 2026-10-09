@@ -278,6 +278,21 @@ class AddmarginTests(unittest.TestCase):
         self.assertIn('\\begin{quote}\nInput (0-shot)\n\\end{quote}', out)
 
 
+class AlignmentEnvironmentTests(unittest.TestCase):
+    """higgs_atlas's author list sits in `flushleft`, which pandoc keeps raw
+    under +raw_tex and the HTML writer then drops."""
+
+    def test_flushleft_and_flushright_are_unwrapped(self):
+        out = arxiv_backend.sanitize_tex(
+            '\\begin{flushleft}\n{\\Large The ATLAS Collaboration}\n'
+            'G.~Aad$^{\\rm 48}$,\n\\end{flushleft}\n'
+            '\\begin{flushright}Right\\end{flushright}')
+        self.assertNotIn('flushleft', out)
+        self.assertNotIn('flushright', out)
+        self.assertIn('G.~Aad', out)
+        self.assertIn('Right', out)
+
+
 class TildeTests(unittest.TestCase):
     r"""Sentence-BERT's "(\texttildelow 65 hours)" printed as "( hours)":
     pandoc kept the unknown command and the number after it as raw LaTeX."""
