@@ -235,11 +235,22 @@ here; the test is the real record. This file is for the *reasoning*, the
 | A shape the corpus has met is reported NEVER SEEN | [K210](#k210) |
 | A bold table cell prints `97.9 0.4` where the paper prints `97.9 ± 0.4` | [K211](#k211) |
 | `(tab:a,tab:b)` printed raw while the check reports zero unresolved | [K212](#k212) |
-| A probe fails a book whose numbers are right | [K213](#k213), [K216](#k216) |
+| A probe fails a book whose numbers are right | [K213](#k213), [K216](#k216), [K227](#k227) |
 | A section, equation or figure the paper does not print is counted | [K214](#k214) |
 | The paper numbers its sections and the book prints none | [K215](#k215) |
 | Every heading of a Springer (llncs) paper below subsection is "not found" | [K215](#k215) |
 | PDF bookmarks nest sibling headings inside each other | [K217](#k217) |
+| A whole formula printed as raw TeX over one command (`\notag`, `\color`, `\verb`, `\emph`) | [K218](#k218) |
+| Equation numbers right up to some point, then one late | [K219](#k219) |
+| An align of several rows prints one number, or its labels all name equation 1 | [K220](#k220) |
+| A cited work missing from the reference list, or two citations folded into one parenthesis | [K221](#k221) |
+| An abstract, a footnote, a theorem or a quoted block simply absent | [K222](#k222) |
+| A figure with the wrong number, no caption, or turned into a table | [K223](#k223) |
+| Every table after some point left unconverted | [K224](#k224) |
+| A section title printed twice and only the first has its number | [K225](#k225) |
+| No authors on the title page | [K226](#k226) |
+| Writes refused after the first batch of translators | [K228](#k228) |
+| Wondering whether a fix generalises beyond the paper that found it | [K229](#k229) |
 
 ---
 
@@ -3171,6 +3182,165 @@ h1, h4, h4, h4 came out 1, 2, 3, 4, and Looped flows' bookmarks put "Flow and
 diffusion models" inside "Looped models". The HTML had them right as siblings;
 only the outline was wrong, so no check that reads the HTML could see it.
 *Status: LOCKED, `test_outline_depths`.*
+
+---
+
+### K218
+**texmath refuses a whole formula over one command it does not know, and prints all of it as TeX.**
+Measured with pandoc 3.10.2: `\notag`, `\textcolor`, `\color{c}` before
+`\bm`, `\smash`, `\verb`, `\emph` and a `\rm` inside `\text` each sink the
+formula they stand in; `\nonumber` is accepted. 58 of 2609.11716's formulas,
+GPT-3's dataset-filter formula and PaLM's table footnote letters printed as
+source. `drop_math_colour` rewrites each to a form texmath reads (colour and
+`\smash` dropped to the group, `\verb` to `\texttt`, `\emph` to `\textit`),
+and `\notag` is spelled `\nonumber` rather than deleted, because the equation
+counters read it too: deleting both took VAE from 24 equation numbers to 35.
+*Status: LOCKED, `test_math_colour`, `test_nested_math_text`, `test_equation_numbering`. Re-measure after a pandoc major bump.*
+
+---
+
+### K219
+**Equation numbers are assigned to display formulas in order, so one false display shifts every number after it.**
+Nothing checks that a display is a formula; position is all the counter sees.
+pandoc escapes brackets as `\[ \]`, and the HTML reader with
+`tex_math_single_backslash` reads that as display maths: Shor's citation list
+`[Teich et al. 1988, ...]` took (2.2) and every later number landed one late;
+ResNet's caption citation [41] printed as a centred 41. Escaped brackets
+around prose (three words of three letters, or 40 characters or fewer) are
+unescaped; figure captions write `&#91;` `&#93;`. The symptom is a build
+refused over equation numbers that are off by one from some point on.
+*Status: LOCKED, `test_escaped_citation_brackets`, `test_caption_brackets`.*
+
+---
+
+### K220
+**pandoc drops `\tag` and numbers an align once; LaTeX numbers it row by row.**
+ViT's eight equations in one align showed one number, and every label in a
+four-row align resolved to equation 1. Rows now carry their number in a
+column of their own (`tag_equation_rows`), the label index counts rows, and a
+label on a `\nonumber` row names the next numbered row (GAN and SINQ broke
+without that). A starred display numbered by hand (`\addtocounter` +
+`\tag`, VAE's `\eqnr`) becomes an ordinary numbered one. pandoc's MathML pads
+no cell, so the second and later column pairs get LaTeX's gap back.
+*Status: LOCKED, `test_equation_rows`, `test_align_row_labels`, `test_alignment_pairs`, `test_arxiv_backend`.*
+
+---
+
+### K221
+**citeproc lists only the works it sees cited, merges `@a [@b]`, and its default style cuts seven or more authors to three.**
+A key cited only inside a raw table float is invisible to it (ViT lost
+Touvron et al. 2020), so every cited key is now `\nocite`d before
+`\end{document}`, as LaTeX lists every cited work. pandoc writes
+`\citet{a,b}` as `@a [@b]`, which citeproc folds into one parenthesis; it is
+split into one `\citet` per key, as natbib prints. citeproc also appends the
+list after the appendix unless told where; the list now stays at
+`\bibliography`, with a patched CSL that names every author. An alphabetic
+.bbl labels list and citations alike (`[BJP12]`), and `$^+$` prints as `+`.
+*Status: LOCKED, `test_arxiv_backend`, `test_citation_intext`, `test_bibliography_place`, `test_table_citations_inlined`.*
+
+---
+
+### K222
+**pandoc silently drops what it reads no class for: `\abstract{...}`, an unpaired `\footnotetext`, llncs theorem-likes, scrextend's `addmargin`.**
+Each left no error and no text. The demo book of 2609.11801 went from its
+authors to Figure 1; the demo's equal-advising note and a BERT table note
+vanished; AdamX's lemmas and PaLM's worked examples reached the HTML as raw
+LaTeX and the build refused them. The backend now writes each in a form pandoc
+reads: an abstract environment, a paragraph, `\newtheorem` honouring
+envcountsame/envcountsect, a quote. Pattern for the next one: a class or
+package defines it, pandoc reads no class, so the source has to say it plainly.
+*Status: LOCKED, `test_arxiv_backend`, `test_theorem_envs`.*
+
+---
+
+### K223
+**Figures arrive in more wrappers than `figure`: cropped copies, shared lines, `\raisebox`, minipages, layout tabulars, subfigures.**
+Each one lost a number or a caption in ViT or VAE: a cropped `_trim.png` missed
+the panel map (figure 10 printed as 11 to 13); panels side by side on one line
+were not split (figure 13 bare); a graphic inside `\raisebox` stayed raw LaTeX;
+captioned minipages shared one figure (figure 3 lost its caption); a tabular
+that only lays out graphics became a table (figure 1); a subfigure caption was
+taken for the figure's. A figure count that disagrees with the PDF is the
+symptom to look for.
+*Status: LOCKED, `test_trimmed_panel_number`, `test_minipage_float_units`, `test_arxiv_backend`.*
+
+---
+
+### K224
+**The table finder and the colspec reader must agree on every tabular variant.**
+A wider pattern named `_TABULAR_BEGIN_RE` shadowed the finder's, so a
+`tabularx` or a display `array` opened a table that never closed and every
+later table went unconverted. The column format lost siunitx `S`, a paper's
+own column letters and `*{n}{c}`: PaLM's `ll SS|SSSS` became `ll|` and pandoc
+gave the table up. A table citation resolves only if the keys are read from
+the inlined .bbl before the list is rendered, including acl_natbib's braced
+labels.
+*Status: LOCKED, `test_table_finder_envs`, `test_table_fragments`, `test_table_citations_inlined`.*
+
+---
+
+### K225
+**A heading's number taken from the PDF must survive repeats, wraps and ligatures.**
+Extends K215. A title printed twice (ViT's two "Self-supervision") takes its
+numbers in order, per level; a number the PDF sets on its own line above a
+wrapped title still matches; NFKC folds the `ﬁ` ligature before comparing
+(two Sentence-BERT headings). The heading's original-title bracket takes its
+formulas from the translated title, fully expanded, and is not removed by the
+first-use gloss dedupe.
+*Status: LOCKED, `test_split_line_prefixes`, `test_heading_kept_name`, `test_heading_math`, `test_gloss_first_use`.*
+
+---
+
+### K226
+**Author lists are read line by line; a comma is not a separator.**
+Splitting `\author` on commas refused whole lists in six papers (Sentence-BERT,
+ViT, CafeQ, BERT, GAN, ResNet) because an affiliation or a mark held one. A
+line is an author if it reads as a name; Team, Group, Labs and AI lines are
+not. Affiliations are still not printed: the title page has no slot for them
+(open, next version).
+*Status: LOCKED, `test_latex_authors`.*
+
+---
+
+### K227
+**A probe that fails a correct book costs a rerun and teaches agents to distrust the probes.**
+Extends K213. This cycle's false failures, each now exempt: a reference
+heading carrying its number or its original title; a heading the glossary
+keeps in English; `\{16,32\}` and a formula's own bars; `~65` read as a tie;
+a table caption naming a figure read as the table's number; a code-font cell
+read as an untranslated header; a commented-out table, a math array or a
+graphic layout counted as a table; a dash the page prints as an en dash; a
+stylesheet comment naming table tags; a cross-reference key read as a gloss;
+a gloss the build already removed.
+*Status: LOCKED, `test_leak_probe`, `test_inventory_probe`, `test_table_probe`, `test_float_number_probe`, `test_table_language`, `test_collapsed_tables`.*
+
+---
+
+### K228
+**In Claude Code a skill's pre-approvals hold for the turn that invoked it, and a finished background agent starts a new turn.**
+Measured on headless e2e runs (`--allowedTools "Skill"`, permission mode
+default): translators launched in the background each ended in a new turn,
+and every write and script after the first batch was refused. Foreground
+batches keep the whole run in one turn. The same runs showed that a command
+sent through PowerShell is refused where the rules name the Bash tool, and
+that a translator told to fetch its term table was refused and translated
+without one; SKILL.md now names Bash and pastes the table into the prompt.
+A render script an agent writes itself is not pre-approved either, hence
+`render_pages.py`.
+*Status: GUARDED only by SKILL.md's wording and the headless e2e run; `test_render_pages` covers the script. measured 2026-10-09.*
+
+---
+
+### K229
+**The fixes of v0.5.0 were judged on the corpus, not on the three papers that found them.**
+The worry with fixing from three e2e papers is overfitting. Every change was
+rerun on the 28-paper corpus (`scratchpad/corpus2`, `run.py` + `compare.py`)
+against v0.4.9: the 25 papers with LaTeX all build (v0.4.9 refused 7),
+agreement with the original PDFs was never worse on any paper, and equation
+totals match LaTeX exactly (Maynard 106, Randmat 59, GAN 6). Two regressions
+the corpus caught (GAN/SINQ labels, Shor's numbers) were fixed before
+release. Higgs now fails loudly on garbage that used to pass silently.
+*Status: measured 2026-10-10, pandoc 3.10.2.*
 
 ---
 
