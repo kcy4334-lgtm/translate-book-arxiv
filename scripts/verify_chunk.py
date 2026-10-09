@@ -267,8 +267,6 @@ _BIB_LINE_RE = re.compile(
 
 # Referenced by _is_reference_line above, which is defined earlier in the
 # file and resolves the name when it runs, not when it is defined.
-_BIB_MARKER_RE = re.compile(
-    r'\\begin\{thebibliography\}|\\bibitem|\\printbibliography|\\bibliography\{')
 _REFERENCE_HEADING_RE = re.compile(
     r'^#{1,6}\s*(?:\d+\.?\s*)?(?:References?|Bibliography|\uCC38\uACE0\s*'
     r'\uBB38\uD5CC|\u53C2\u8003\u6587\u732E|\u53C2\u8003\u6587\u737B)\s*$',
@@ -361,56 +359,15 @@ def _verbatim_by_instruction(temp_dir, text):
     return text
 
 
-def _reference_cut(text):
-    """Where the bibliography starts, or len(text) when there is none.
-
-    Three signals, because papers do not agree on how to mark it. A heading
-    finds the markdown form; \bibitem finds the raw-LaTeX form, which has no
-    heading at all; and counting citation-shaped lines finds the case the
-    other two miss -- a chunk that is nothing but entries, its heading having
-    landed in the chunk before it.
-    """
-    cuts = []
-    match = _REFERENCE_HEADING_RE.search(text)
-    if match:
-        cuts.append(match.start())
-    match = _BIB_MARKER_RE.search(text)
-    if match:
-        cuts.append(text.rfind('\n', 0, match.start()) + 1)
-
-    # A dense run of citation-shaped lines, taken from the first line of the
-    # run rather than from wherever the density happens to be measured.
-    lines = text.split('\n')
-    offsets, at = [], 0
-    for line in lines:
-        offsets.append(at)
-        at += len(line) + 1
-    shaped = [bool(line.strip()) and bool(_BIB_LINE_RE.search(line))
-              for line in lines]
-    filled = [i for i, line in enumerate(lines) if line.strip()]
-    for pos, i in enumerate(filled):
-        rest = filled[pos:]
-        if len(rest) < 6:
-            break
-        # The cut has to land ON a citation line. Without this the scan
-        # measures density from line 0 and a chunk of prose followed by a
-        # long reference list reads as all-references from its first word --
-        # which exempted a whole "Limitation" section from the language
-        # checks (KNOWLEDGE K74).
-        if not shaped[i]:
-            continue
-        if sum(1 for j in rest if shaped[j]) >= len(rest) * 0.75:
-            cuts.append(offsets[i])
-            break
-    return min(cuts) if cuts else len(text)
-
-
 def is_all_references(text):
     """Is this chunk nothing but the reference list?
 
     Then returning it unchanged is the correct answer, not a failure. Asked
     as a fraction of the lines rather than as a position, because a position
-    has to be guessed and a fraction can be counted.
+    has to be guessed and a fraction can be counted: the position this
+    replaced landed on line 0 of a chunk of prose followed by a long list,
+    and exempted AlphaQ's whole "Limitation" section from the language
+    checks (KNOWHOW H16).
     """
     lines = [line for line in text.split('\n') if line.strip()]
     if not lines:
