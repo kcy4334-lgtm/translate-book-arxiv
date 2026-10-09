@@ -2876,6 +2876,164 @@ def _drop_anchor(tree):
     tree['blocks'] = [b for b in tree.get('blocks', []) if not _is_anchor(b)]
 
 
+# The year letter of an author-year label: `Wang et al. 2020a`.
+_LABEL_LETTER_RE = re.compile(r'^(.*\S)\s+(\d{4})([a-z])$')
+# A citeproc year token: `2020a`, `(2020a,`, `2020b).`
+_YEAR_TOKEN_RE = re.compile(r'^(\W*)(\d{4})([a-z])(\W*)$')
+
+
+def bbl_year_letters(citation_map):
+    """{key: (authors, year, letter)} for each `.bbl` label carrying a letter."""
+    out = {}
+    for key, label in (citation_map or {}).items():
+        m = _LABEL_LETTER_RE.match(label)
+        if m:
+            out[key] = (m.group(1), m.group(2), m.group(3))
+    return out
+
+
+def _walk_inlines(node, fn):
+    """Call fn(list) on every inline list under node, depth first."""
+    if isinstance(node, dict):
+        for value in node.values():
+            _walk_inlines(value, fn)
+    elif isinstance(node, list):
+        if node and all(isinstance(x, dict) and 't' in x for x in node):
+            fn(node)
+        for value in node:
+            _walk_inlines(value, fn)
+
+
+def _inline_text(node):
+    if isinstance(node, dict):
+        if node.get('t') == 'Str':
+            return node['c']
+        if node.get('t') in ('Space', 'SoftBreak', 'LineBreak'):
+            return ' '
+        return _inline_text(node.get('c'))
+    if isinstance(node, list):
+        return ''.join(_inline_text(x) for x in node)
+    return ''
+
+
+def align_year_letters(tree, letters):
+    r"""Give citeproc's year letters the `.bbl`'s order. Returns the count.
+
+    citeproc letters two works by the same authors in the same year by its own
+    sort, BibTeX by its own; ViT cites Axial-DeepLab twice (ECCV and arXiv,
+    same title) and the book's 2020a/2020b were the original's 2020b/2020a.
+    A table citation is rendered from the `.bbl` (`latex_tables`), so the two
+    disagreed inside one book. citeproc takes no letter from the `.bib`, so
+    its output is relabelled: per group (authors, year) whose letters are a
+    permutation of the `.bbl`'s, in the reference entries (`ref-<key>`) and in
+    every Cite whose text names that group's authors before the year.
+    """
+    entries = {}
+
+    def find_entries(node):
+        if isinstance(node, dict):
+            if node.get('t') == 'Div':
+                ident = node['c'][0][0]
+                if ident.startswith('ref-'):
+                    entries[ident[4:]] = node
+            for value in node.values():
+                find_entries(value)
+        elif isinstance(node, list):
+            for value in node:
+                find_entries(value)
+
+    find_entries(tree.get('blocks', []))
+
+    def year_tokens(node, year):
+        found = []
+
+        def visit(inlines):
+            for item in inlines:
+                if item.get('t') == 'Str':
+                    m = _YEAR_TOKEN_RE.match(item['c'])
+                    if m and m.group(2) == year:
+                        found.append(item)
+
+        _walk_inlines(node, visit)
+        return found
+
+    groups = {}
+    for key, (authors, year, letter) in letters.items():
+        groups.setdefault((authors, year), []).append(key)
+    swaps = {}
+    for (authors, year), keys in groups.items():
+        given = {}
+        for key in keys:
+            tokens = year_tokens(entries.get(key, {}), year)
+            if not tokens:
+                break
+            given[key] = _YEAR_TOKEN_RE.match(tokens[0]['c']).group(3)
+        else:
+            want = {k: letters[k][2] for k in keys}
+            if sorted(given.values()) == sorted(want.values()) \
+                    and given != want:
+                swaps[(authors, year)] = {given[k]: want[k] for k in keys}
+    if not swaps:
+        return 0
+    count = 0
+
+    def relabel(item, table):
+        m = _YEAR_TOKEN_RE.match(item['c'])
+        new = table.get(m.group(3))
+        if new and new != m.group(3):
+            item['c'] = m.group(1) + m.group(2) + new + m.group(4)
+            return True
+        return False
+
+    for (authors, year), table in swaps.items():
+        for key in groups[(authors, year)]:
+            for item in year_tokens(entries[key], year)[:1]:
+                count += relabel(item, table)
+        # The list then reads 2020b before 2020a; put the group's entries
+        # back in letter order, in the slots they already hold.
+        mine = {id(entries[k]): letters[k][2] for k in groups[(authors, year)]}
+
+        def reorder(node):
+            if isinstance(node, list):
+                slots = [i for i, x in enumerate(node) if id(x) in mine]
+                if len(slots) > 1:
+                    ordered = sorted((node[i] for i in slots),
+                                     key=lambda x: mine[id(x)])
+                    for i, x in zip(slots, ordered):
+                        node[i] = x
+                    return
+                for x in node:
+                    reorder(x)
+            elif isinstance(node, dict):
+                for x in node.values():
+                    reorder(x)
+
+        reorder(tree.get('blocks', []))
+
+    def visit_cite(inlines):
+        nonlocal count
+        for cite in inlines:
+            if cite.get('t') != 'Cite':
+                continue
+            # The authors stand between the last `;` and the year.
+            segment = ''
+            for item in cite['c'][1]:
+                text = _inline_text(item).replace('\xa0', ' ')
+                if item.get('t') == 'Str':
+                    m = _YEAR_TOKEN_RE.match(text)
+                    if m:
+                        hits = [table for (authors, year), table in swaps.items()
+                                if year == m.group(2) and authors in segment]
+                        if len(hits) == 1:
+                            count += relabel(item, hits[0])
+                segment += text
+                if ';' in text:
+                    segment = text.rsplit(';', 1)[1]
+
+    _walk_inlines(tree.get('blocks', []), visit_cite)
+    return count
+
+
 def _full_author_csl(pypandoc):
     r"""pandoc's own default style, listing every author in the reference list.
 
@@ -2903,7 +3061,8 @@ def _full_author_csl(pypandoc):
     return path
 
 
-def latex_to_markdown(flat_tex, tex_dir, root, bib_files=None):
+def latex_to_markdown(flat_tex, tex_dir, root, bib_files=None,
+                      year_letters=None):
     """Convert flattened LaTeX to markdown via pandoc (through pypandoc)."""
     try:
         import pypandoc
@@ -2944,6 +3103,11 @@ def latex_to_markdown(flat_tex, tex_dir, root, bib_files=None):
                 print("Bibliography: the reference list stays where the paper "
                       "put it, ahead of the appendix")
             _drop_anchor(tree)
+            if year_letters:
+                n = align_year_letters(tree, year_letters)
+                if n:
+                    print(f"Year letters: {n} label(s) relabelled to the "
+                          f".bbl's order")
             # `-citations`: in one pass the writer prints what citeproc
             # rendered; reading the tree back in a second pass it would
             # print every citation as its `[@key]` instead.
@@ -3454,8 +3618,10 @@ def build(input_file, temp_dir, arxiv_id, allow_network=True):
             f.write('\n'.join(macros) + '\n')
         print(f"Extracted {len(macros)} math macro definition(s)")
 
-    md = latex_to_markdown(flat, os.path.dirname(main_tex), work_dir,
-                           bib_files=bib_files)
+    md = latex_to_markdown(
+        flat, os.path.dirname(main_tex), work_dir, bib_files=bib_files,
+        year_letters=bbl_year_letters(build_citation_map(work_dir, main_tex))
+        if bib_files else None)
     if md is None:
         return False, {}
 
