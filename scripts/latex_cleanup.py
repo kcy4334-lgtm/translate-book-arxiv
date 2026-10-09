@@ -1033,7 +1033,13 @@ def normalize_latex_leftovers(md_text):
 #     IEEEtran prints "III-B", ICML's article prints "2.1", and many classes
 #     print nothing at all -- so it is read off the source PDF instead.
 
-_HEADING_LINE_RE = re.compile(r'^(#{1,6}) +(.+?)\s*$', re.MULTILINE)
+# `[ \t]*` and not `\s*` before the end: in MULTILINE mode `\s*$` runs on
+# through the newline to the blank line below, the rewrite then drops it, and
+# every numbered heading sat directly on its first paragraph. Harmless to
+# pandoc, but the reference-list finder reads `heading, one paragraph,
+# entries` as a heading over the entries: ViT's 감사의 글 took the place of
+# 참고문헌, and the list went out with no heading.
+_HEADING_LINE_RE = re.compile(r'^(#{1,6}) +(.+?)[ \t]*$', re.MULTILINE)
 
 
 # `\subsection{Additional \texttt{PL\_Alpha\_Hill} Comparisons}` -- the title

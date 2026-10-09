@@ -1545,6 +1545,14 @@ class SectionNumberingTests(unittest.TestCase):
         self.assertIn("# 서론 (Introduction)", out)
         self.assertNotIn("1. 서론", out)
 
+    def test_the_blank_line_under_a_heading_survives(self):
+        """`\\s*$` ate it, and ViT's reference list then went out with no
+        heading: 감사의 글 sitting on its paragraph read as the list's own."""
+        self._with_prefixes(["", "1.", "2.", "2.1.", "2.1.1.", "2.2."])
+        out, _stats = merge_and_build.number_sections(self.MD, self._dir())
+        self.assertIn("# 1. 서론 (Introduction)" + NL + NL + "본문", out)
+        self.assertEqual(out.count(NL), self.MD.count(NL))
+
     def test_normalises_headings_before_matching(self):
         fold = merge_and_build._normalize_heading
         self.assertEqual(fold("2.1.1. PARAMETERIZATION per Tile"),
