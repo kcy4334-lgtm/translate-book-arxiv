@@ -71,6 +71,25 @@ class Collisions(unittest.TestCase):
     def test_a_citation_is_not_a_gloss(self):
         self.assertEqual(cp.check_glosses('이 양자화(Tseng et al. 2024c)는'), [])
 
+    def test_a_repeat_the_build_removed_does_not_fail_the_book(self):
+        """output.md held 루프 플로우(looped flows) six times; the page, once."""
+        import contextlib
+        import io
+        import shutil
+        import tempfile
+        d = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, d, True)
+        line = '루프 플로우(looped flows)를 쓴다.\n\n'
+        with open(os.path.join(d, 'output.md'), 'w', encoding='utf-8') as f:
+            f.write(line * 4)
+        with open(os.path.join(d, 'book_doc.html'), 'w', encoding='utf-8') as f:
+            f.write('<html><body><p>%s</p><p>루프 플로우를 쓴다.</p></body></html>'
+                    % line.strip())
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            cp.probe(d, 'ko')
+        self.assertIn('glossing collisions  : 0', out.getvalue())
+
     def test_a_reference_key_is_not_a_gloss(self):
         """2609.11801 failed on `(eq:flow_loss)` read as English beside three
         different Korean phrases; the build turns it into "식 (2)"."""

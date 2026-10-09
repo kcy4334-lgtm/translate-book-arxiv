@@ -673,6 +673,14 @@ def probe(temp_dir, lang='ko', strict=False):
         fails.append('%d reference label(s) printed twice' % len(doubled))
 
     gloss_problems = check_glosses(merged or visible_text(html))
+    # A repeated gloss is a fault of the page, and the build removes repeats
+    # after the merge ("First-use glosses: N repeat(s) removed"). Counted in
+    # output.md, 2609.11801 failed for three terms glossed six, five and
+    # four times there and once each in the book.
+    if merged:
+        on_page = set(check_glosses(visible_text(html)))
+        gloss_problems = [p for p in gloss_problems
+                          if not p.startswith('glossed ') or p in on_page]
     print('glossing collisions  : %d' % len(gloss_problems))
     for line in gloss_problems[:6]:
         print('   ' + line)
