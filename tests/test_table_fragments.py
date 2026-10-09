@@ -87,6 +87,17 @@ class Citations(unittest.TestCase):
         text = r'\citep{clark-2018,unknown-key}'
         self.assertEqual(mb.resolve_fragment_citations(text, labels)[0], text)
 
+    def test_a_numbered_list_gives_the_number_the_body_prints(self):
+        # ResNet: `VGG \cite{Simonyan2015} (ILSVRC'14)` lost its citation.
+        bib = ('\\begin{thebibliography}{10}\n\\bibitem{Bengio1994} A.\n'
+               '\\bibitem{Simonyan2015} B.\n\\end{thebibliography}\n')
+        labels = mb.build_citation_labels(bib)
+        self.assertEqual(labels, {'Bengio1994': '1', 'Simonyan2015': '2'})
+        self.assertEqual(mb.resolve_fragment_citations(
+            r'VGG \cite{Simonyan2015} x', labels)[0], 'VGG [2] x')
+        self.assertEqual(mb.resolve_fragment_citations(
+            r'\cite{Bengio1994,Simonyan2015}', labels)[0], '[1, 2]')
+
 
 class TextMacro(unittest.TestCase):
 

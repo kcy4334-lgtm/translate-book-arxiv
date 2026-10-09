@@ -22,7 +22,8 @@ from build_common import (
 )
 
 from numbering import (
-    build_float_numbers, build_label_index, read_float_units,
+    build_bibitem_numbers, build_float_numbers, build_label_index,
+    read_float_units,
 )
 
 
@@ -1168,6 +1169,12 @@ def build_citation_labels(md_text):
         year = re.sub(r'[{}]', '', split.group(2)).strip()
         if authors and year:
             labels[m.group(2).strip()] = '%s %s' % (authors, year)
+    if not labels:
+        # A numbered list, `\bibitem{key}` with no label: the body prints
+        # `[41]` by position (`build_bibitem_numbers`), so the table does
+        # too. ResNet's tables cite VGG, GoogLeNet and PReLU-net that way,
+        # and every one of those citations was dropped.
+        labels = {k: str(n) for k, n in build_bibitem_numbers(md_text).items()}
     return labels
 
 
