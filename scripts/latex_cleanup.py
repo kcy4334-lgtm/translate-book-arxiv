@@ -978,6 +978,8 @@ def _group_bounds(span, at):
     return start, end
 
 
+_TEXT_SWITCH_RE = re.compile(
+    r'\\text\s*\{(?=[^{}]*\\(?:bfseries|itshape)(?![A-Za-z]))')
 _TEXT_LETTERS = {'o': 'ø', 'O': 'Ø', 'aa': 'å', 'AA': 'Å', 'ae': 'æ',
                  'AE': 'Æ', 'oe': 'œ', 'OE': 'Œ', 'ss': 'ß'}
 _TEXT_LETTER_RE = re.compile(r'\\(%s)(?![A-Za-z])'
@@ -995,6 +997,23 @@ def _plain_tex_math(span):
     """
     span = _TEXT_LETTER_RE.sub(lambda m: '\\text{%s}' % _TEXT_LETTERS[m.group(1)],
                                span)
+    # A font switch inside `\text{}`: 2609.11716 labels its underbraces
+    # `\text{\bfseries relative additional error ...}`, texmath reads no
+    # `\bfseries`, and the paper's central decomposition printed as source.
+    for _ in range(16):
+        m = _TEXT_SWITCH_RE.search(span)
+        if not m:
+            break
+        close = _balanced_group(span, m.end() - 1)
+        if close < 0:
+            break
+        inner = span[m.end():close - 1]
+        switch = re.search(r'\\(bfseries|itshape)(?![A-Za-z])', inner).group(1)
+        inner = re.sub(r'\\(?:bfseries|itshape)(?![A-Za-z])\s*', '', inner)
+        span = (span[:m.start()]
+                + '\\%s{%s}' % ('textbf' if switch == 'bfseries' else 'textit',
+                                inner)
+                + span[close:])
     if not span.startswith('$$') and span.startswith('$') and '\\\\' in span \
             and not re.search(r'\\begin\{', span):
         span = re.sub(r'(?<!\\)\\\\(?!\\)', ' ', span)

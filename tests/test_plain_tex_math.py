@@ -74,6 +74,13 @@ class PlainTexMath(unittest.TestCase):
         self.assertEqual(lc._plain_tex_math(span), span)
         self.assertEqual(lc._plain_tex_math(r'$\omega + \ss$'), r'$\omega + \text{ß}$')
 
+    def test_a_font_switch_inside_text(self):
+        # 2609.11716's underbrace labels.
+        self.assertEqual(
+            lc._plain_tex_math(r'$\underbrace{a}_{\substack{\text{\bfseries rel '
+                               r'(\bfseries block): }{T}}}$'),
+            r'$\underbrace{a}_{\substack{\textbf{rel (block): }{T}}}$')
+
     def test_a_letter_formula_inside_a_word(self):
         out, _stats = lc.normalize_math_commands(r'the M$\o$ller velocity')
         self.assertEqual(out, 'the Møller velocity')
