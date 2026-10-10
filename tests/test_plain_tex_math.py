@@ -42,6 +42,12 @@ class PlainTexMath(unittest.TestCase):
                                r' {\boldmath\scriptscriptstyle\hat C}}^{TT}$'),
             r'$\ensuremath{\boldsymbol{\hat C}}^{TT}$')
 
+    def test_a_font_switch_needs_no_space_before_punctuation(self):
+        # planck: `C^{TT{\rm(defect)}}_{10}`.
+        out, _stats = lc.normalize_math_commands(
+            r'$C^{TT{\rm(defect)}}_{10}$ and ${\rm \min}$')
+        self.assertEqual(out, r'$C^{TT\mathrm{(defect)}}_{10}$ and $\min$')
+
     def test_overline_and_others_are_untouched(self):
         span = r'$\overline{x} + \overset{a}{b}$'
         self.assertEqual(lc._plain_tex_math(span), span)

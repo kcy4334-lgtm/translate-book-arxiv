@@ -1172,6 +1172,22 @@ def _math_spans(tex, defs):
 _TEXTBOX_RE = re.compile(r'\\(?:mbox|hbox|text|textrm)\s*\{')
 
 
+def _dollars_as_text(body):
+    r"""`\,\mu$K$` -> `\,\mu\mathrm{K}`, for a body that runs in a formula.
+
+    Inside maths a `$` pair LEAVES maths: planck's `\muK` is
+    `\ifmmode \,\mu$K$\else ...\fi`, an upright K set by stepping out of the
+    formula and back. Handed to pandoc as it is, the `$` closed the formula
+    instead, and `$\muK^2$` printed as `\ensuremath{\,\mu` and a stray `}^2`.
+    Returns None when the dollars do not pair.
+    """
+    if body.count('$') % 2:
+        return None
+    return re.sub(r'\$([^$]*)\$',
+                  lambda m: '\\mathrm{%s}' % m.group(1) if m.group(1).strip()
+                  else '', body)
+
+
 def _math_out_of_textboxes(body):
     r"""`\mbox{fb$^{-1}$}` -> `\mbox{fb}^{-1}`, for use inside a formula.
 
@@ -1265,7 +1281,8 @@ def math_definitions(tex, sources):
             continue
         body = _GLUE_RE.sub('', _resolve_ifmmode(d.body, math=True))
         body = _math_out_of_textboxes(body)
-        if _MACHINERY_RE.search(body) or '@' in body:
+        body = _dollars_as_text(body)
+        if body is None or _MACHINERY_RE.search(body) or '@' in body:
             continue
         called = re.findall(r'\\([A-Za-z]+)', body)
         # `\let\etaa=\eta` and then `\def\eta{\ensuremath{\etaa}}`: the alias
@@ -1322,8 +1339,10 @@ def _ifmmode_as_ensuremath(body):
                     break
         if end is None:
             return None
-        math = _GLUE_RE.sub('', body[start + len('\\ifmmode'):
-                                     (else_at or end).start()]).strip()
+        math = _dollars_as_text(_GLUE_RE.sub('', body[start + len('\\ifmmode'):
+                                                      (else_at or end).start()]).strip())
+        if math is None:
+            return None
         text = body[else_at.end():end.start()] if else_at else ''
         taken = '\\ensuremath{%s}' % math if math else text
         body = body[:start] + taken + body[end.end():]

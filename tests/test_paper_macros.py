@@ -567,6 +567,18 @@ class TheDocumentsOwnModeMacros(unittest.TestCase):
         out, _names = pm.mode_free_definitions(tex)
         self.assertIn('\\def\\GeV{\\ensuremath{{\\rm GeV}}}', out)
 
+    def test_dollars_in_the_math_branch_step_out_to_text(self):
+        # planck's `\muK`: an upright K set by leaving the formula.
+        tex = '\\def\\muK{\\ifmmode \\,\\mu$K$\\else \\,$\\mu$\\hbox{K}\\fi}\n'
+        out, _names = pm.mode_free_definitions(tex)
+        self.assertIn('\\def\\muK{\\ensuremath{\\,\\mu\\mathrm{K}}}', out)
+
+    def test_a_package_definition_in_a_formula_steps_out_too(self):
+        sty = '\\def\\muK{\\ifmmode \\,\\mu$K$\\else \\,$\\mu$\\hbox{K}\\fi}\n'
+        doc = '\\begin{document}$\\muK^2$\\end{document}'
+        tex, names = pm.math_definitions(doc, [('flat.tex', doc), ('p.sty', sty)])
+        self.assertIn('\\newcommand{\\muK}{\\,\\mu\\mathrm{K}}', tex)
+
     def test_a_definition_without_the_conditional_is_left(self):
         tex = '\\newcommand{\\x}{X}\n'
         self.assertEqual(pm.mode_free_definitions(tex), (tex, []))

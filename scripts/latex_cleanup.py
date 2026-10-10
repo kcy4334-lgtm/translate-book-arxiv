@@ -292,8 +292,10 @@ def _drop_latex_commands(text, names, stats):
 # not cosmetic padding. Shor writes `{\rm \ (mod\ }n`, and trimming that last
 # space welded the backslash to what followed — `\n`, a control sequence no
 # renderer knows — so 77 formulas in one paper printed as source.
+# No space is needed when a non-letter follows: planck's `{\rm(defect)}`.
 _OLD_FONT_RE = re.compile(
-    r'\{\s*\\(rm|bf|it|sf|tt|sc|cal)\s+([^{}]*?)(?<!\\)\s*\}')
+    r'\{\s*\\(rm|bf|it|sf|tt|sc|cal)(?:\s+|(?=[^A-Za-z\s{}]))'
+    r'([^{}]*?)(?<!\\)\s*\}')
 _OLD_FONT_MAP = {'rm': 'mathrm', 'bf': 'mathbf', 'it': 'mathit',
                  'sf': 'mathsf', 'tt': 'mathtt', 'sc': 'mathrm',
                  'cal': 'mathcal'}
