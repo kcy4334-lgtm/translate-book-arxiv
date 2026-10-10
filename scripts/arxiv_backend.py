@@ -2583,7 +2583,7 @@ def unwrap_centered_figures(tex):
     pandoc reads a figure whose image sits in a `center` as a figure holding
     a div, which markdown cannot write; with raw HTML off it comes out as a
     bare image and a caption paragraph, so no figure is formed. planck
-    centres 35 of its figures that way and the book numbered none of them.
+    centres 18 of its 46 figures that way and the book numbered none of them.
     """
     count = 0
 

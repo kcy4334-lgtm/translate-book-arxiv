@@ -53,7 +53,7 @@ class Split(unittest.TestCase):
 
 
 class CentredFigures(unittest.TestCase):
-    """planck centres 35 figures in a `center`; pandoc wrote each as a bare
+    """planck centres 18 figures in a `center`; pandoc wrote each as a bare
     image and a caption paragraph, and the book numbered none of them."""
 
     def test_center_becomes_centering(self):
