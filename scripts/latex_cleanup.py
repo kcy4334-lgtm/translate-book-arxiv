@@ -1648,6 +1648,13 @@ def prefixes_from_lines(lines, tex_heads, run_in_level=0, stats=None,
             # printed with no number while the body cited "B.1.2절".
             if key and m.group(1).strip() not in numbered.get(key, []):
                 numbered.setdefault(key, []).append(m.group(1).strip())
+            # A footnote mark run into the title's last word: planck prints
+            # `7. Conclusions42`. The title without it is the heading.
+            marked = re.match(r'^(.*[A-Za-z])\d{1,3}$', m.group(2).strip())
+            if marked:
+                bare_key = _normalize_heading(marked.group(1))
+                if bare_key and m.group(1).strip() not in numbered.get(bare_key, []):
+                    numbered.setdefault(bare_key, []).append(m.group(1).strip())
         bare = _PDF_BARE_PREFIX_RE.match(before)
         if bare:
             key = _normalize_heading(line)
@@ -1714,6 +1721,11 @@ def prefixes_from_lines(lines, tex_heads, run_in_level=0, stats=None,
         # The column was too narrow and the PDF wrapped the title, so the
         # extracted line holds only its beginning.
         partial = _longest_prefix_match(key, numbered)
+        if partial is None and kept:
+            # The formula's letters again, now on a wrapped line: planck's
+            # "3.1. Changes in the base ΛCDM parameters compared to" keys
+            # "cdm" where the title, its formula deleted, does not.
+            partial = _longest_prefix_match(kept, numbered)
         if partial is not None:
             prefixes.append(numbered[partial][0])
             stats['matched'] += 1

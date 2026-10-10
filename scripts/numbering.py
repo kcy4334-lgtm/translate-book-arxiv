@@ -1519,6 +1519,10 @@ _CLASS_CONVENTIONS = {
     # well: AdamX prints `Baseline Algorithms To evaluate AdamX, ...` on one
     # line, bold then roman. Its eight such headings were "not found".
     'llncs': {'run_in_level': 3},
+    # A&A's aa.cls sets \paragraph with a negative after-skip, run-in:
+    # planck's thirteen `\paragraph{(1) Temperature masks.}` items open
+    # their paragraphs and have no line of their own to be found on.
+    'aa': {'run_in_level': 4},
     # IEEEtran prints TABLE I, TABLE II and Fig. 1, Fig. 2: Roman for tables
     # and arabic for figures, which is why only the table is listed. TinyVLA
     # is the paper that showed it, with all six of its disagreeing

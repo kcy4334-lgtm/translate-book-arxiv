@@ -65,6 +65,20 @@ class FormulaLettersKept(unittest.TestCase):
     the formula was deleted, met a stray "channel" line, and printed with no
     number."""
 
+    def test_the_formula_letters_find_a_wrapped_title(self):
+        # planck: "3.1. Changes in the base ΛCDM parameters compared to" /
+        # "the 2013 data release".
+        lines = ['3.1. Changes in the base ΛCDM parameters compared to',
+                 'the 2013 data release', 'Text']
+        heads = [(2, r'Changes in the base $\rm{\Lambda CDM}$ parameters '
+                     r'compared to the 2013 data release', True)]
+        self.assertEqual(read(lines, heads), ['3.1.'])
+
+    def test_a_footnote_mark_run_into_the_title(self):
+        # planck: "7. Conclusions42".
+        self.assertEqual(read(['7. Conclusions42', 'Text'],
+                              [(1, 'Conclusions', True)]), ['7.'])
+
     def test_the_formula_letters_find_the_number(self):
         lines = ['channel', '4. H →ZZ(∗) →4ℓchannel', 'The search',
                  '5. H→γγ channel', 'The search', '6. H→WW(∗)→eνµν channel']
