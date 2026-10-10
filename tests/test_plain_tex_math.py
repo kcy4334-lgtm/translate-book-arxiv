@@ -74,6 +74,10 @@ class PlainTexMath(unittest.TestCase):
         self.assertEqual(lc._plain_tex_math(span), span)
         self.assertEqual(lc._plain_tex_math(r'$\omega + \ss$'), r'$\omega + \text{ß}$')
 
+    def test_a_letter_formula_inside_a_word(self):
+        out, _stats = lc.normalize_math_commands(r'the M$\o$ller velocity')
+        self.assertEqual(out, 'the Møller velocity')
+
     def test_overline_and_others_are_untouched(self):
         span = r'$\overline{x} + \overset{a}{b}$'
         self.assertEqual(lc._plain_tex_math(span), span)

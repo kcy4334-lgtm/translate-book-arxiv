@@ -1102,6 +1102,11 @@ def normalize_math_commands(md_text):
         text = _INLINE_MATH_SPAN_RE.sub(
             lambda m: _unbox_math(_plain_tex_math(
                 re.sub(r'(?<!\\)\\-', '', m.group(0)))), text)
+        # A formula that is nothing but a letter command, set inside a word:
+        # planck's `M$\o$ller`. The span rule above will not open a formula
+        # after a letter (that keeps prices out of maths), so it is read here.
+        text = re.sub(r'(?<!\\)\$\\(%s)\$' % '|'.join(_TEXT_LETTERS),
+                      lambda m: _TEXT_LETTERS[m.group(1)], text)
         return text
 
     held = sorted([(m.start(), m.end(), 'code')
