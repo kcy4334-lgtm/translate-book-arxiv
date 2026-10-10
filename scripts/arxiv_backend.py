@@ -2574,6 +2574,31 @@ def split_captioned_minipages(tex):
     return _FIGURE_ENV_RE.sub(repl, tex), count
 
 
+_BOX_RE = re.compile(
+    r'\\(?:fbox|framebox(?:\s*\[[^\]]*\]){0,2}'
+    r'|parbox(?:\s*\[[^\]]*\]){0,3}\s*\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\})\s*(?=\{)')
+
+
+def unwrap_boxes(tex):
+    r"""`\fbox{X}`, `\framebox{X}` and `\parbox{w}{X}` become X. (tex, n).
+
+    pandoc has no reader for these boxes and keeps them raw, and the HTML
+    writer drops raw LaTeX: gpt3 frames each of its generated news articles
+    (Figures 3.14 to 3.17) as `\fbox{\parbox{0.9\linewidth}{...}}`, and the
+    articles -- the subject of those figures -- were not in the book.
+    """
+    count = 0
+    while True:
+        m = _BOX_RE.search(tex)
+        if not m:
+            return tex, count
+        close = _balanced_brace(tex, m.end())
+        if close < 0:
+            return tex, count
+        tex = tex[:m.start()] + tex[m.end() + 1:close - 1] + tex[close:]
+        count += 1
+
+
 _CENTER_RE = re.compile(r'\\(begin|end)\s*\{center\}')
 
 
@@ -2848,6 +2873,10 @@ def sanitize_tex(tex):
     if arrays:
         print(f"Rewrote {arrays} tabular(s) inside a formula as arrays; "
               f"read as tables they were dropped from the formula")
+    tex, boxes = unwrap_boxes(tex)
+    if boxes:
+        print(f"Unwrapped {boxes} \\fbox/\\parbox box(es); pandoc keeps them "
+              f"raw and the page drops what they hold")
     tex, centred = unwrap_centered_figures(tex)
     if centred:
         print(f"Unwrapped the center environment in {centred} figure(s); "
@@ -3534,6 +3563,69 @@ def strip_pandoc_divs(text):
     )
 
 
+_FIGURE_DIV_RE = re.compile(r'(?m)^(:{3,})[ \t]*\{([^}\n]*\.figure\b[^}\n]*)\}[ \t]*$')
+_CAPTION_DIV_RE = re.compile(r'(?m)^(:{3,})[ \t]*caption[ \t]*\n')
+
+
+def badge_imageless_figures(text, temp_dir, lang=None):
+    r"""Put "그림 N (Fig. N)" on the caption of a figure that shows no image.
+
+    The build numbers a figure caption by finding the figure's images, which
+    survive translation. A figure of text or of a table has none: gpt3's 51
+    formatted dataset examples (Figures G.1 to G.51) and its generated news
+    articles (3.14 to 3.17) reached the book as a table or prose and a
+    caption that said nothing a reader could match to "그림 G.12". After
+    translation nothing marks which paragraph is the caption, so it is done
+    here, in pandoc's figure div, with the number LaTeX gives it.
+
+    Returns (text, count). A figure with no label is left as it is: its place
+    among the floats is not something a div can be matched to safely.
+    """
+    if not temp_dir:
+        return text, 0
+    import layout
+    import numbering
+    words = layout.get_lang_config(lang) if lang else layout.DEFAULT_LANG_CONFIG
+    word = words.get('figure_label', 'Figure')
+    by_label = {}
+    for unit in numbering.read_float_units(temp_dir):
+        if unit['kind'] == 'figure' and unit['number'] is not None:
+            for label in unit['labels']:
+                by_label.setdefault(label, unit['number'])
+    if not by_label:
+        return text, 0
+    count, pieces, cursor = 0, [], 0
+    for m in _FIGURE_DIV_RE.finditer(text):
+        if m.start() < cursor:
+            continue
+        fence = m.group(1)
+        close = re.compile(r'(?m)^%s[ \t]*$' % re.escape(fence))
+        end = close.search(text, m.end())
+        if not end:
+            continue
+        body = text[m.end():end.start()]
+        # A label may hold a space -- gpt3's `eval:ANLI R2` -- and pandoc
+        # writes it as it is, so the id runs up to the first class or
+        # attribute, not to the first space.
+        ident = re.match(r'\s*#(.*?)\s+(?=\.|[\w-]+=)', m.group(2) + ' .')
+        number = by_label.get(ident.group(1)) if ident else None
+        caption = _CAPTION_DIV_RE.search(body)
+        if '![' in body or number is None or not caption:
+            continue
+        badge = '%s %s' % (word, number)
+        if word != 'Figure':
+            badge += ' (Fig. %s)' % number
+        at = m.end() + caption.end()
+        if text.startswith('**' + badge, at):
+            continue
+        pieces.append(text[cursor:at])
+        pieces.append('**%s** ' % badge)
+        cursor = at
+        count += 1
+    pieces.append(text[cursor:])
+    return ''.join(pieces), count
+
+
 def join_adjacent_inline_math(text):
     r"""`$a$$b$` -> `${a}{b}$`. Returns (text, count).
 
@@ -3553,7 +3645,7 @@ def join_adjacent_inline_math(text):
     while i < n:
         ch = text[i]
         if ch == '`':
-            run = len(text) - len(text[i:].lstrip('`'))
+            run = len(text[i:]) - len(text[i:].lstrip('`'))
             ticks = text[i:i + run]
             end = text.find(ticks, i + run)
             stop = end + run if end >= 0 else i + run
@@ -3909,7 +4001,7 @@ def resolve_images(text, tex_dir, root, temp_dir, work_dir):
 
 
 def postprocess_markdown(text, tex_dir, root, temp_dir, work_dir,
-                         citation_map=None):
+                         citation_map=None, lang=None):
     """Repair and normalize pandoc's LaTeX output. Order matters."""
     # First: every pass below that pairs `$$` would otherwise pair across it.
     text, joined = join_adjacent_inline_math(text)
@@ -3917,6 +4009,12 @@ def postprocess_markdown(text, tex_dir, root, temp_dir, work_dir,
         print(f"Joined {joined} pair(s) of formulas written back to back "
               f"($a$$b$); read as a display opening they shifted every later "
               f"one")
+    # Before the divs go: they are the only place a figure without an image
+    # can still be told apart from the prose around it.
+    text, badged = badge_imageless_figures(text, temp_dir, lang)
+    if badged:
+        print(f"Numbered the caption of {badged} figure(s) that show text or a "
+              f"table rather than an image")
     text = strip_pandoc_divs(text)
     text = clean_cross_references(text)
     text = resolve_citation_keys(text, citation_map)
@@ -3936,7 +4034,7 @@ def postprocess_markdown(text, tex_dir, root, temp_dir, work_dir,
 # Entry point
 # =============================================================================
 
-def build(input_file, temp_dir, arxiv_id, allow_network=True):
+def build(input_file, temp_dir, arxiv_id, allow_network=True, lang=None):
     """Produce input.md + images/ in temp_dir from arXiv LaTeX source.
 
     Returns (ok, metadata). On any failure returns (False, {}) so convert.py can
@@ -4085,7 +4183,8 @@ def build(input_file, temp_dir, arxiv_id, allow_network=True):
     # Only needed when citeproc could not run (no .bib in the source).
     citation_map = {} if bib_files else build_citation_map(work_dir, main_tex)
     md = postprocess_markdown(md, os.path.dirname(main_tex), work_dir,
-                              temp_dir, work_dir, citation_map=citation_map)
+                              temp_dir, work_dir, citation_map=citation_map,
+                              lang=lang)
 
     empty_reason = no_latex_body(flat, md)
     if empty_reason:

@@ -67,6 +67,36 @@ class CentredFigures(unittest.TestCase):
         self.assertIn('text \\begin{center}kept\\end{center}', out)
 
 
+class BoxesAndTextFigures(unittest.TestCase):
+    """gpt3's generated articles sit in `\\fbox{\\parbox{..}{..}}` inside a
+    figure; its dataset examples are figures holding a table."""
+
+    def test_boxes_are_unwrapped(self):
+        tex = ('\\centering\\noindent\\fbox{ \\tt \\parbox{0.9\\linewidth}{'
+               'Title: Split \\\\ Article: text} } and \\setlength{\\fboxsep}{2pt}')
+        out, n = arxiv_backend.unwrap_boxes(tex)
+        self.assertEqual(n, 2)
+        self.assertIn('\\noindent \\tt Title: Split \\\\ Article: text ', out)
+        self.assertIn('\\setlength{\\fboxsep}{2pt}', out)
+
+    def test_a_text_figure_caption_gets_its_number(self):
+        import tempfile, shutil
+        temp = tempfile.mkdtemp(prefix='tb-textfig-')
+        self.addCleanup(shutil.rmtree, temp, True)
+        with open(os.path.join(temp, 'flat.tex'), 'w', encoding='utf-8') as fh:
+            fh.write('\\begin{figure}\\includegraphics{a}\\caption{A.}'
+                     '\\label{fig:a}\\end{figure}\n'
+                     '\\begin{figure}\\begin{tabular}{l}x\\end{tabular}'
+                     '\\caption{Example.}\\label{eval:ANLI R2}\\end{figure}\n')
+        md = (':::: {#fig:a .figure}\n![](a)\n\n::: caption\nA.\n:::\n::::\n\n'
+              ':::: {#eval:ANLI R2 .figure latex-placement="!h"}\n'
+              '| x |\n|---|\n\n::: caption\nExample.\n:::\n::::\n')
+        out, n = arxiv_backend.badge_imageless_figures(md, temp, 'ko')
+        self.assertEqual(n, 1)
+        self.assertIn('::: caption\n**그림 2 (Fig. 2)** Example.', out)
+        self.assertIn('::: caption\nA.', out)          # the image figure: build's job
+
+
 class Units(unittest.TestCase):
 
     def test_the_second_image_belongs_to_the_second_figure(self):

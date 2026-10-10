@@ -1596,7 +1596,8 @@ def main():
                 ok = True
             else:
                 ok, metadata = arxiv_backend.build(
-                    input_file, temp_dir, arxiv_id, allow_network=args.allow_network
+                    input_file, temp_dir, arxiv_id, allow_network=args.allow_network,
+                    lang=args.olang
                 )
 
             if ok:

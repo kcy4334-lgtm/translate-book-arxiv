@@ -380,6 +380,15 @@ class FormulasBackToBack(unittest.TestCase):
         text = 'see $a$$$x$$ end'
         self.assertEqual(arxiv_backend.join_adjacent_inline_math(text), (text, 0))
 
+    def test_a_code_span_does_not_throw_the_count(self):
+        # AlphaQ: a code span mid-paragraph, then `$b$ as $$\begin{equation}`.
+        text = ('variance of `PL_Alpha_Hill` here. At bit-width $b$ as '
+                '$$\\begin{equation}x\\end{equation}$$ and $c$.')
+        self.assertEqual(arxiv_backend.join_adjacent_inline_math(text), (text, 0))
+        out, n = arxiv_backend.join_adjacent_inline_math(
+            'see `code` then $a$$b$ end')
+        self.assertEqual((out, n), ('see `code` then ${a}{b}$ end', 1))
+
     def test_code_and_escaped_dollars_are_left(self):
         text = 'cost \\$5 and `$a$$b$` here'
         self.assertEqual(arxiv_backend.join_adjacent_inline_math(text), (text, 0))

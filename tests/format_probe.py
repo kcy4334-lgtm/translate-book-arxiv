@@ -284,7 +284,10 @@ def check_figure_numbers(temp_dir, body):
                          badge)
         if plain:
             seen.add(plain.group(1))
-    return sorted(want - seen, key=lambda n: [int(p) if p.isdigit() else p
+    # Numbers before letters within each part: gpt3 numbers figures 1 to 4.11
+    # and then G.1, and a key of bare ints and strings could not be sorted.
+    return sorted(want - seen, key=lambda n: [(0, int(p), '') if p.isdigit()
+                                              else (1, 0, p)
                                               for p in re.split(r"\.", n)])
 
 
