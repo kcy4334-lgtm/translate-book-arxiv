@@ -873,21 +873,62 @@ def _unbox_math(span):
     for _ in range(8):
         m = _BOXED_MATHFONT_RE.search(span)
         if not m:
-            return span
+            break
         inner_close = _balanced_group(span, m.end() - 1)
         if inner_close < 0:
-            return span
+            break
         rest = re.match(r'\s*\}', span[inner_close:])
         if not rest:
-            return span
+            break
         head = m.group(1)
         span = (span[:m.start()] + head + span[m.end() - 1:inner_close]
                 + span[inner_close + rest.end():])
-    return span
+    return _mixed_boxes(span)
 
 
 _BOXED_MATHFONT_RE = re.compile(
     r'\\(?:mbox|hbox)\s*\{\s*(\\math(?:rm|it|bf|sf|tt))\s*\{')
+_MIXED_BOX_RE = re.compile(r'\\(mbox|hbox|text|mathrm)\s*\{')
+_MATH_FONT_CALL_RE = re.compile(r'\\math(?:rm|it|bf|sf|tt|cal)\s*\{')
+
+
+def _mixed_boxes(span):
+    r"""A text box in a formula that holds formula parts, split into runs.
+
+    planck's `\twotwosig` writes `\mbox{95\%, \text{\planckTT}}`, and pandoc
+    hands the inner text on as maths fonts: `\mbox{95\%, \mathrm{\mathit{
+    Planck}..}}`. Its `\onesig` puts `$\Delta N_\mathrm{eff}=0.39$` inside
+    `\text{}`, which arrives as a `\mathrm{...}` holding dollars. texmath
+    reads neither. The text runs become `\text{...}` and the formula parts
+    stand beside them, as `math_tabulars` does for a table cell.
+    """
+    import math_tabulars
+    out, cursor = [], 0
+    for m in _MIXED_BOX_RE.finditer(span):
+        if m.start() < cursor:
+            continue
+        close = _balanced_group(span, m.end() - 1)
+        if close < 0:
+            continue
+        inner = span[m.end():close - 1]
+        if m.group(1) == 'mathrm':
+            mixed = '$' in inner
+        else:
+            mixed = '$' in inner or bool(_MATH_FONT_CALL_RE.search(inner))
+        if not mixed or inner.count('$') % 2:
+            continue
+        out.append(span[cursor:m.start()])
+        if m.group(1) == 'mathrm':
+            # Upright text stays upright: only the dollars come out.
+            parts = re.split(r'(?<!\\)\$', inner)
+            out.append(''.join(p if i % 2 else ('\\mathrm{%s}' % p if p.strip()
+                                                 else '')
+                               for i, p in enumerate(parts)))
+        else:
+            out.append(math_tabulars._cell_as_math(inner))
+        cursor = close
+    out.append(span[cursor:])
+    return ''.join(out)
 
 
 # Plain TeX inside a formula that texmath has no reader for. Each is rewritten

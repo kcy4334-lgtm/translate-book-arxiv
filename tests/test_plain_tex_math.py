@@ -53,6 +53,18 @@ class PlainTexMath(unittest.TestCase):
         self.assertEqual(lc._unbox_math(r'$\right\} \ \mbox{\mathrm{\mathit{P}\ TT.}}$'),
                          r'$\right\} \ \mathrm{\mathit{P}\ TT.}$')
 
+    def test_a_text_box_holding_maths_fonts_is_split(self):
+        # planck's `\twotwosig`: `\mbox{95\%, \text{\planckTT}}`.
+        self.assertEqual(
+            lc._unbox_math(r'$\right\} \mbox{95\%, \mathrm{\mathit{P}\ \mathrm{TT}}}$'),
+            r'$\right\} \text{95\%, }\mathrm{\mathit{P}\ \mathrm{TT}} $')
+
+    def test_dollars_inside_a_mathrm_come_out(self):
+        # planck's `\onesig` with `$\Delta N_\mathrm{eff}=0.39$` in its text.
+        self.assertEqual(
+            lc._unbox_math(r'$(68\%, \mathrm{TT; $\Delta N=0.39$})$'),
+            r'$(68\%, \mathrm{TT; }\Delta N=0.39)$')
+
     def test_overline_and_others_are_untouched(self):
         span = r'$\overline{x} + \overset{a}{b}$'
         self.assertEqual(lc._plain_tex_math(span), span)
