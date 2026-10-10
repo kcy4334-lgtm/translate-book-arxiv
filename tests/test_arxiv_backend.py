@@ -362,6 +362,21 @@ class TildeTests(unittest.TestCase):
         self.assertNotIn('texttildelow', out)
 
 
+class PercentInAUrl(unittest.TestCase):
+    """planck's acknowledgement links `planck%2dcollaboration`; pandoc read
+    the `%` as a comment and every footnote definition after it was lost."""
+
+    def test_the_percent_is_escaped_in_the_url_only(self):
+        tex = ('\\href{http://e.int/planck%2dc}{\\texttt{x}} 50\\% and '
+               '\\url{a%20b} % a comment {\n')
+        out, n = arxiv_backend.escape_url_percents(tex)
+        self.assertEqual(n, 2)
+        self.assertIn('\\href{http://e.int/planck\\%2dc}{\\texttt{x}}', out)
+        self.assertIn('\\url{a\\%20b}', out)
+        self.assertIn('50\\% and', out)
+        self.assertIn(' % a comment {', out)
+
+
 class CaptionofMinipages(unittest.TestCase):
     """gpt3's Figure H.2 is a `\\captionof{figure}` minipage beside H.3's
     `\\caption` one; refused, H.2's caption was not in the book."""

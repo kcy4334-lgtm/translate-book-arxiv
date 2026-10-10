@@ -2879,8 +2879,62 @@ _COUNT_IN_NAME_RE = re.compile(
     r'(\[\d\])\s*\}')
 
 
+_URL_ARG_RE = re.compile(r'\\(?:href|url)\s*\{')
+
+
+def escape_url_percents(tex):
+    r"""`\href{..planck%2dcollaboration}` -> `\href{..planck\%2dcollaboration}`.
+
+    hyperref reads a `%` in a URL as a character; pandoc reads it as a
+    comment, and the rest of the line -- the closing brace included --
+    went with it. planck's acknowledgement links its collaboration page that
+    way: the unclosed `\href` reached the markdown raw, swallowed every block
+    after it, and all 43 of the paper's footnotes lost their definitions.
+    Returns (tex, n).
+    """
+    count, pieces, cursor = 0, [], 0
+    for m in _URL_ARG_RE.finditer(tex):
+        if m.start() < cursor:
+            continue
+        # Judged on the line as already escaped: a URL's own `%` earlier on
+        # the line is not the start of a comment.
+        so_far = ''.join(pieces) + tex[cursor:m.start()]
+        if _in_latex_comment(so_far, len(so_far)):
+            continue
+        # Find the argument's end the way hyperref does: braces only, `%`
+        # being a character here.
+        depth, i = 0, m.end() - 1
+        while i < len(tex):
+            if tex[i] == '\\':
+                i += 2
+                continue
+            if tex[i] == '{':
+                depth += 1
+            elif tex[i] == '}':
+                depth -= 1
+                if depth == 0:
+                    break
+            elif tex[i] == '\n':
+                break
+            i += 1
+        if i >= len(tex) or tex[i] != '}':
+            continue
+        arg = tex[m.end():i]
+        fixed = re.sub(r'(?<!\\)%', r'\\%', arg)
+        if fixed != arg:
+            count += 1
+        pieces.append(tex[cursor:m.end()] + fixed)
+        cursor = i
+    pieces.append(tex[cursor:])
+    return ''.join(pieces), count
+
+
 def sanitize_tex(tex):
     """Drop markup that only styles the page, before pandoc reads it."""
+    tex, percents = escape_url_percents(tex)
+    if percents:
+        print(f"Escaped the % in {percents} URL(s); pandoc reads it as a "
+              f"comment and loses the link's closing brace")
     tex, counts = _COUNT_IN_NAME_RE.subn(r'\1\2{\3}\4', tex)
     if counts:
         print(f"Moved the argument count out of {counts} \\newcommand name(s) "
