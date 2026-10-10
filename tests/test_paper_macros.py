@@ -543,6 +543,35 @@ class PackageMacrosInsideFormulas(unittest.TestCase):
         self.assertEqual(pm._resolve_ifmmode(r'\ifmmode A\fi', math=True), ' A')
 
 
+class TheDocumentsOwnModeMacros(unittest.TestCase):
+    r"""planck's `\pann` is `\ifmmode p_{\rm ann}\else $p_{\rm ann}$\fi`.
+    pandoc took the `\else` branch inside `$\pann < 2.1$`, closed the formula
+    before the `<`, and stopped the whole conversion."""
+
+    def test_the_definition_holds_in_both_modes(self):
+        tex = ('\\begin{document}\n'
+               '\\newcommand{\\pann}{\\ifmmode p_{\\rm ann}\\else $p_{\\rm ann}$\\fi}\n'
+               'limit $\\pann < 2.1$.\n\\end{document}\n')
+        out, names = pm.mode_free_definitions(tex)
+        self.assertIn('\\newcommand{\\pann}{\\ensuremath{p_{\\rm ann}}}', out)
+        self.assertEqual(names, ['pann'])
+
+    def test_an_empty_math_branch_keeps_the_prose_one(self):
+        tex = '\\def\\sp{\\ifmmode\\else\\ \\fi}\n'
+        out, _names = pm.mode_free_definitions(tex)
+        self.assertIn('\\def\\sp{\\ }', out)
+
+    def test_kerning_in_the_math_branch_goes(self):
+        tex = ('\\def\\GeV{\\ifmmode {\\rm Ge\\kern -0.1em V}\\else '
+               'Ge\\kern -0.1em V\\fi}\n')
+        out, _names = pm.mode_free_definitions(tex)
+        self.assertIn('\\def\\GeV{\\ensuremath{{\\rm GeV}}}', out)
+
+    def test_a_definition_without_the_conditional_is_left(self):
+        tex = '\\newcommand{\\x}{X}\n'
+        self.assertEqual(pm.mode_free_definitions(tex), (tex, []))
+
+
 class ADisplayCanBeOpenedByAMacro(unittest.TestCase):
     r"""planck defines `\be` as `\begin{equation}` and uses it 16 times,
     `\beglet` as `\begin{subequations}` 19 times. `_MATH_SPAN_RE` looks for

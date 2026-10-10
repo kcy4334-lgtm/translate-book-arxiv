@@ -362,6 +362,18 @@ class TildeTests(unittest.TestCase):
         self.assertNotIn('texttildelow', out)
 
 
+class ArgumentCountInsideTheName(unittest.TestCase):
+    r"""planck: `\providecommand{\arxivlink[1]}{...}` stopped pandoc at
+    "unexpected [". LaTeX reads it as `\providecommand{\arxivlink}[1]`."""
+
+    def test_the_count_moves_out_of_the_braces(self):
+        out = arxiv_backend.sanitize_tex(
+            r"\providecommand{\arxivlink[1]}{\href{http://arxiv.org/abs/#1}{#1}}"
+            "\n" r"\newcommand*{ \x [2] }{#1#2}")
+        self.assertIn(r"\providecommand{\arxivlink}[1]{\href", out)
+        self.assertIn(r"\newcommand*{\x}[2]{#1#2}", out)
+
+
 class PickBblTests(unittest.TestCase):
     r"""LaTeX reads `\jobname.bbl`; bert ships `lumiere.bbl` beside
     `main.bbl`, and an os.walk took whichever came first."""

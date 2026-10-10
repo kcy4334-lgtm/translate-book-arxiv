@@ -2762,8 +2762,20 @@ def keep_unmarked_footnotetext(tex):
     return ''.join(out), count
 
 
+# `\providecommand{\arxivlink[1]}{...}`: the argument count inside the name's
+# braces. LaTeX strips the braces and reads it as usual; pandoc stops the whole
+# conversion at "unexpected [". planck's bibliography preamble writes it so.
+_COUNT_IN_NAME_RE = re.compile(
+    r'(\\(?:re)?newcommand|\\providecommand)(\*?)\s*\{\s*(\\[A-Za-z@]+)\s*'
+    r'(\[\d\])\s*\}')
+
+
 def sanitize_tex(tex):
     """Drop markup that only styles the page, before pandoc reads it."""
+    tex, counts = _COUNT_IN_NAME_RE.subn(r'\1\2{\3}\4', tex)
+    if counts:
+        print(f"Moved the argument count out of {counts} \\newcommand name(s) "
+              f"written {{\\name[1]}}; pandoc stops at that form")
     total = 0
     for pattern, repl in _TEX_NOISE:
         tex, n = pattern.subn(repl, tex)
@@ -3890,6 +3902,10 @@ def build(input_file, temp_dir, arxiv_id, allow_network=True):
     flat, macro_report = paper_macros.expand_in_source(
         flat, sources, paper_text=read_pdf_text(input_file))
     flat, math_defined = paper_macros.math_definitions(flat, sources)
+    flat, both_modes = paper_macros.mode_free_definitions(flat)
+    if both_modes:
+        print(f"Defined {len(both_modes)} \\ifmmode macro(s) for formula and "
+              f"prose alike: " + ', '.join('\\' + n for n in both_modes[:8]))
     if math_defined:
         print(f"Defined {len(math_defined)} package macro(s) the formulas use "
               f"for pandoc: " + ', '.join('\\' + n for n in math_defined[:8]))

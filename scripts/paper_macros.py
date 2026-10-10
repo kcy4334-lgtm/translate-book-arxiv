@@ -1291,3 +1291,75 @@ def math_definitions(tex, sources):
     block = '\n'.join(lines) + '\n'
     at = begin.start() if begin else 0
     return tex[:at] + block + tex[at:], sorted(out)
+
+
+def _ifmmode_as_ensuremath(body):
+    r"""Each `\ifmmode A\else B\fi` in `body` -> `\ensuremath{A}`.
+
+    Or `B` when `A` is empty. `\ensuremath{A}` prints A in a formula and in
+    prose alike, which is what the conditional was there to arrange; the
+    kerning in A goes, as in `math_definitions`. Returns None when a
+    conditional does not balance.
+    """
+    for _ in range(MAX_DEPTH):
+        start = body.find('\\ifmmode')
+        if start < 0:
+            return body
+        if re.match(r'\\ifmmode[a-zA-Z@]', body[start:]):
+            return None
+        depth, else_at, end = 0, None, None
+        for m in _IF_RE.finditer(body, start):
+            kind = m.group(1)
+            if kind.startswith('if'):
+                depth += 1
+            elif kind == 'else':
+                if depth == 1 and else_at is None:
+                    else_at = m
+            else:
+                depth -= 1
+                if depth == 0:
+                    end = m
+                    break
+        if end is None:
+            return None
+        math = _GLUE_RE.sub('', body[start + len('\\ifmmode'):
+                                     (else_at or end).start()]).strip()
+        text = body[else_at.end():end.start()] if else_at else ''
+        taken = '\\ensuremath{%s}' % math if math else text
+        body = body[:start] + taken + body[end.end():]
+    return body
+
+
+def mode_free_definitions(tex):
+    r"""The paper's own `\ifmmode` macros, defined for both modes. (tex, names).
+
+    `expand_in_source` writes a call in prose with the conditional false; a
+    call inside a formula is left to pandoc, which reads the definition and
+    takes the `\else` branch there too. planck defines
+    `\pann` as `\ifmmode p_{\rm ann}\else $p_{\rm ann}$\fi`, so
+    `$\pann < 2.1$` closed its formula before the `<`, and pandoc stopped the
+    whole conversion at "unexpected <". Rewritten as `\ensuremath{...}`, the
+    definition is right wherever pandoc applies it.
+    """
+    # The whole file, not the preamble: planck defines `\pann` in its body,
+    # just before the section that uses it.
+    clean = strip_comments(tex)
+    edits, names = [], []
+    for rx in (_NEWCOMMAND_RE, _DECLARE_RE, _DEF_RE):
+        for m in rx.finditer(clean):
+            close = _group_end(clean, m.end())
+            if close < 0:
+                continue
+            body = clean[m.end() + 1:close - 1]
+            if '\\ifmmode' not in body or '#' in body:
+                continue
+            fixed = _ifmmode_as_ensuremath(body)
+            if fixed is None or fixed == body:
+                continue
+            # `strip_comments` keeps offsets, so the span is the same in
+            # `tex`; a comment inside the body goes with the rewrite.
+            edits.append((m.end() + 1, close - 1, fixed))
+            names.append(m.group(1) or m.group(2))
+    for start, stop, fixed in sorted(edits, reverse=True):
+        tex = tex[:start] + fixed + tex[stop:]
+    return tex, sorted(set(names))
