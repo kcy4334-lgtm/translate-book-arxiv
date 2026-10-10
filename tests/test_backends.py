@@ -48,6 +48,17 @@ class LayoutDirectivesMustNotReachTheReader(unittest.TestCase):
             'x `\\vspace{2mm}\\textbf{Important}`{=latex} y')
         self.assertIn('Important', got)
 
+    def test_a_trailing_space_and_page_matter_go(self):
+        # gpt3's `\footnotesize `, unet's `\frontmatter\pagestyle{headings}`.
+        self.assertEqual(arxiv_backend.clean_raw_inline_latex(
+            'a `\\footnotesize `{=latex}b `\\frontmatter          `{=latex} '
+            '`\\pagestyle{headings}`{=latex}c'), 'a b  c')
+
+    def test_space_is_a_space(self):
+        # PaLM: `PaLM\space 540B`.
+        self.assertEqual(arxiv_backend.clean_raw_inline_latex(
+            'PaLM `\\space `{=latex}$540$B'), 'PaLM  $540$B')
+
     def test_a_reference_still_keeps_its_label(self):
         got = arxiv_backend.clean_raw_inline_latex(
             'see `\\ref{fig:one}`{=latex} there')

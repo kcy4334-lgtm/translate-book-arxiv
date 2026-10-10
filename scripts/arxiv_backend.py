@@ -3806,6 +3806,11 @@ _LAYOUT_ONLY = re.compile(
     r'|begingroup|endgroup|penalty|postdisplaypenalty|predisplaypenalty'
     r'|interlinepenalty|widowpenalty|clubpenalty|displaybreak|nobreak'
     r'|goodbreak|phantomsection|leavevmode|protect|relax'
+    # Book-class matter switches and page styles: unet's
+    # `\frontmatter\pagestyle{headings}` printed in monospace once its
+    # trailing space stopped hiding it from this pass.
+    r'|frontmatter|mainmatter|backmatter|pagestyle|thispagestyle'
+    r'|tiny|large|Large|LARGE|huge|Huge|tt|ttfamily|rmfamily|sffamily'
     r'|label)\b')
 # The same alternation, unanchored, to ask a different question: is there
 # anything left once every layout directive is removed? One escape can hold
@@ -3829,6 +3834,10 @@ def clean_raw_inline_latex(text):
     """
     def handle(m):
         cmd = m.group(1).strip()
+        # `\space` is a space. PaLM writes `PaLM\space 540B`, and kept as
+        # code it printed `\space` between the name and the size.
+        if re.fullmatch(r'(?:\\space\s*)+', cmd):
+            return ' '
         # Ask what is LEFT, not what it starts with. An escape can hold
         # several directives, and a span whose layout command is followed by
         # text the reader needs must keep that text.
