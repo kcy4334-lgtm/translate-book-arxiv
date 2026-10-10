@@ -82,6 +82,12 @@ class LeaksThatReachedAPage(unittest.TestCase):
     def test_a_citation_key(self):
         self.assertTrue(self.flagged('앞서 [@knuth1984] 참조'))
 
+    def test_a_style_command_printed_in_code(self):
+        # gpt3's prompts, sixteen times.
+        html = ('<p><code>\\color{gray}Poor English input</code> and '
+                '<code>x = y</code></p>')
+        self.assertEqual(dict(lp.styled_code(html)), {'\\color{gray}': 1})
+
     def test_a_cref_key_pandoc_printed(self):
         # PaLM's table captions, fourteen times.
         self.assertIn('[fig:contd_training_results]', self.flagged(

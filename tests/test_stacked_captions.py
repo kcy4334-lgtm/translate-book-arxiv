@@ -79,6 +79,16 @@ class BoxesAndTextFigures(unittest.TestCase):
         self.assertIn('\\noindent \\tt Title: Split \\\\ Article: text ', out)
         self.assertIn('\\setlength{\\fboxsep}{2pt}', out)
 
+    def test_a_group_colour_becomes_textcolor_outside_maths_only(self):
+        tex = ('\\tt{\\color{gray}Poor input.\\\\ Good.} \\textbf{Fixed} '
+               '$a + {\\color{red} b}$ % {\\color{x} $\n'
+               'and {\\color{blue} c} done')
+        out, n = arxiv_backend.scoped_color_declarations(tex)
+        self.assertEqual(n, 2)
+        self.assertIn('\\tt{\\textcolor{gray}{Poor input.\\\\ Good.}}', out)
+        self.assertIn('$a + {\\color{red} b}$', out)
+        self.assertIn('{\\textcolor{blue}{ c}}', out)
+
     def test_a_text_figure_caption_gets_its_number(self):
         import tempfile, shutil
         temp = tempfile.mkdtemp(prefix='tb-textfig-')

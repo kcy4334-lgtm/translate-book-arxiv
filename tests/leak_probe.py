@@ -140,6 +140,27 @@ def candidates(text, source=''):
     return found
 
 
+# Code is excluded above because a listing may quote LaTeX. A code span that
+# OPENS with a colour or size command is not a quotation, though: it is a
+# style pandoc could not apply, printed. gpt3's prompts showed `\color{gray}`
+# sixteen times in monospace and this probe, reading around code, passed.
+_CODE_SPAN_RE = re.compile(r'<code>(.*?)</code>', re.S)
+_STYLE_HEAD_RE = re.compile(
+    r'^\s*(\\(?:color|textcolor|footnotesize|small|scriptsize|tiny|normalsize'
+    r'|large|Large|LARGE|huge|Huge|bfseries|itshape|ttfamily)(?![A-Za-z])'
+    r'(?:\{[^{}]*\})?)')
+
+
+def styled_code(html):
+    """Style commands printed at the head of a code span. token -> count."""
+    found = Counter()
+    for m in _CODE_SPAN_RE.finditer(html):
+        head = _STYLE_HEAD_RE.match(html_lib.unescape(m.group(1)))
+        if head:
+            found[head.group(1)] += 1
+    return found
+
+
 def probe(temp_dir, strict=False, show_all=False):
     path = os.path.join(temp_dir, 'book_doc.html')
     if not os.path.isfile(path):
@@ -147,6 +168,7 @@ def probe(temp_dir, strict=False, show_all=False):
         return 1
     html = io.open(path, encoding='utf-8', errors='replace').read()
     found = candidates(visible(html), source_tex(temp_dir))
+    found.update(styled_code(html))
 
     total = sum(found.values())
     print('tokens carrying markup syntax: %d (%d distinct)'

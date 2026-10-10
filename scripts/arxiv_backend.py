@@ -2581,6 +2581,48 @@ def split_captioned_minipages(tex):
     return _FIGURE_ENV_RE.sub(repl, tex), count
 
 
+_GROUP_COLOR_RE = re.compile(
+    r'\{(\s*)\\color\s*(?:\[[^\]]*\])?\s*\{([^{}]*)\}')
+_TEX_MATH_SPAN_RE = re.compile(
+    r'(?<!\\)\$\$.*?(?<!\\)\$\$|(?<!\\)\$(?:[^$\\]|\\.)*?(?<!\\)\$'
+    r'|\\\[.*?\\\]|\\\(.*?\\\)'
+    r'|\\begin\{(equation|align|gather|multline|eqnarray|math|displaymath)'
+    r'\*?\}.*?\\end\{\1\*?\}', re.DOTALL)
+
+
+def scoped_color_declarations(tex):
+    r"""`{\color{gray} X}` -> `{\textcolor{gray}{X}}`. Returns (tex, n).
+
+    pandoc keeps a colour declaration raw, and inside monospace it is
+    printed: gpt3's prompts are `\tt{\color{gray}Poor English input: ...}`,
+    and the book showed `\color{gray}` in front of them sixteen times. Only a
+    declaration that opens a brace group is rewritten -- the group is its
+    scope. A bare one would colour to the end of an enclosing group this
+    cannot see from here, and rewriting it could carry the colour across an
+    environment's end.
+    """
+    # Not inside a formula: texmath reads `\color` there and refuses
+    # `\textcolor`.
+    # Paired on a copy with the comments blanked (offsets kept): a `$` in a
+    # comment would pair every formula after it the wrong way.
+    maths = [(s.start(), s.end()) for s in
+             _TEX_MATH_SPAN_RE.finditer(paper_macros.strip_comments(tex))]
+    count, pieces, cursor = 0, [], 0
+    for m in _GROUP_COLOR_RE.finditer(tex):
+        if m.start() < cursor or any(a <= m.start() < b for a, b in maths):
+            continue
+        close = _balanced_brace(tex, m.start())
+        if close < 0:
+            continue
+        body = tex[m.end():close - 1]
+        pieces.append(tex[cursor:m.start()])
+        pieces.append('{%s\\textcolor{%s}{%s}}' % (m.group(1), m.group(2), body))
+        cursor = close
+        count += 1
+    pieces.append(tex[cursor:])
+    return ''.join(pieces), count
+
+
 _BOX_RE = re.compile(
     r'\\(?:fbox|framebox(?:\s*\[[^\]]*\]){0,2}'
     r'|parbox(?:\s*\[[^\]]*\]){0,3}\s*\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\})\s*(?=\{)')
@@ -2880,6 +2922,10 @@ def sanitize_tex(tex):
     if arrays:
         print(f"Rewrote {arrays} tabular(s) inside a formula as arrays; "
               f"read as tables they were dropped from the formula")
+    tex, colours = scoped_color_declarations(tex)
+    if colours:
+        print(f"Rewrote {colours} group colour declaration(s) as \\textcolor; "
+              f"pandoc keeps the declaration raw")
     tex, boxes = unwrap_boxes(tex)
     if boxes:
         print(f"Unwrapped {boxes} \\fbox/\\parbox box(es); pandoc keeps them "
@@ -3717,8 +3763,11 @@ def clean_cross_references(text):
 # single escape -- `\begingroup\postdisplaypenalty=10000` is two -- and a
 # pattern that stopped after the first never matched such a span at all, so
 # it was not cleaned, not dropped, and printed to the reader in monospace.
+# The space pandoc keeps after a bare command is allowed before the closing
+# backtick: gpt3's `` `\footnotesize `{=latex} `` was not matched, and 53
+# `{=latex}` stubs stood in its book.
 _RAW_INLINE_RE = re.compile(
-    r'`((?:\\[a-zA-Z@]+(?:\s*(?:\{[^{}]*\}|\[[^\[\]]*\]|=[-\d.]+[a-z]*))*)+)'
+    r'`((?:\\[a-zA-Z@]+(?:\s*(?:\{[^{}]*\}|\[[^\[\]]*\]|=[-\d.]+[a-z]*))*\s*)+)'
     r'`\{=latex\}')
 _LAYOUT_ONLY = re.compile(
     r'^\\(?:looseness|vspace|hspace|noindent|centering|small|footnotesize'
