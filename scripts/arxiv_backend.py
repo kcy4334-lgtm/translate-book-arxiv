@@ -2560,7 +2560,11 @@ def split_captioned_minipages(tex):
         nonlocal count
         env, body = m.group(1), m.group(2)
         pages = list(_MINIPAGE_RE.finditer(body))
-        if len(pages) < 2 or '\\captionof' in body:
+        # `\captionof{figure}` is a figure caption like any other: gpt3's
+        # Figure H.2 is one, beside H.3's `\caption`, and refused here, H.2's
+        # caption was gone from the book. `\captionof{table}` is a table in
+        # a figure (DDPM) and is left to the table path.
+        if len(pages) < 2 or re.search(r'\\captionof\s*\{table\}', body):
             return m.group(0)
         if not all('\\caption' in p.group(1) for p in pages):
             return m.group(0)
@@ -2568,8 +2572,11 @@ def split_captioned_minipages(tex):
         if '\\caption' in outside or '\\includegraphics' in outside:
             return m.group(0)        # a float caption over panels: one figure
         count += 1
-        return '\n\n'.join('\\begin{%s}\n%s\n\\end{%s}' % (env, p.group(1).strip(), env)
-                           for p in pages)
+        return '\n\n'.join(
+            '\\begin{%s}\n%s\n\\end{%s}'
+            % (env, re.sub(r'\\captionof\s*\{figure\}', r'\\caption',
+                           p.group(1).strip()), env)
+            for p in pages)
 
     return _FIGURE_ENV_RE.sub(repl, tex), count
 

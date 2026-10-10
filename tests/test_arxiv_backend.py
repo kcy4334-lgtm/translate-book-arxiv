@@ -362,6 +362,29 @@ class TildeTests(unittest.TestCase):
         self.assertNotIn('texttildelow', out)
 
 
+class CaptionofMinipages(unittest.TestCase):
+    """gpt3's Figure H.2 is a `\\captionof{figure}` minipage beside H.3's
+    `\\caption` one; refused, H.2's caption was not in the book."""
+
+    def test_a_captionof_figure_minipage_splits_too(self):
+        tex = ('\\begin{figure}\\begin{minipage}{.33\\textwidth}'
+               '\\includegraphics{a}\\captionof{figure}{SAT.}\\label{h2}'
+               '\\end{minipage}\\hfill\\begin{minipage}{.6\\textwidth}'
+               '\\includegraphics{b}\\caption{Winograd.}\\end{minipage}'
+               '\\end{figure}')
+        out, n = arxiv_backend.split_captioned_minipages(tex)
+        self.assertEqual(n, 1)
+        self.assertIn('\\caption{SAT.}', out)
+        self.assertEqual(out.count('\\begin{figure}'), 2)
+
+    def test_a_captionof_table_is_left(self):
+        tex = ('\\begin{figure}\\begin{minipage}{.5\\textwidth}'
+               '\\captionof{table}{T.}\\begin{tabular}{c}x\\end{tabular}'
+               '\\end{minipage}\\begin{minipage}{.5\\textwidth}'
+               '\\includegraphics{b}\\caption{F.}\\end{minipage}\\end{figure}')
+        self.assertEqual(arxiv_backend.split_captioned_minipages(tex), (tex, 0))
+
+
 class FormulasBackToBack(unittest.TestCase):
     r"""planck's `{$\rm{\Lambda CDM}$}$+A_{\rm L}$` reached the markdown as
     `$..$$..$`; every `$$` pattern read the middle as a display opening."""
