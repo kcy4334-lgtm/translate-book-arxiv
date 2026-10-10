@@ -3911,6 +3911,9 @@ _LAYOUT_ONLY = re.compile(
     # `\frontmatter\pagestyle{headings}` printed in monospace once its
     # trailing space stopped hiding it from this pass.
     r'|frontmatter|mainmatter|backmatter|pagestyle|thispagestyle'
+    # An index entry prints nothing where it stands: randmat's
+    # `\index{Net}` left an empty code span in its Definition 1.
+    r'|index'
     r'|tiny|large|Large|LARGE|huge|Huge|tt|ttfamily|rmfamily|sffamily'
     r'|label)\b')
 # The same alternation, unanchored, to ask a different question: is there

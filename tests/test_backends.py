@@ -54,6 +54,11 @@ class LayoutDirectivesMustNotReachTheReader(unittest.TestCase):
             'a `\\footnotesize `{=latex}b `\\frontmatter          `{=latex} '
             '`\\pagestyle{headings}`{=latex}c'), 'a b  c')
 
+    def test_an_index_entry_goes(self):
+        # randmat: `\index{Net}\index{Covering numbers}` before a definition.
+        self.assertEqual(arxiv_backend.clean_raw_inline_latex(
+            '*`\\index{Net}\\index{Covering numbers}`{=latex} Let x'), '* Let x')
+
     def test_space_is_a_space(self):
         # PaLM: `PaLM\space 540B`.
         self.assertEqual(arxiv_backend.clean_raw_inline_latex(
