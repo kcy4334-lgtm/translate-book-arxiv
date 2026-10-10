@@ -28,10 +28,13 @@ import latex_rows
 from build_common import _balanced_group
 
 # Where a tabular counts as inside a formula.
+# `\[` only where it opens a display: in `\\[2pt]` it is the spacing argument
+# of a line break, and 2609.11801's author block, read as a display holding
+# its results table, had that table rewritten as an array.
 _MATH_BLOCK_RE = re.compile(
     r'\\begin\{(equation|align|gather|multline|eqnarray|displaymath)(\*?)\}'
     r'.*?\\end\{\1\2\}'
-    r'|\$\$.*?\$\$|\\\[.*?\\\]', re.DOTALL)
+    r'|(?<!\\)\$\$.*?(?<!\\)\$\$|(?<!\\)\\\[.*?(?<!\\)\\\]', re.DOTALL)
 # `tabular*` takes its width first; the width goes, the columns stay.
 _TABULAR_RE = re.compile(
     r'\\begin\{tabular(?:\*\}\s*\{[^{}]*\}|\})\s*(?:\[[^\]]*\]\s*)?(?=\{)')

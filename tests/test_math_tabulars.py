@@ -42,6 +42,12 @@ class InsideAFormula(unittest.TestCase):
         self.assertEqual(n, 1)
         self.assertIn('\\begin{array}{ll}a & \\text{b}\\end{array}', out)
 
+    def test_a_line_break_spacing_is_not_a_display(self):
+        # 2609.11801: `\\[2pt]` in the author block, then a results table.
+        tex = ('Authors\\\\[2pt] names.\n\\begin{table}\\begin{tabular}{ll}'
+               'a & b \\\\ \\end{tabular}\\end{table} and later x \\] y')
+        self.assertEqual(mt.tabulars_in_math_as_arrays(tex), (tex, 0))
+
     def test_a_tabular_in_prose_is_left(self):
         tex = 'text \\begin{tabular}{ll} a & b \\\\ \\end{tabular} more'
         self.assertEqual(mt.tabulars_in_math_as_arrays(tex), (tex, 0))

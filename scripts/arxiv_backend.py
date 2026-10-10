@@ -2588,7 +2588,7 @@ _VERBATIM_LIKE_RE = re.compile(
     r'\*?\}.*?\\end\{\1\*?\}', re.DOTALL)
 _TEX_MATH_SPAN_RE = re.compile(
     r'(?<!\\)\$\$.*?(?<!\\)\$\$|(?<!\\)\$(?:[^$\\]|\\.)*?(?<!\\)\$'
-    r'|\\\[.*?\\\]|\\\(.*?\\\)'
+    r'|(?<!\\)\\\[.*?(?<!\\)\\\]|(?<!\\)\\\(.*?(?<!\\)\\\)'
     r'|\\begin\{(equation|align|gather|multline|eqnarray|math|displaymath)'
     r'\*?\}.*?\\end\{\1\*?\}', re.DOTALL)
 
