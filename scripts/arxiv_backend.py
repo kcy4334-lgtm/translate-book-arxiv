@@ -30,6 +30,7 @@ import urllib.error
 import urllib.request
 
 import drawn_figures
+import halign_tables
 import latex_rows
 import math_guard
 import math_tabulars
@@ -2813,6 +2814,10 @@ def sanitize_tex(tex):
     if split:
         print(f"Split {split} figure(s) of captioned minipages into one figure "
               f"each; pandoc keeps only the last caption of a float")
+    tex, haligns = halign_tables.halign_tables(tex)
+    if haligns:
+        print(f"Rewrote {haligns} plain-TeX \\halign table(s) as tabulars; "
+              f"pandoc has no reader for \\halign")
     tex, arrays = math_tabulars.tabulars_in_math_as_arrays(tex)
     if arrays:
         print(f"Rewrote {arrays} tabular(s) inside a formula as arrays; "
