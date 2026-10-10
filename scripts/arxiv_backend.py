@@ -2583,6 +2583,9 @@ def split_captioned_minipages(tex):
 
 _GROUP_COLOR_RE = re.compile(
     r'\{(\s*)\\color\s*(?:\[[^\]]*\])?\s*\{([^{}]*)\}')
+_VERBATIM_LIKE_RE = re.compile(
+    r'\\begin\{(algorithmic|algorithm2e|algorithm|verbatim|lstlisting|minted)'
+    r'\*?\}.*?\\end\{\1\*?\}', re.DOTALL)
 _TEX_MATH_SPAN_RE = re.compile(
     r'(?<!\\)\$\$.*?(?<!\\)\$\$|(?<!\\)\$(?:[^$\\]|\\.)*?(?<!\\)\$'
     r'|\\\[.*?\\\]|\\\(.*?\\\)'
@@ -2605,8 +2608,12 @@ def scoped_color_declarations(tex):
     # `\textcolor`.
     # Paired on a copy with the comments blanked (offsets kept): a `$` in a
     # comment would pair every formula after it the wrong way.
-    maths = [(s.start(), s.end()) for s in
-             _TEX_MATH_SPAN_RE.finditer(paper_macros.strip_comments(tex))]
+    clean = paper_macros.strip_comments(tex)
+    maths = [(s.start(), s.end()) for s in _TEX_MATH_SPAN_RE.finditer(clean)]
+    # Nor in a listing: `algorithm_float` reads 2609.11867's
+    # `{\color{red}\STATE ...}` lines itself, and the rewritten form reached
+    # its book as `{\textcolor{red}{` text.
+    maths += [(s.start(), s.end()) for s in _VERBATIM_LIKE_RE.finditer(clean)]
     count, pieces, cursor = 0, [], 0
     for m in _GROUP_COLOR_RE.finditer(tex):
         if m.start() < cursor or any(a <= m.start() < b for a, b in maths):
@@ -3640,11 +3647,25 @@ def badge_imageless_figures(text, temp_dir, lang=None):
     import numbering
     words = layout.get_lang_config(lang) if lang else layout.DEFAULT_LANG_CONFIG
     word = words.get('figure_label', 'Figure')
+    flat = os.path.join(temp_dir, 'flat.tex')
+    if not os.path.isfile(flat):
+        return text, 0
+    with open(flat, encoding='utf-8', errors='replace') as fh:
+        source = numbering.strip_tex_comments(fh.read())
     by_label = {}
-    for unit in numbering.read_float_units(temp_dir):
-        if unit['kind'] == 'figure' and unit['number'] is not None:
-            for label in unit['labels']:
-                by_label.setdefault(label, unit['number'])
+    for unit in numbering.float_units(source):
+        region = source[unit['start']:unit['stop']]
+        # A figure that shows an image, or a drawing cropped into one, is
+        # numbered by its images at build time. Neural ODE's Figure 5 is
+        # drawn panels whose caption div came out empty here, and badging it
+        # left `**그림 5 (Fig. 5)** :::` on the page.
+        if unit['kind'] != 'figure' or unit['number'] is None \
+                or '\\includegraphics' in region \
+                or re.search(r'\\begin\{(?:tikzpicture|pgfpicture|picture)\}'
+                             r'|\\input\s*\{', region):
+            continue
+        for label in unit['labels']:
+            by_label.setdefault(label, unit['number'])
     if not by_label:
         return text, 0
     count, pieces, cursor = 0, [], 0
@@ -3663,7 +3684,8 @@ def badge_imageless_figures(text, temp_dir, lang=None):
         ident = re.match(r'\s*#(.*?)\s+(?=\.|[\w-]+=)', m.group(2) + ' .')
         number = by_label.get(ident.group(1)) if ident else None
         caption = _CAPTION_DIV_RE.search(body)
-        if '![' in body or number is None or not caption:
+        if '![' in body or number is None or not caption \
+                or body[caption.end():].lstrip().startswith(':'):
             continue
         badge = '%s %s' % (word, number)
         if word != 'Figure':

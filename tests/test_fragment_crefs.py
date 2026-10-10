@@ -56,6 +56,14 @@ class FragmentCrefs(unittest.TestCase):
         self.assertEqual(out, 'see \\cref{fig:nowhere}')
         self.assertEqual((done, missed), (0, ['fig:nowhere']))
 
+    def test_a_badge_gloss_is_not_a_reference(self):
+        # gpt3: "(Fig. G.12)" in a badge counted as 56 unresolved references.
+        md = 'see (fig:b) and **그림 1 (Fig. 1)** caption.'
+        out, stats = numbering.resolve_references(md, self.dir,
+                                                  mb.get_lang_config('ko'))
+        self.assertEqual((stats['xrefs'], stats['xrefs_missed']), (1, 0))
+        self.assertIn('**그림 1 (Fig. 1)**', out)
+
     def test_without_a_source_nothing_resolves(self):
         render = numbering.reference_renderer(None)
         self.assertIsNone(render('fig:a'))

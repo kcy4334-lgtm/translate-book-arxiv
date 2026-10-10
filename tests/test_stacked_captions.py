@@ -89,6 +89,14 @@ class BoxesAndTextFigures(unittest.TestCase):
         self.assertIn('$a + {\\color{red} b}$', out)
         self.assertIn('{\\textcolor{blue}{ c}}', out)
 
+    def test_a_colour_in_an_algorithm_is_left_to_the_algorithm_reader(self):
+        tex = ('\\begin{algorithmic}\n{\\color{red}\\STATE $x$}\n'
+               '\\end{algorithmic} {\\color{red} text}')
+        out, n = arxiv_backend.scoped_color_declarations(tex)
+        self.assertEqual(n, 1)
+        self.assertIn('{\\color{red}\\STATE $x$}', out)
+        self.assertIn('{\\textcolor{red}{ text}}', out)
+
     def test_a_text_figure_caption_gets_its_number(self):
         import tempfile, shutil
         temp = tempfile.mkdtemp(prefix='tb-textfig-')

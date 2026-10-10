@@ -1008,10 +1008,13 @@ _XREF_LEAD = (r'(?:\b(?:Figs?|Figures?|Tabs?|Tables?|Secs?|Sections?|Eqs?|Eqn|'
 # [^()] matters: without it 'increase (Sec.\u00a0(sec:method))' lets the
 # leading \( swallow the outer bracket, 'Sec' is taken for the kind and the
 # label is captured as '(sec:method' -- which resolves to nothing.
+# A space may follow a colon (randmat labels `s: rows`), never a period:
+# "(Fig. G.12)" is a figure badge's own gloss, not a label, and read as one
+# it counted 56 unresolved references in gpt3's build.
 _XREF_BODY = (
     r'\(\s*(fig|figure|tab|table|eq|eqn|equation|sec|section|subsec|'
     r'app|appendix|alg|algorithm|thm|theorem|lem|lemma|def|definition|'
-    r'prop|proposition|cor|corollary)[:.]\s*([^()\s]+?)\s*\)')
+    r'prop|proposition|cor|corollary)(?::\s*|\.(?!\s))([^()\s]+?)\s*\)')
 _XREF_RE = re.compile(_XREF_LEAD + _XREF_BODY, re.IGNORECASE)
 
 # `\Cref{tab:a,tab:b}` is ONE reference naming two floats, and cleveref prints
