@@ -868,6 +868,89 @@ def _unbox_math(span):
     return span
 
 
+# Plain TeX inside a formula that texmath has no reader for. Each is rewritten
+# to the LaTeX form that typesets the same; planck, written to A&A's class,
+# lost eighteen formulas to these three.
+_OVER_RE = re.compile(r'\\over(?![A-Za-z])')
+_MATHCHOICE_RE = re.compile(r'\\mathchoice\s*(?=\{)')
+_BOLDMATH_RE = re.compile(r'\\boldmath(?![A-Za-z])\s*')
+_OPENERS_RE = re.compile(
+    r'\\left(?![A-Za-z])\s*(?:\\[A-Za-z]+|\\.|.)'
+    r'|\\right(?![A-Za-z])\s*(?:\\[A-Za-z]+|\\.|.)'
+    r'|\\begin\s*\{[^}]*\}|\\end\s*\{[^}]*\}|\\\\|\\.|[{}&$]')
+
+
+def _group_bounds(span, at):
+    """(start, end) of the innermost group around `at`: a brace group, a
+    `\\left..\\right` pair, or a cell of the formula."""
+    tokens = [(m.start(), m.end(), m.group(0)) for m in _OPENERS_RE.finditer(span)]
+    depth, start = 0, 0
+    for s, e, tok in reversed([t for t in tokens if t[0] < at]):
+        if tok == '}' or tok.startswith('\\right') or tok.startswith('\\end'):
+            depth += 1
+        elif tok == '{' or tok.startswith('\\left') or tok.startswith('\\begin'):
+            if depth == 0:
+                start = e
+                break
+            depth -= 1
+        elif depth == 0 and tok in ('&', '\\\\', '$'):
+            start = e
+            break
+    depth, end = 0, len(span)
+    for s, e, tok in [t for t in tokens if t[0] >= at]:
+        if tok == '{' or tok.startswith('\\left') or tok.startswith('\\begin'):
+            depth += 1
+        elif tok == '}' or tok.startswith('\\right') or tok.startswith('\\end'):
+            if depth == 0:
+                end = s
+                break
+            depth -= 1
+        elif depth == 0 and tok in ('&', '\\\\', '$'):
+            end = s
+            break
+    return start, end
+
+
+def _plain_tex_math(span):
+    r"""`{a \over b}` -> `{\frac{a}{b}}`; `\mathchoice{A}{B}{C}{D}` -> `A`;
+    `\boldmath X` -> `\boldsymbol{X}` to the end of its group."""
+    for _ in range(64):
+        m = _MATHCHOICE_RE.search(span)
+        if not m:
+            break
+        first = _balanced_group(span, m.end())
+        if first < 0:
+            break
+        stop, args = first, 1
+        while args < 4:
+            nxt = re.match(r'\s*\{', span[stop:])
+            if not nxt:
+                break
+            close = _balanced_group(span, stop + nxt.end() - 1)
+            if close < 0:
+                break
+            stop, args = close, args + 1
+        if args != 4:
+            break
+        span = span[:m.start()] + span[m.end() + 1:first - 1] + span[stop:]
+    for _ in range(64):
+        m = _BOLDMATH_RE.search(span)
+        if not m:
+            break
+        _start, end = _group_bounds(span, m.start())
+        body = re.sub(r'^\\(?:displaystyle|textstyle)(?![A-Za-z])\s*', '',
+                      span[m.end():end])
+        span = span[:m.start()] + '\\boldsymbol{%s}' % body.strip() + span[end:]
+    for _ in range(64):
+        m = _OVER_RE.search(span)
+        if not m:
+            break
+        start, end = _group_bounds(span, m.start())
+        num, den = span[start:m.start()].strip(), span[m.end():end].strip()
+        span = span[:start] + '\\frac{%s}{%s}' % (num, den) + span[end:]
+    return span
+
+
 def normalize_math_commands(md_text):
     """Modernise the pre-LaTeX2e font switches. Returns (text, stats).
 
@@ -933,7 +1016,8 @@ def normalize_math_commands(md_text):
         # reader for it and refused higgs_atlas's `$100{\--}160$`. Inside
         # formulas only: in markdown prose `\-` is an escaped hyphen.
         text = _INLINE_MATH_SPAN_RE.sub(
-            lambda m: _unbox_math(re.sub(r'(?<!\\)\\-', '', m.group(0))), text)
+            lambda m: _unbox_math(_plain_tex_math(
+                re.sub(r'(?<!\\)\\-', '', m.group(0)))), text)
         return text
 
     held = sorted([(m.start(), m.end(), 'code')

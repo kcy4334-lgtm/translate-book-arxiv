@@ -572,6 +572,29 @@ class TheDocumentsOwnModeMacros(unittest.TestCase):
         self.assertEqual(pm.mode_free_definitions(tex), (tex, []))
 
 
+class FontPackageSymbols(unittest.TestCase):
+    r"""planck loads txfonts and writes `\varv` six times; nothing in the
+    tarball defines it, and every one of those formulas printed as source."""
+
+    def test_a_used_symbol_is_defined_before_the_document(self):
+        tex = ('\\usepackage{amsmath}\n\\usepackage{txfonts}\n'
+               '\\begin{document}\n$\\langle\\sigma \\varv\\rangle$\n'
+               '\\end{document}\n')
+        out, names = pm.package_symbol_definitions(tex)
+        self.assertEqual(names, ['varv'])
+        self.assertLess(out.index('\\newcommand{\\varv}{v}'),
+                        out.index('\\begin{document}'))
+
+    def test_without_the_package_nothing_is_defined(self):
+        tex = '\\begin{document}$\\varv$\\end{document}'
+        self.assertEqual(pm.package_symbol_definitions(tex), (tex, []))
+
+    def test_a_paper_definition_wins(self):
+        tex = ('\\usepackage{txfonts}\\newcommand{\\varv}{V}\n'
+               '\\begin{document}$\\varv$\\end{document}')
+        self.assertEqual(pm.package_symbol_definitions(tex), (tex, []))
+
+
 class ADisplayCanBeOpenedByAMacro(unittest.TestCase):
     r"""planck defines `\be` as `\begin{equation}` and uses it 16 times,
     `\beglet` as `\begin{subequations}` 19 times. `_MATH_SPAN_RE` looks for

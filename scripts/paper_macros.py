@@ -1363,3 +1363,44 @@ def mode_free_definitions(tex):
     for start, stop, fixed in sorted(edits, reverse=True):
         tex = tex[:start] + fixed + tex[stop:]
     return tex, sorted(set(names))
+
+
+# Symbols a font package defines and an arXiv tarball never ships, because the
+# package comes with every TeX installation. Read from the packages' symbol
+# tables, not guessed: txfonts and pxfonts give `\varg`, `\varv`, `\varw` and
+# `\vary`, letter shapes that only differ in the glyph -- the letter itself.
+_PACKAGE_SYMBOLS = {
+    ('txfonts', 'pxfonts'): {'varg': 'g', 'varv': 'v', 'varw': 'w',
+                             'vary': 'y'},
+}
+
+
+def package_symbol_definitions(tex):
+    r"""Define the font-package symbols a paper uses. (tex, names).
+
+    planck loads txfonts and writes $\langle\sigma \varv\rangle$, the
+    annihilation cross-section, six times; no file in the tarball defines
+    `\varv`, so every one of those formulas printed as source.
+    """
+    clean = strip_comments(tex)
+    begin = re.search(r'\\begin\s*\{\s*document\s*\}', tex)
+    at = begin.start() if begin else 0
+    loaded = set()
+    for m in re.finditer(r'\\usepackage\s*(?:\[[^\]]*\])?\s*\{([^}]*)\}',
+                         clean[:at] if begin else clean):
+        loaded.update(p.strip() for p in m.group(1).split(','))
+    lines, names = [], []
+    for packages, symbols in _PACKAGE_SYMBOLS.items():
+        if not loaded.intersection(packages):
+            continue
+        for name, glyph in sorted(symbols.items()):
+            if not re.search(r'\\%s(?![A-Za-z])' % name, clean[at:]):
+                continue
+            if re.search(r'\\(?:(?:re)?newcommand|providecommand|def)\s*\{?\\%s'
+                         r'(?![A-Za-z])' % name, clean):
+                continue
+            lines.append('\\newcommand{\\%s}{%s}' % (name, glyph))
+            names.append(name)
+    if not lines:
+        return tex, []
+    return tex[:at] + '\n'.join(lines) + '\n' + tex[at:], names

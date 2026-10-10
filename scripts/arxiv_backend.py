@@ -4167,6 +4167,10 @@ def build(input_file, temp_dir, arxiv_id, allow_network=True, lang=None):
     flat, macro_report = paper_macros.expand_in_source(
         flat, sources, paper_text=read_pdf_text(input_file))
     flat, math_defined = paper_macros.math_definitions(flat, sources)
+    flat, symbols = paper_macros.package_symbol_definitions(flat)
+    if symbols:
+        print(f"Defined {len(symbols)} font-package symbol(s) the tarball "
+              f"does not ship: " + ', '.join('\\' + n for n in symbols))
     flat, both_modes = paper_macros.mode_free_definitions(flat)
     if both_modes:
         print(f"Defined {len(both_modes)} \\ifmmode macro(s) for formula and "
