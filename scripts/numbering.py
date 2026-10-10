@@ -1735,10 +1735,12 @@ def build_label_index(temp_dir):
         return numbers
     units, _steps = equation_units(defined)
     for unit in units:
+        # Every label the walk finds sits inside an equation, so it wins even
+        # over a section: planck writes `\be ... \label{plik1} \ee`, the
+        # walk above never saw an equation open, and the label named the
+        # section around it -- 3.3.1 where the paper prints (10).
         for label in unit['labels']:
-            label = label.strip()
-            if numbers.get(label, (None, 'equation'))[1] == 'equation':
-                numbers[label] = (unit['printed'], 'equation')
+            numbers[label.strip()] = (unit['printed'], 'equation')
     return numbers
 
 

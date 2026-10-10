@@ -287,6 +287,13 @@ def check_floats(temp_dir, flat, pdf_flat):
         for at in caption_sites(pdf_flat, needle, rivals):
             head = pdf_flat[max(0, at - 30):at]
             found = re.search(label + r'\s*(\d+(?:\.\d+)*)\s*[:.]?\s*$', head)
+            # A label after a running word is a reference, not a caption:
+            # planck's Figure 3 caption reads "...best-fit model of Fig. 1.
+            # Residuals with respect to this theoretical model", the probe
+            # was that second sentence, and Figure 1 was read as its number.
+            if found and re.search(r'\b(?:of|in|see|and|from|to|with|as|by)\s*$',
+                                   head[:found.start()]):
+                continue
             if found:
                 printed.append((found, at))
         # Two captions that open alike, beside two different numbers. The
@@ -413,16 +420,22 @@ def check_references(temp_dir, flat, pdf_flat):
             tail = segment
         # Not run into a word: "5In the closed book" is footnote 5's text.
         # One letter may follow, SINQ's panel `2a`.
-        got = re.match(r'\s*\(?((?:[0-9]+|[A-Z]+)(?:\.[0-9]+)*)\)?'
+        got = re.match(r'\s*\(?((?:[0-9]+|[A-Z]+)(?:\.[0-9]+)*)([a-z]?)\)?'
                        r'(?![A-Za-z]{2})', tail)
         if not got:
             skipped += 1
             continue
-        if got.group(1) == ours:
+        # The letter counts when ours carries one: planck's (11a) is an
+        # equation of a lettered group, and reading it as 11 reported a
+        # number the paper prints exactly. SINQ's `2a` is a panel under a
+        # figure we number 2, and there the letter is not ours to compare.
+        printed = got.group(1) + (got.group(2) if re.search(r'\d[a-z]$', ours)
+                                  else '')
+        if printed == ours:
             agree += 1
         else:
             disagree += 1
-            problems.append('%s: we say %s, the paper prints %s' % (key, ours, got.group(1)))
+            problems.append('%s: we say %s, the paper prints %s' % (key, ours, printed))
     return agree, disagree, skipped, problems
 
 

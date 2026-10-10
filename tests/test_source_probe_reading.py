@@ -44,6 +44,19 @@ class References(unittest.TestCase):
         agree, disagree, _s, problems = references(tex, printed, {'tab:main': '5'})
         self.assertEqual((agree, disagree, problems), (0, 0, []))
 
+    def test_a_lettered_equation_is_read_with_its_letter(self):
+        # planck: "The model of Eqs. (11a) and (11b) is clearly crude".
+        tex = 'the leakage model of Eqs.~(\\ref{PS0a}) and more text.'
+        printed = 'the leakage model of Eqs. (11a) and more text.'
+        agree, disagree, _s, _p = references(tex, printed, {'PS0a': '11a'})
+        self.assertEqual((agree, disagree), (1, 0))
+
+    def test_a_panel_letter_is_still_not_ours_to_compare(self):
+        tex = 'as the left panel of Figure~\\ref{fig:x} shows clearly.'
+        printed = 'as the left panel of Figure 2a shows clearly.'
+        agree, disagree, _s, _p = references(tex, printed, {'fig:x': '2'})
+        self.assertEqual((agree, disagree), (1, 0))
+
     def test_a_real_disagreement_is_still_caught(self):
         tex = 'the results are given in Section~\\ref{sec:tasks} of the paper.'
         printed = 'the results are given in Section 7.1 of the paper.'
@@ -70,6 +83,20 @@ class TwoCaptionsThatOpenAlike(unittest.TestCase):
                    'On the 58 tasks.')
         agree, disagree, skipped, problems = sp.check_floats(None, tex, printed)
         self.assertEqual((agree, disagree, skipped, problems), (0, 0, 1, []))
+
+    def test_a_reference_inside_a_caption_is_not_its_label(self):
+        # planck's Figure 3: "...best-fit model of Fig. 1. Residuals with
+        # respect to this theoretical model are shown in the lower panels."
+        tex = ('\\begin{figure}\\includegraphics{a}\\caption{First.}\\end{figure}'
+               '\\begin{figure}\\includegraphics{b}\\caption{TE and EE: '
+               '\\textit{P} model of Fig.~\\ref{x}. Residuals with respect to '
+               'this theoretical model are shown in the lower panels.}'
+               '\\end{figure}\n')
+        printed = ('Fig. 1. First. Fig. 2. TE and EE: P model of Fig. 1. '
+                   'Residuals with respect to this theoretical model are shown '
+                   'in the lower panels.')
+        _a, disagree, _skipped, problems = sp.check_floats(None, tex, printed)
+        self.assertEqual((disagree, problems), (0, []))
 
 
 if __name__ == '__main__':
