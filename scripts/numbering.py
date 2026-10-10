@@ -1724,6 +1724,21 @@ def build_label_index(temp_dir):
                 current, kind = suspended.pop()
         elif m.group(9) and current is not None:
             numbers.setdefault(m.group(9).strip(), (current, kind))
+    # Equation labels from the walk the printed numbers come from, so a
+    # reference and the number beside the formula cannot disagree. The walk
+    # above counts plain environments; planck's lettered groups and its
+    # macro-built equations put its references from (11) on one or more off.
+    try:
+        with open(flat, 'r', encoding='utf-8', errors='replace') as fh:
+            defined = strip_tex_comments(fh.read(), keep_definitions=True)
+    except OSError:
+        return numbers
+    units, _steps = equation_units(defined)
+    for unit in units:
+        for label in unit['labels']:
+            label = label.strip()
+            if numbers.get(label, (None, 'equation'))[1] == 'equation':
+                numbers[label] = (unit['printed'], 'equation')
     return numbers
 
 
@@ -2261,63 +2276,225 @@ def _numbers_for_block(body):
     return total
 
 
+_DISPLAY_MACRO_DEF_RE = re.compile(
+    r'\\(?:re)?newcommand\s*\*?\s*\{?\s*\\([A-Za-z@]+)\s*\}?\s*(?:\[(\d)\])?\s*\{')
+_LETTER_GROUP_DEF_RE = re.compile(
+    r'\\(?:def|(?:re)?newcommand\s*\{?)\s*\\beglet(?![A-Za-z])')
+_MATH_ENV_CLOSE_RE = re.compile(
+    r'\\end\{(?:IEEEeqnarray|alignat|equation|align|gather|multline'
+    r'|eqnarray|flalign|empheq|dmath)\*?\}')
+
+
+def _expand_display_macros(tex):
+    r"""The paper's own macros that build a numbered display, written out.
+
+    planck's `\twoonesig{..}{..}{..}` IS an `equation`: the counter steps
+    inside the macro body, and a count of `\begin{equation}` in the body text
+    never sees it. Thirteen of planck's equations are made that way.
+    """
+    begin = tex.find('\\begin{document}')
+    if begin < 0:
+        return tex
+    defs = {}
+    for m in _DISPLAY_MACRO_DEF_RE.finditer(tex, 0, begin):
+        close = _balanced_group(tex, m.end() - 1)
+        if close < 0:
+            continue
+        body = tex[m.end():close - 1]
+        # The closing half too: planck's `\be` opens an equation and `\ee`
+        # closes it; expanding only the opener left an equation the walk
+        # could not see the end of.
+        if (_MATH_ENV_OPEN_RE.search(body) or _MATH_ENV_CLOSE_RE.search(body)
+                or 'subequations' in body):
+            defs[m.group(1)] = (int(m.group(2) or 0), body)
+    if not defs:
+        return tex
+    call = re.compile(r'\\(%s)(?![A-Za-z@])'
+                      % '|'.join(re.escape(n) for n in sorted(defs, key=len,
+                                                              reverse=True)))
+    out, cursor, doc = [], 0, tex[begin:]
+    for m in call.finditer(doc):
+        if m.start() < cursor:
+            continue
+        arity, body = defs[m.group(1)]
+        args, j = [], m.end()
+        for _ in range(arity):
+            k = j
+            while k < len(doc) and doc[k] in ' \t\n':
+                k += 1
+            end = _balanced_group(doc, k) if k < len(doc) and doc[k] == '{' else -1
+            if end < 0:
+                break
+            args.append(doc[k + 1:end - 1])
+            j = end
+        if len(args) != arity:
+            continue
+        for n, arg in enumerate(args, 1):
+            body = body.replace('#%d' % n, arg)
+        out.append(doc[cursor:m.start()])
+        out.append(body)
+        cursor = j
+    out.append(doc[cursor:])
+    return tex[:begin] + ''.join(out)
+
+
+def _letter_groups(tex):
+    r"""A&A's `\beglet`..`\endlet`, which letter equations, as `subequations`.
+
+    planck defines `\beglet` to step the parent counter once and print the
+    equations under it as 32a, 32b. Only when the paper defines the pair.
+    """
+    if not _LETTER_GROUP_DEF_RE.search(tex):
+        return tex
+    begin = tex.find('\\begin{document}')
+    if begin < 0:
+        return tex
+    doc = re.sub(r'\\beglet(?![A-Za-z])', r'\\begin{subequations}', tex[begin:])
+    doc = re.sub(r'\\endlet(?![A-Za-z])', r'\\end{subequations}', doc)
+    return tex[:begin] + doc
+
+
+_TAG_RE = re.compile(r'\\tag\*?\s*\{([^{}]*)\}')
+
+
+def equation_units(tex):
+    r"""Every equation number the paper prints, in order. Returns (units, steps).
+
+    `units` is [{'printed': '69a', 'labels': [...], 'numbered': True}], one per
+    number LaTeX sets -- an `equation`, or a row of an `align` that is not
+    `\nonumber` -- plus, with `'numbered': False`, the label of a
+    `subequations` group, which names the parent number. `steps` is how often
+    the counter advanced, which is what the printed maxima add up to.
+
+    One walk for the build's numbers, the labels and the probe. planck
+    letters four groups of equations (69a to 69d), builds thirteen equations
+    inside its own macros and tags none; counted as plain environments its
+    book printed (87) where the paper prints (69a).
+
+    Pass the comment-stripped text WITH its definitions
+    (`strip_tex_comments(raw, keep_definitions=True)`): the display macros
+    are read from them. Only the document body is walked, so a definition's
+    `\begin{equation}` is not counted as one.
+    """
+    tex = _letter_groups(_expand_display_macros(tex))
+    parents = read_counter_parents(tex)
+    for counter, parent in (read_class_conventions(tex).get('parents')
+                            or {}).items():
+        parents.setdefault(counter, parent)
+    fixed = read_fixed_counter_prefix(tex)
+    scoped = parents.get('equation') == 'section'
+    begin = tex.find('\\begin{document}')
+    if begin > 0:
+        tex = tex[begin:]
+    units, counter, steps = [], 0, 0
+    head, depth0, in_appendix = '', 0, False
+    group = None                      # [parent string, letters used]
+    skip_to = -1
+    # Sections, the appendix (which letters a section-scoped counter),
+    # lettered groups and the numbered displays, in one pass.
+    walk = re.compile(
+        r'\\(?:sub)*section(\*?)\s*(?:\[[^\]]*\]\s*)?\{'
+        r'|\\(appendix(?![a-zA-Z])|begin\s*\{append(?:ix|ices)\})'
+        r'|\\(begin|end)\{subequations\}'
+        r'|' + _MATH_ENV_OPEN_RE.pattern)
+    for m in walk.finditer(tex):
+        if m.start() < skip_to:
+            continue
+        if m.group(2):
+            in_appendix, depth0, head = True, 0, ''
+            if scoped:
+                counter = 0
+            continue
+        if m.group(1) is not None and m.group(0).lstrip('\\').startswith(
+                ('section', 'subsection', 'subsubsection')):
+            if m.group(1) or m.group(0).count('sub'):
+                continue
+            depth0 += 1
+            head = (chr(ord('A') + depth0 - 1) if in_appendix else str(depth0))
+            if scoped:
+                counter = 0
+            continue
+        if m.group(3) == 'begin':
+            counter += 1
+            steps += 1
+            parent = _counter_label('equation', counter, parents, head, fixed)
+            group = [parent, 0]
+            # A label before the first display names the whole group.
+            nxt = _MATH_ENV_OPEN_RE.search(tex, m.end())
+            lead = tex[m.end():nxt.start() if nxt else len(tex)]
+            labels = re.findall(r'\\label\s*\{([^}]+)\}', lead)
+            if labels:
+                units.append({'printed': parent, 'labels': labels,
+                              'numbered': False})
+            continue
+        if m.group(3) == 'end':
+            group = None
+            continue
+        env, star = m.group(4), m.group(5)
+        inner = latex_rows.env_body(tex, m.end(), env)
+        skip_to = m.end() + len(inner)
+        if star:
+            continue
+        if env == 'empheq':
+            # It names the environment it numbers as an argument, as
+            # `_numbers_for_block` reads it.
+            arg = _EMPHEQ_ARG_RE.match(inner)
+            if arg and arg.group(2):
+                continue
+            if arg:
+                env, inner = arg.group(1), inner[arg.end():]
+            rows = (latex_rows.split_rows(inner) if env in _ROW_NUMBERED
+                    else [inner])
+        elif env in _ROW_NUMBERED:
+            rows = latex_rows.split_rows(inner)
+        else:
+            rows = [inner]
+        pending = []
+        for row in rows:
+            labels = [l.strip() for l in re.findall(r'\\label\s*\{([^}]+)\}', row)]
+            if env in _ROW_NUMBERED and re.search(r'\\(?:nonumber|notag)\b', row):
+                pending.extend(labels)
+                continue
+            tag = _TAG_RE.search(row)
+            if tag:
+                printed = tag.group(1).strip()
+            elif group is not None:
+                group[1] += 1
+                printed = group[0] + 'abcdefghijklmnopqrstuvwxyz'[(group[1] - 1) % 26]
+            else:
+                counter += 1
+                steps += 1
+                printed = _counter_label('equation', counter, parents, head, fixed)
+            units.append({'printed': printed, 'labels': pending + labels,
+                          'numbered': True})
+            pending = []
+        if pending and units:
+            units[-1]['labels'].extend(pending)
+    return units, steps
+
+
 def flat_equation_numbers(temp_dir):
-    r"""The number strings the paper issues, in order, or None.
+    r"""The number strings the paper prints, in order, or None.
 
-    Only for a paper whose equation counter is scoped to something — Shor 1995
-    prints `(2.1)`. Derived from flat.tex because that is where the section
-    structure is: the merged markdown has headings but no reliable mapping back
-    to the source's own section numbering, and re-deriving it there would be a
-    second, disagreeing implementation of the same thing.
+    For the papers whose numbers are not simply 1, 2, 3: a counter scoped to
+    the section (Shor's `(2.1)`), lettered groups (planck's `(69a)`), a
+    `\tag`. Derived from flat.tex because that is where the structure is.
 
-    Returns None when the paper numbers flat, so nothing changes for it.
+    Returns None when the paper numbers 1..N, so nothing changes for it.
     """
     flat = os.path.join(temp_dir or '', 'flat.tex')
     if not temp_dir or not os.path.isfile(flat):
         return None
     try:
         with open(flat, 'r', encoding='utf-8', errors='replace') as fh:
-            tex = strip_tex_comments(fh.read())
+            tex = strip_tex_comments(fh.read(), keep_definitions=True)
     except OSError:
         return None
-    # The class counts too. `build_label_index` and `float_units` were taught
-    # this and THIS reader was not, so an amsart paper -- which scopes the
-    # equation counter to the section without saying so anywhere -- came back
-    # None here and had its equations numbered flat, 1, 2, 3, where its own
-    # pages print (2.1). The same shape of drift as K179, one file over.
-    parents = read_counter_parents(tex)
-    for counter, parent in (read_class_conventions(tex).get('parents')
-                            or {}).items():
-        parents.setdefault(counter, parent)
-    if parents.get('equation') != 'section':
+    units, _steps = equation_units(tex)
+    strings = [u['printed'] for u in units if u['numbered']]
+    if not strings or strings == [str(i) for i in range(1, len(strings) + 1)]:
         return None
-
-    numbers, head, count = [], '', 0
-    # The appendix branch is LAST so groups 1 and 2 keep their positions --
-    # the star and the environment are read by number a few lines down.
-    # Without it this walk counted sections straight through `\appendix` and
-    # issued 8.1 to 8.9 for equations 2609.04930 prints as A.1 and B.1. The
-    # fourth reader of the same fact, after `build_label_index`,
-    # `float_units` and the class table (K180, K185).
-    token = re.compile(r'\\(?:sub)*section(\*?)\s*(?:\[[^\]]*\]\s*)?\{'
-                       r'|\\begin\{(' + '|'.join(_NUMBERED_MATH_ENVS) +
-                       r')\}'
-                       r'|\\(appendix(?![a-zA-Z])'
-                       r'|begin\s*\{append(?:ix|ices)\})')
-    depth0 = 0
-    in_appendix = False
-    for m in token.finditer(tex):
-        if m.group(3):
-            in_appendix, depth0, head, count = True, 0, '', 0
-        elif m.group(2):
-            count += 1
-            numbers.append('%s.%d' % (head, count) if head else str(count))
-        elif not m.group(1) and m.group(0).count('sub') == 0:
-            depth0 += 1
-            head = (chr(ord('A') + depth0 - 1) if in_appendix
-                    else str(depth0))
-            count = 0
-    return numbers or None
+    return strings
 
 
 def equation_numbers(md_text, strings=None):

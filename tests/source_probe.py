@@ -162,7 +162,12 @@ def check_equations(flat, pdf_lines):
     counter that is wrong shows up as a disagreement with the printed
     markers, which is exactly how the drift above was found.
     """
-    counted = mb._numbers_for_block(flat)
+    # How often the counter advances, from the walk the build numbers by: a
+    # lettered group (planck's 69a to 69d) advances it once, a `\tag` not at
+    # all, and the paper's own display macros are counted where they are
+    # called. Counting display rows instead said 94 for planck, whose last
+    # printed number is (84b).
+    _units, counted = mb.equation_units(flat)
     printed = [l.strip() for l in pdf_lines if _EQ_MARKER_RE.match(l.strip())
                and not _NOT_AN_EQ_NUMBER_RE.search(l.strip())]
     return counted, printed_equation_count(printed)
@@ -189,7 +194,8 @@ def printed_equation_count(markers):
     """
     groups = {}
     for text in markers:
-        parts = text.strip('()').split('.')
+        # `(69a)` is a letter under number 69, not a number of its own.
+        parts = re.sub(r'[a-z]$', '', text.strip('()')).split('.')
         try:
             nums = [int(p) for p in parts]
         except ValueError:
@@ -459,7 +465,9 @@ def probe(temp_dir, strict=False):
             fails.append('%d heading(s) could not be found in the original'
                          % stats['missing'])
 
-    counted, printed = check_equations(flat, pdf_lines)
+    # With its definitions: the paper's display macros are read from them.
+    counted, printed = check_equations(
+        mb.strip_tex_comments(read(flat_path), keep_definitions=True), pdf_lines)
     print('equations  : %d numbered by LaTeX, %d "(N)" printed in the PDF'
           % (counted, printed))
     if counted != printed:

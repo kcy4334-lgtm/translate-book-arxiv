@@ -139,7 +139,9 @@ class ASubequationsMarkerIsStillAMarker(unittest.TestCase):
         self.assertEqual(self.counted('(2a)', '(2b)'), 2)
 
     def test_a_lettered_marker_with_a_section_prefix_counts(self):
-        self.assertEqual(self.counted('(2.1a)', '(2.1b)'), 2)
+        # One step of the counter, lettered twice: the count is of steps,
+        # because that is what the build's walk counts (planck's 69a-69d).
+        self.assertEqual(self.counted('(2.1a)', '(2.1b)'), 1)
 
     def test_the_plain_forms_still_count(self):
         self.assertEqual(self.counted('(3)', '(2.1)'), 2)

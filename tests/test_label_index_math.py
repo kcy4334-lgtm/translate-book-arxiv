@@ -91,13 +91,18 @@ class ALabelTakesItsOwnDisplaysNumber(unittest.TestCase):
         self.assertEqual(got.get('sec:one'), '1')
         self.assertEqual(got.get('eq:group'), '1')
 
-    def test_the_wrapper_and_its_inner_display_share_one_number(self):
-        r"""LaTeX advances the parent counter once for the group."""
+    def test_the_wrapper_names_the_parent_and_a_row_its_letter(self):
+        r"""LaTeX advances the parent counter once for the group and letters
+        what is inside: the wrapper's label is (1), the row's is (1a). This
+        test once asserted the two were equal; planck's (69a) to (69d) are
+        four equations in one group and showed it was not so."""
         body = ('\\begin{subequations}\\label{eq:group}\n'
                 '\\begin{align}\\label{eq:inner}a &= b\\end{align}\n'
+                '\\begin{equation}\\label{eq:second}c\\end{equation}\n'
                 '\\end{subequations}\n')
         got = self.numbers(body)
-        self.assertEqual(got.get('eq:group'), got.get('eq:inner'))
+        self.assertEqual((got.get('eq:group'), got.get('eq:inner'),
+                          got.get('eq:second')), ('1', '1a', '1b'))
 
     def test_the_group_consumes_exactly_one_number(self):
         """The equation after a subequations block must not skip. A fix

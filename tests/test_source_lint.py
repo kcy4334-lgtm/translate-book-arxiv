@@ -804,7 +804,7 @@ class ASectionWalkKnowsAboutTheAppendix(unittest.TestCase):
         found = {'%s:%s' % (module, func)
                  for module, func, _body in self.walkers()}
         for expected in ('numbering.py:float_units',
-                         'numbering.py:flat_equation_numbers'):
+                         'numbering.py:equation_units'):
             self.assertIn(expected, found)
 
 

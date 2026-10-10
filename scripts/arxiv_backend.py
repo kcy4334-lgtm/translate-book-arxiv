@@ -3669,6 +3669,47 @@ def repair_display_math(text):
     return text
 
 
+_DISPLAY_ENV_OPEN_RE = re.compile(
+    r'\\begin\{(IEEEeqnarray|alignat|equation|align|gather|multline'
+    r'|eqnarray|flalign|empheq|dmath)(\*?)\}')
+
+
+def split_display_groups(text):
+    r"""A `$$` holding several displays becomes one `$$` per display. (text, n).
+
+    pandoc writes a `subequations` group as one display holding every
+    equation in it: planck's (69a) to (69d) arrived as four `equation`
+    environments in one `$$`, set side by side as one formula far wider than
+    the page, under one number where the paper prints four.
+    """
+    count = 0
+
+    def split(m):
+        nonlocal count
+        body = m.group(1)
+        parts, cursor = [], 0
+        for env in _DISPLAY_ENV_OPEN_RE.finditer(body):
+            if env.start() < cursor:
+                continue
+            if body[cursor:env.start()].strip():
+                return m.group(0)          # something else between them
+            name = env.group(1) + env.group(2)
+            inner = latex_rows.env_body(body, env.end(), env.group(1))
+            close = re.compile(r'\\end\{%s\}' % re.escape(name)).match(
+                body, env.end() + len(inner))
+            if not close:
+                return m.group(0)
+            parts.append(body[env.start():close.end()])
+            cursor = close.end()
+        if len(parts) < 2 or body[cursor:].strip():
+            return m.group(0)
+        count += len(parts) - 1
+        return '\n'.join('$$%s$$' % p for p in parts)
+
+    text = re.sub(r'(?<!\\)\$\$(.*?)(?<!\\)\$\$', split, text, flags=re.S)
+    return text, count
+
+
 def strip_pandoc_divs(text):
     """Drop `:::` fenced-div wrapper lines while keeping their contents."""
     return '\n'.join(
@@ -4166,6 +4207,10 @@ def postprocess_markdown(text, tex_dir, root, temp_dir, work_dir,
     # terminates `$$` math in pandoc's markdown reader. Repairing first would
     # therefore miss every equation that carried a label.
     text = repair_display_math(text)
+    text, split = split_display_groups(text)
+    if split:
+        print(f"Split {split} display(s) out of grouped formulas "
+              f"(subequations); written as one they ran off the page")
     text = resolve_images(text, tex_dir, root, temp_dir, work_dir)
     text = re.sub(r'\n{4,}', '\n\n\n', text)
     return text.strip() + '\n'
