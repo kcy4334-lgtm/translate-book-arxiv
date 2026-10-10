@@ -32,6 +32,7 @@ import urllib.request
 import drawn_figures
 import latex_rows
 import math_guard
+import math_tabulars
 import paper_macros
 from build_common import _balanced_group as _balanced_brace, _in_latex_comment
 
@@ -2812,6 +2813,10 @@ def sanitize_tex(tex):
     if split:
         print(f"Split {split} figure(s) of captioned minipages into one figure "
               f"each; pandoc keeps only the last caption of a float")
+    tex, arrays = math_tabulars.tabulars_in_math_as_arrays(tex)
+    if arrays:
+        print(f"Rewrote {arrays} tabular(s) inside a formula as arrays; "
+              f"read as tables they were dropped from the formula")
     tex, stacked = split_stacked_captions(tex)
     if stacked:
         print(f"Split {stacked} figure(s) stacking image and caption twice "
