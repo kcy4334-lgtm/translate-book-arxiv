@@ -257,6 +257,19 @@ here; the test is the real record. This file is for the *reasoning*, the
 | A chunk fails as untranslated over a university or institute name | [K233](#k233) |
 | A brace group closed early or read too far around `\{` or `\}` | [K234](#k234) |
 | KNOWLEDGE.md write refused under a plugin install | [K235](#k235) |
+| Two figures in one float printed as panels of one; a label lost to the next float | [K236](#k236) |
+| A drawn plot (gnuplot `picture`) missing; raw `\sbox` on the image line | [K237](#k237) |
+| Table caption printed twice, `[fig:x]` key in a table caption, `****` in DOCX captions | [K238](#k238) |
+| Blank lines vanish from prose after a formula; `$a$$b$` | [K239](#k239) |
+| pandoc stops: `unexpected \and`, `unexpected <`, `unexpected [`; all footnotes lost | [K240](#k240) |
+| `\halign` table missing; tabular inside an equation dropped | [K241](#k241) |
+| Figure printed as body text, boxed text missing, text/table figure unnumbered | [K242](#k242) |
+| `\color{..}` printed in monospace | [K243](#k243) |
+| Equation numbers off (lettered groups, macro-built equations, `\tag`) | [K244](#k244) |
+| `\over`, `\mathchoice`, `\boldmath`, `\bfseries` or a text box breaks a formula | [K245](#k245) |
+| Original-title gloss shows braces or a footnote; heading not found on a wrapped line | [K246](#k246) |
+| A probe misreads `(11a)`, `Fig. 1.` in a caption, `3.1`, `G.1`, `<0.1%` | [K247](#k247) |
+| Footnotes all on the last page | [K248](#k248) |
 
 ---
 
@@ -3414,6 +3427,143 @@ had its KNOWLEDGE.md write refused. SKILL.md Step 9 "**Where to write.**"
 names `findings.md`, and the final report names the file for an issue.
 `--cleanup-only` keeps it.
 *Status: GUARDED by `test_knowledge` (wording); measured on e2e14_demo 2026-10-10.*
+
+---
+
+### K236
+**A float stacking image, caption, image, caption is two figures.**
+`arxiv_backend.split_stacked_captions` splits it before pandoc (refuses a cut
+that breaks an environment); `numbering.float_units` cuts after a caption at
+the next content, so a label after a `\vspace` stays with its caption.
+PaLM Figs 13/14; ResNet Tables 7/8.
+*Status: LOCKED, `test_stacked_captions`.*
+
+---
+
+### K237
+**A drawn figure's rules may be one-pixel images, not vector paths.**
+Ghostscript paints `\rule` as a stretched 1x1 image (Shor Fig 5.1, gnuplot
+`picture`). `drawn_figures._drawing_rects` counts them; an axis title level
+with the plot joins; gnuplot's `\unitlength`/`\newsavebox`/`\sbox` setup goes
+with the drawing.
+*Status: LOCKED, `test_drawn_figures`.*
+
+---
+
+### K238
+**Raw-table captions: one caption over two tabulars prints once; a `\cref`
+prints word and number; the DOCX caption is bold once.**
+`find_raw_latex_tables` (Shor 3.1), `resolve_fragment_crefs` with
+`numbering.reference_renderer` (PaLM, 14 keys), markdown path no longer wraps
+an already-badged caption (23/25 DOCX printed `****표 N**`).
+*Status: LOCKED, `test_float_span`, `test_fragment_crefs`, `test_table_fragments`.*
+
+---
+
+### K239
+**`$a$$b$` is two formulas; every `$$` regex read it as a display.**
+`join_adjacent_inline_math` writes `${a}{b}$` first in `postprocess_markdown`;
+mispaired, `repair_display_math` removed blank lines from 1,700 chars of
+prose (planck). Code spans are skipped by their backtick run length.
+*Status: LOCKED, `test_arxiv_backend.FormulasBackToBack`.*
+
+---
+
+### K240
+**Things that stopped pandoc on planck.**
+`\and` left by an unwrapped `\institute` (now a paragraph break);
+`\ifmmode` macros taking the `\else` branch inside a formula
+(`paper_macros.mode_free_definitions` -> `\ensuremath{math branch}`, `$..$`
+inside it -> `\mathrm{..}`); `\providecommand{\x[1]}` (count moved out);
+`%` inside `\href`/`\url` (escaped; otherwise the link's brace was lost and
+every footnote definition after it vanished).
+*Status: LOCKED, `test_front_matter`, `test_paper_macros`, `test_arxiv_backend`.*
+
+---
+
+### K241
+**Plain-TeX tables and tables inside formulas.**
+`halign_tables.py`: `\halign` (A&A template, `\setbox\tablebox=\vbox`,
+`\omit`, `\multispan`, `\noalign{\hrule}`, active-character kerns) -> tabular.
+`math_tabulars.py`: a tabular inside a display -> `array` (text runs as
+`\text{}`); `\\[2pt]` is a line break, never a display opener.
+*Status: LOCKED, `test_halign_tables`, `test_math_tabulars`.*
+
+---
+
+### K242
+**Figures pandoc does not form: `center` inside a figure, boxed text,
+image-less figures, `\captionof{figure}` minipages.**
+`unwrap_centered_figures`, `unwrap_boxes` (`\fbox`/`\framebox`/`\parbox`;
+gpt3's articles were dropped whole), `badge_imageless_figures` (badge at
+conversion, labelled text/table figures only; gpt3 G.1-G.51),
+`split_captioned_minipages` accepts `\captionof{figure}` (gpt3 H.2).
+*Status: LOCKED, `test_stacked_captions`, `test_arxiv_backend`.*
+
+---
+
+### K243
+**A group colour declaration becomes `\textcolor`, outside formulas and
+listings only.** pandoc kept `{\color{gray}..}` raw; in `\tt` it printed
+(gpt3 x16). texmath reads `\color`, not `\textcolor`; `algorithm_float` reads
+listing colours itself. `leak_probe.styled_code` flags a style command
+opening a code span.
+*Status: LOCKED, `test_stacked_captions`, `test_leak_probe`.*
+
+---
+
+### K244
+**Equation numbers come from one walk: `numbering.equation_units`.**
+Lettered groups (`subequations`, A&A `\beglet`) step once and letter what they
+hold; the paper's display macros (`\twoonesig`, `\be`/`\ee`) are expanded
+first; `\tag` prints without stepping; only the document body is walked
+(pass `strip_tex_comments(raw, keep_definitions=True)`). Used by
+`flat_equation_numbers`, `build_label_index` (walk labels win) and
+source_probe (counter steps vs printed maxima). `split_display_groups` gives
+each equation of a group its own `$$`. planck: 84 = 84, sequence matches PDF.
+*Status: LOCKED, `test_equation_units`, `test_label_index_math`, `test_align_rows`.*
+
+---
+
+### K245
+**Formula rewrites for texmath (`latex_cleanup._plain_tex_math`,
+`_unbox_math`, `_mixed_boxes`).**
+`\over` -> `\frac` in its group/`\left..\right`/cell; `\mathchoice` -> display
+branch; `\boldmath` -> `\boldsymbol`; `\o` etc. -> `\text{ø}`; `\\` in an inline
+formula -> space; `\text{\bfseries ..}` -> `\textbf`; `\mbox{\mathrm{..}}` and
+text boxes holding formula parts split into runs; `{\rm(x)}` needs no space.
+Definitions: aa.cls stacked relations -> `\gtrsim`/`\lesssim`; decimal marks
+(`\pdeg`) -> `{.}^{\circ}`; txfonts `\varv` etc.
+*Status: LOCKED, `test_plain_tex_math`, `test_paper_macros`.*
+
+---
+
+### K246
+**Heading gloss and PDF matching.**
+`clean_heading_title` drops bare groups, `\ `, footnotes, keeps a cited
+label's braces for `cited_titles`. `prefixes_from_lines` matches a wrapped
+title on its formula letters and reads `Conclusions42` as footnote 42.
+aa.cls `\paragraph` is run-in (`_CLASS_CONVENTIONS['aa']`).
+*Status: LOCKED, `test_heading_math`, `test_split_line_prefixes`.*
+
+---
+
+### K247
+**Probe reading fixes this cycle.**
+source_probe: compares a printed letter (`11a`) when ours has one; a float
+label after a running word is a reference, not a caption. format_probe:
+dotted table badges, figure numbers mixing `4.11` and `G.1`. leak_probe:
+bracketed cref keys, `<0.1%`, `\textbackslash`/`\~{}` printed by the paper.
+*Status: LOCKED, `test_source_probe_reading`, `test_sweep_locks`, `test_leak_probe`.*
+
+---
+
+### K248
+**Footnotes print under the paragraph that cites them.**
+`--reference-location=block` on the HTML pandoc call; Chromium has no
+page-foot float. Styled as `aside.footnotes` in template_ebook.html. User
+decision 2026-10-10 (block over section end or Paged.js).
+*Status: measured 2026-10-10, PaLM book.pdf p5.*
 
 ---
 
