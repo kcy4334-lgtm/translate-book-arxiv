@@ -537,6 +537,18 @@ class PackageMacrosInsideFormulas(unittest.TestCase):
         tex, names = pm.math_definitions(doc, [('flat.tex', doc), ('x.sty', sty)])
         self.assertIn('\\newcommand{\\ifb}{\\mbox{fb}^{-1}}', tex)
 
+    def test_a_stacked_relation_is_the_amssymb_symbol(self):
+        # aa.cls's `\ga`: `>` stacked over `\sim` in an `\halign`.
+        sty = ('\\def\\ga{\\mathrel{\\mathchoice {\\vcenter{\\offinterlineskip'
+               '\\halign{\\hfil$\\displaystyle##$\\hfil\\cr>\\cr\\sim\\cr}}}\n'
+               '{\\vcenter{\\offinterlineskip\\halign{\\hfil$\\textstyle##$\\hfil'
+               '\\cr>\\cr\\sim\\cr}}}{x}{y}}}\n'
+               '\\def\\la{\\mathrel{\\vcenter{\\halign{##\\cr<\\cr\\sim\\cr}}}}\n')
+        doc = '\\begin{document}$\\ell \\ga 3000$, $500 \\la \\ell$\\end{document}'
+        tex, names = pm.math_definitions(doc, [('flat.tex', doc), ('aa.cls', sty)])
+        self.assertIn('\\newcommand{\\ga}{\\gtrsim}', tex)
+        self.assertIn('\\newcommand{\\la}{\\lesssim}', tex)
+
     def test_the_true_branch_of_ifmmode(self):
         self.assertEqual(pm._resolve_ifmmode(r'\ifmmode A\else B\fi', math=True),
                          ' A')

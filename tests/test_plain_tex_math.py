@@ -48,6 +48,11 @@ class PlainTexMath(unittest.TestCase):
             r'$C^{TT{\rm(defect)}}_{10}$ and ${\rm \min}$')
         self.assertEqual(out, r'$C^{TT\mathrm{(defect)}}_{10}$ and $\min$')
 
+    def test_a_box_around_a_maths_font_goes(self):
+        # planck's `\twoonesig` label: `\mbox{\text{...}}` -> `\mbox{\mathrm{..}}`.
+        self.assertEqual(lc._unbox_math(r'$\right\} \ \mbox{\mathrm{\mathit{P}\ TT.}}$'),
+                         r'$\right\} \ \mathrm{\mathit{P}\ TT.}$')
+
     def test_overline_and_others_are_untouched(self):
         span = r'$\overline{x} + \overset{a}{b}$'
         self.assertEqual(lc._plain_tex_math(span), span)

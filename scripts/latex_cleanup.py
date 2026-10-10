@@ -858,6 +858,21 @@ def _unbox_math(span):
     for _ in range(8):
         m = _BOXED_MATH_RE.search(span)
         if not m:
+            break
+        inner_close = _balanced_group(span, m.end() - 1)
+        if inner_close < 0:
+            break
+        rest = re.match(r'\s*\}', span[inner_close:])
+        if not rest:
+            break
+        span = (span[:m.start()] + span[m.end():inner_close - 1]
+                + span[inner_close + rest.end():])
+    # The same box around a maths font group: planck's `\twoonesig` sets its
+    # label as `\mbox{\text{..}}`, which pandoc hands on as
+    # `\mbox{\mathrm{..}}`, and texmath refused all ten such equations.
+    for _ in range(8):
+        m = _BOXED_MATHFONT_RE.search(span)
+        if not m:
             return span
         inner_close = _balanced_group(span, m.end() - 1)
         if inner_close < 0:
@@ -865,9 +880,14 @@ def _unbox_math(span):
         rest = re.match(r'\s*\}', span[inner_close:])
         if not rest:
             return span
-        span = (span[:m.start()] + span[m.end():inner_close - 1]
+        head = m.group(1)
+        span = (span[:m.start()] + head + span[m.end() - 1:inner_close]
                 + span[inner_close + rest.end():])
     return span
+
+
+_BOXED_MATHFONT_RE = re.compile(
+    r'\\(?:mbox|hbox)\s*\{\s*(\\math(?:rm|it|bf|sf|tt))\s*\{')
 
 
 # Plain TeX inside a formula that texmath has no reader for. Each is rewritten

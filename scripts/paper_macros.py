@@ -1172,6 +1172,22 @@ def _math_spans(tex, defs):
 _TEXTBOX_RE = re.compile(r'\\(?:mbox|hbox|text|textrm)\s*\{')
 
 
+# A relation built by stacking two symbols in an `\halign`, the way aa.cls
+# builds `\ga` (> over ~) and `\la` (< over ~). texmath reads no `\vcenter`
+# or `\halign`, and planck's 37 uses printed as source; the stacked pair is
+# the symbol amssymb names.
+_STACKED_REL_RE = re.compile(
+    r'\\halign\s*\{[^{}]*\\cr\s*([<>])\s*\\cr\s*\\(sim|approx)\s*\\cr')
+_STACKED_REL = {('>', 'sim'): '\\gtrsim', ('<', 'sim'): '\\lesssim',
+                ('>', 'approx'): '\\gtrapprox', ('<', 'approx'): '\\lessapprox'}
+
+
+def _stacked_relation(body):
+    """The amssymb relation a stacked `\\halign` body draws, or None."""
+    m = _STACKED_REL_RE.search(body)
+    return _STACKED_REL.get((m.group(1), m.group(2))) if m else None
+
+
 def _dollars_as_text(body):
     r"""`\,\mu$K$` -> `\,\mu\mathrm{K}`, for a body that runs in a formula.
 
@@ -1278,6 +1294,10 @@ def math_definitions(tex, sources):
             continue
         d = entries[0] if len(entries) == 1 else settle_by_declaration(entries)
         if d is None or d.optional:
+            continue
+        stacked = _stacked_relation(d.body)
+        if stacked:
+            out[name] = (0, stacked)
             continue
         body = _GLUE_RE.sub('', _resolve_ifmmode(d.body, math=True))
         body = _math_out_of_textboxes(body)
