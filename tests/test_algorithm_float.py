@@ -303,6 +303,15 @@ class FidelityTests(unittest.TestCase):
         html = '<table><caption>Dettmers &amp; Zettlemoyer results</caption></table>'
         self.assertEqual(af.check_latex_float_fidelity(md, html), [])
 
+    def test_a_thin_space_is_a_space(self):
+        # planck: `$217$\,GHz and different point source masks`.
+        md = ('\\begin{table}\n\\caption{coverage at $217$\\,GHz and different '
+              'point source masks, as discussed in the text}\n'
+              '\\begin{tabular}{ll}a & b\\\\\\end{tabular}\n\\end{table}')
+        html = ('<table><caption>coverage at <math>217</math> GHz and different '
+                'point source masks, as discussed in the text</caption></table>')
+        self.assertEqual(af.check_latex_float_fidelity(md, html), [])
+
     def test_a_bare_ampersand_is_still_a_separator(self):
         # The cell divider must not become part of a fingerprint.
         md = ('\\begin{table}\n\\caption{Results across every held out split}\n'

@@ -410,6 +410,10 @@ def _plain_runs(candidate):
     for piece in re.split(r'\$[^$]*\$|\\\(.*?\\\)'
                           r'|\\cite[a-zA-Z]*\s*(?:\[[^\]]*\])*\s*\{[^{}]*\}'
                           r'|\\(?:ref|autoref|eqref)\s*\{[^{}]*\}', text):
+        # A spacing command prints a space, not its punctuation: planck's
+        # `$217$\,GHz` gave the phrase `,GHz and different ...`, and the
+        # table it came from, rendered and present, was reported lost.
+        piece = re.sub(r'\\[,;:!> ]', ' ', piece)
         piece = re.sub(r'\\[A-Za-z]+\*?', ' ', piece)
         # Quote marks go too: a caption writes them as ``...'' and the page
         # renders “...”, so a fingerprint carrying one can never match the
