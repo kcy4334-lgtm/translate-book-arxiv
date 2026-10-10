@@ -3534,6 +3534,71 @@ def strip_pandoc_divs(text):
     )
 
 
+def join_adjacent_inline_math(text):
+    r"""`$a$$b$` -> `${a}{b}$`. Returns (text, count).
+
+    Two formulas with nothing between them print as one. pandoc writes them
+    back to back, and every `$$...$$` pattern downstream reads the `$$` in
+    the middle as a display opening: planck's `{$\rm{\Lambda CDM}$}$+A_{\rm
+    L}$` paired every later `$$` the wrong way, and the display repair
+    then took the blank lines out of 1,700 characters of prose -- a section
+    heading and a figure became one paragraph. Braced, each keeps its own
+    scope, so the formula is the same.
+
+    Walked like pandoc reads it: a `$$` outside any formula opens a display,
+    a `$` opens an inline formula, and a `$` right after an inline formula
+    closes is the next one opening. Code spans are skipped.
+    """
+    out, i, n, count = [], 0, len(text), 0
+    while i < n:
+        ch = text[i]
+        if ch == '`':
+            run = len(text) - len(text[i:].lstrip('`'))
+            ticks = text[i:i + run]
+            end = text.find(ticks, i + run)
+            stop = end + run if end >= 0 else i + run
+            out.append(text[i:stop])
+            i = stop
+            continue
+        if ch == '\\' and i + 1 < n:
+            out.append(text[i:i + 2])
+            i += 2
+            continue
+        if ch != '$':
+            out.append(ch)
+            i += 1
+            continue
+        if text.startswith('$$', i):
+            end = text.find('$$', i + 2)
+            stop = end + 2 if end >= 0 else n
+            out.append(text[i:stop])
+            i = stop
+            continue
+        parts, j = [], i
+        # After a formula closes, `$$` would open a display, not a formula.
+        while j < n and text[j] == '$' and not text.startswith('$$', j):
+            m = _INLINE_MATH_AT_RE.match(text, j)
+            if not m:
+                break
+            parts.append(m.group(1))
+            j = m.end()
+        if len(parts) > 1:
+            out.append('$' + ''.join('{%s}' % p for p in parts) + '$')
+            count += len(parts) - 1
+            i = j
+        elif parts:
+            out.append(text[i:j])
+            i = j
+        else:
+            out.append(ch)
+            i += 1
+    return ''.join(out), count
+
+
+# One inline formula as pandoc writes it: no `$` inside, no blank line.
+_INLINE_MATH_AT_RE = re.compile(r'\$((?:[^$\\\n]|\\.|\n(?!\n))+?)\$')
+
+
 def clean_cross_references(text):
     r"""Turn pandoc's `[1](#fig:x){reference-type=...}` into plain text.
 
@@ -3846,6 +3911,12 @@ def resolve_images(text, tex_dir, root, temp_dir, work_dir):
 def postprocess_markdown(text, tex_dir, root, temp_dir, work_dir,
                          citation_map=None):
     """Repair and normalize pandoc's LaTeX output. Order matters."""
+    # First: every pass below that pairs `$$` would otherwise pair across it.
+    text, joined = join_adjacent_inline_math(text)
+    if joined:
+        print(f"Joined {joined} pair(s) of formulas written back to back "
+              f"($a$$b$); read as a display opening they shifted every later "
+              f"one")
     text = strip_pandoc_divs(text)
     text = clean_cross_references(text)
     text = resolve_citation_keys(text, citation_map)

@@ -362,6 +362,29 @@ class TildeTests(unittest.TestCase):
         self.assertNotIn('texttildelow', out)
 
 
+class FormulasBackToBack(unittest.TestCase):
+    r"""planck's `{$\rm{\Lambda CDM}$}$+A_{\rm L}$` reached the markdown as
+    `$..$$..$`; every `$$` pattern read the middle as a display opening."""
+
+    def test_two_become_one(self):
+        out, n = arxiv_backend.join_adjacent_inline_math(
+            r'the $\rm{\Lambda CDM}$$+A_{\rm L}$ model')
+        self.assertEqual(out, r'the ${\rm{\Lambda CDM}}{+A_{\rm L}}$ model')
+        self.assertEqual(n, 1)
+
+    def test_a_display_is_left(self):
+        text = 'text $a$ and\n$$x = y$$\nmore $b$.'
+        self.assertEqual(arxiv_backend.join_adjacent_inline_math(text), (text, 0))
+
+    def test_a_display_right_after_a_formula_is_left(self):
+        text = 'see $a$$$x$$ end'
+        self.assertEqual(arxiv_backend.join_adjacent_inline_math(text), (text, 0))
+
+    def test_code_and_escaped_dollars_are_left(self):
+        text = 'cost \\$5 and `$a$$b$` here'
+        self.assertEqual(arxiv_backend.join_adjacent_inline_math(text), (text, 0))
+
+
 class ArgumentCountInsideTheName(unittest.TestCase):
     r"""planck: `\providecommand{\arxivlink[1]}{...}` stopped pandoc at
     "unexpected [". LaTeX reads it as `\providecommand{\arxivlink}[1]`."""
