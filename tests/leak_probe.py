@@ -99,7 +99,16 @@ def source_tex(temp_dir):
 
 def written_as_literal(token, source):
     """Does the source spell this token with LaTeX escapes?"""
-    if not source or not any(c in ESCAPABLE for c in token):
+    if not source:
+        return False
+    # A backslash the paper prints, written `{\textbackslash}`: gpt3 quotes a
+    # scraped "(\displaystyle N=mg)" in a dataset example, and the PDF shows it.
+    if '\\' in token and set(token) & SYNTAX <= {'\\'}:
+        spelled = r'(?:\{\\textbackslash\}|\\textbackslash\s*(?:\{\})?)'.join(
+            re.escape(part) for part in token.split('\\'))
+        if re.search(spelled, source):
+            return True
+    if not any(c in ESCAPABLE for c in token):
         return False
     # Any OTHER syntax character means this is not simply an escaped word.
     if any(c in SYNTAX and c not in ESCAPABLE for c in token):

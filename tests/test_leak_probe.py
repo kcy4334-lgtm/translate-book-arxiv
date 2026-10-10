@@ -49,6 +49,13 @@ class NotationThePaperPrints(unittest.TestCase):
         found = lp.candidates('it takes ~65 hours, or ~0.01 s')
         self.assertEqual(dict(found), {})
 
+    def test_a_printed_backslash_is_the_papers_own(self):
+        # gpt3's dataset example quotes "(\displaystyle N=mg)".
+        source = r'that is, N = m g ({\textbackslash}displaystyle N=mg), where'
+        found = lp.candidates('that is, N = m g (\\displaystyle N=mg), where', source)
+        self.assertEqual(dict(found), {})
+        self.assertIn('\\frac', lp.candidates('see \\frac here', source))
+
     def test_a_share_under_a_bound_is_prose(self):
         # PaLM's language table: "Perl <0.1%".
         self.assertEqual(dict(lp.candidates('Perl <0.1% Ruby >=2.5')), {})
