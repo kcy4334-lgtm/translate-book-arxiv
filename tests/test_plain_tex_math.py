@@ -65,6 +65,15 @@ class PlainTexMath(unittest.TestCase):
             lc._unbox_math(r'$(68\%, \mathrm{TT; $\Delta N=0.39$})$'),
             r'$(68\%, \mathrm{TT; }\Delta N=0.39)$')
 
+    def test_a_letter_command_and_a_stray_break(self):
+        # planck: `M$\o$ller`, `$400\\,{\rm deg}^2$`.
+        self.assertEqual(lc._plain_tex_math(r'$\o$'), r'$\text{ø}$')
+        self.assertEqual(lc._plain_tex_math(r'$400\\,{\rm deg}^2$'),
+                         r'$400 ,{\rm deg}^2$')
+        span = r'$$\begin{aligned}a\\b\end{aligned}$$'
+        self.assertEqual(lc._plain_tex_math(span), span)
+        self.assertEqual(lc._plain_tex_math(r'$\omega + \ss$'), r'$\omega + \text{ß}$')
+
     def test_overline_and_others_are_untouched(self):
         span = r'$\overline{x} + \overset{a}{b}$'
         self.assertEqual(lc._plain_tex_math(span), span)

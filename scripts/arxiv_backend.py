@@ -1056,6 +1056,8 @@ _BARE_CITE_RE = re.compile(
 # CafeQ read "(Adepu et al. 2024; Ashkboos et al. 2024b)", ViT read
 # "Kolesnikov et al. (2020; Djolonga et al. 2020)" and Sentence-BERT nested
 # one citation inside another.
+# The braced form pandoc writes for a key it cannot write bare, in text.
+_BRACED_BARE_CITE_RE = re.compile(r'(?<![\[\w@\\.])@\{([^{}\s]+)\}')
 _CITET_LIST_RE = re.compile(
     r'(?<![\[\w@\\.])@([A-Za-z][A-Za-z0-9_:.\-]{1,120}[A-Za-z0-9])'
     r'[ ]\[((?:@[^\]\s;]+;[ ]*)*@[^\]\s;]+)\]')
@@ -1164,7 +1166,9 @@ def resolve_citation_keys(text, citation_map):
     text = _CITET_LIST_RE.sub(handle_list, text)
 
     def handle(m):
-        keys = [k.strip().lstrip('@') for k in m.group(1).split(';')]
+        # pandoc braces a key it cannot write bare: planck's ADS keys,
+        # `[@{2014ApJ...794..171T}]`, printed as they stood.
+        keys = [k.strip().lstrip('@').strip('{}') for k in m.group(1).split(';')]
         labels = []
         for key in keys:
             label = citation_map.get(key)
@@ -1191,6 +1195,8 @@ def resolve_citation_keys(text, citation_map):
 
     out_text = [out]
     out = _BARE_CITE_RE.sub(handle_bare, out)
+    out_text = [out]
+    out = _BRACED_BARE_CITE_RE.sub(handle_bare, out)
 
     if resolved[0] or resolved_bare[0]:
         print(f"Resolved {resolved[0]} citation group(s) and "

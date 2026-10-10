@@ -56,6 +56,11 @@ class NotationThePaperPrints(unittest.TestCase):
         self.assertEqual(dict(found), {})
         self.assertIn('\\frac', lp.candidates('see \\frac here', source))
 
+    def test_a_printed_tilde_is_the_papers_own(self):
+        source = r'Reionization with z\~{}6 Quasars'
+        self.assertEqual(dict(lp.candidates('Reionization with z~6 Quasars',
+                                            source)), {})
+
     def test_a_share_under_a_bound_is_prose(self):
         # PaLM's language table: "Perl <0.1%".
         self.assertEqual(dict(lp.candidates('Perl <0.1% Ruby >=2.5')), {})

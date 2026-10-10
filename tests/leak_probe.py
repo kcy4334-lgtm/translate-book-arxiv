@@ -108,6 +108,12 @@ def written_as_literal(token, source):
             re.escape(part) for part in token.split('\\'))
         if re.search(spelled, source):
             return True
+    # A tilde the paper prints, written `\~{}`: planck's reference to
+    # "Reionization with z˜6 Quasars".
+    if '~' in token and set(token) & SYNTAX <= {'~'}:
+        spelled = r'\\~\s*(?:\{\})?'.join(re.escape(p) for p in token.split('~'))
+        if re.search(spelled, source):
+            return True
     if not any(c in ESCAPABLE for c in token):
         return False
     # Any OTHER syntax character means this is not simply an escaped word.

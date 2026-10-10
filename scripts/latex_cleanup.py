@@ -811,11 +811,15 @@ _RAW_TABLE_RE = re.compile(
     r'\\begin\{(?P<tenv>table\*?|tabular\*?|tabularx|longtable)\}'
     r'.*?\\end\{(?P=tenv)\}', re.DOTALL)
 # Math inside such a table, which is still math and still has to be modernised.
+# One line break is allowed inside an inline formula, never a blank line: a
+# caption wraps its source lines, and planck's `${\rm Y}1\times` / `{\rm Y}2$`
+# was left with its `{\rm ..}` because the formula was never found. `\\[` is
+# a line break with spacing, not a display.
 _MATH_REGION_RE = re.compile(
     r'(?<!\\)\$\$.+?(?<!\\)\$\$'
-    r'|(?<!\\)\$(?:\\.|[^$\\\n])+?(?<!\\)\$'
-    r'|\\\(.+?\\\)'
-    r'|\\\[.+?\\\]'
+    r'|(?<!\\)\$(?:\\.|[^$\\\n]|\n(?![ \t]*\n))+?(?<!\\)\$'
+    r'|(?<!\\)\\\(.+?(?<!\\)\\\)'
+    r'|(?<!\\)\\\[.+?(?<!\\)\\\]'
     r'|\\begin\{(?P<menv>equation|align|alignat|flalign|gather|multline'
     r'|eqnarray|displaymath|math)\*?\}.+?\\end\{(?P=menv)\*?\}',
     re.DOTALL)
@@ -974,9 +978,26 @@ def _group_bounds(span, at):
     return start, end
 
 
+_TEXT_LETTERS = {'o': 'ø', 'O': 'Ø', 'aa': 'å', 'AA': 'Å', 'ae': 'æ',
+                 'AE': 'Æ', 'oe': 'œ', 'OE': 'Œ', 'ss': 'ß'}
+_TEXT_LETTER_RE = re.compile(r'\\(%s)(?![A-Za-z])'
+                             % '|'.join(sorted(_TEXT_LETTERS, key=len, reverse=True)))
+
+
 def _plain_tex_math(span):
     r"""`{a \over b}` -> `{\frac{a}{b}}`; `\mathchoice{A}{B}{C}{D}` -> `A`;
-    `\boldmath X` -> `\boldsymbol{X}` to the end of its group."""
+    `\boldmath X` -> `\boldsymbol{X}` to the end of its group.
+
+    Also a letter command and a stray line break. planck writes
+    `M$\o$ller`, which TeX sets as Møller; texmath has no `\o`. And
+    `$400\\,{\rm deg}^2$`: a `\\` in an inline formula holds no rows, the
+    page shows the comma after it, and texmath refused the formula.
+    """
+    span = _TEXT_LETTER_RE.sub(lambda m: '\\text{%s}' % _TEXT_LETTERS[m.group(1)],
+                               span)
+    if not span.startswith('$$') and span.startswith('$') and '\\\\' in span \
+            and not re.search(r'\\begin\{', span):
+        span = re.sub(r'(?<!\\)\\\\(?!\\)', ' ', span)
     for _ in range(64):
         m = _MATHCHOICE_RE.search(span)
         if not m:

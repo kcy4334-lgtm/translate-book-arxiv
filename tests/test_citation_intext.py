@@ -52,6 +52,15 @@ class BareCitationTests(unittest.TestCase):
         self.assertEqual(resolve('[@adepu2024framequant; @ashkboos2024quarot]'),
                          '(Adepu et al. 2024; Ashkboos et al. 2024b)')
 
+    def test_a_braced_ads_key_resolves(self):
+        # planck's ADS keys: pandoc writes `[@{2014ApJ...794..171T}]`.
+        mapping = dict(MAP, **{'2014ApJ...794..171T': 'POLARBEAR 2014a'})
+        out = ab.resolve_citation_keys(
+            'around 2 sigma [@{2014ApJ...794..171T}]. As @{2014ApJ...794..171T} '
+            'shows.', mapping)
+        self.assertEqual(out, 'around 2 sigma (POLARBEAR 2014a). As '
+                              'POLARBEAR (2014a) shows.')
+
     def test_korean_text_around_the_citation_is_untouched(self):
         out = resolve('레이어에 대해서는 @kim2025zero의 서베이를 참고하라.')
         self.assertEqual(out, '레이어에 대해서는 Kim et al. (2025b)의 서베이를 참고하라.')

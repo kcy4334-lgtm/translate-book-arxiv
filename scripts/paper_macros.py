@@ -1185,7 +1185,26 @@ _STACKED_REL = {('>', 'sim'): '\\gtrsim', ('<', 'sim'): '\\lesssim',
 def _stacked_relation(body):
     """The amssymb relation a stacked `\\halign` body draws, or None."""
     m = _STACKED_REL_RE.search(body)
-    return _STACKED_REL.get((m.group(1), m.group(2))) if m else None
+    if m:
+        return _STACKED_REL.get((m.group(1), m.group(2)))
+    return _decimal_symbol(body)
+
+
+# A&A's decimal symbols: a mark set over the decimal point by measuring it
+# in a box and overlapping (`\rlap`) the point. planck's `\pdeg` prints the
+# "57.°5" of a declination; texmath reads no `\setbox` or `\rlap`, and the
+# coordinate printed as source. The mark over a point is written as the point
+# with the mark after it, which is how a plain rendering shows it.
+_DECIMAL_MARK_RE = re.compile(r'\\setbox\s*0\s*=\s*\\hbox\s*\{\s*\$?\s*'
+                              r'(\^\s*(?:\{[^{}]*\}|\\[A-Za-z]+))\s*\$?\s*\}')
+
+
+def _decimal_symbol(body):
+    """`{.}^{\\circ}` for a decimal-mark macro body, or None."""
+    if '\\rlap' not in body:
+        return None
+    m = _DECIMAL_MARK_RE.search(body)
+    return '{.}%s' % m.group(1).replace(' ', '') if m else None
 
 
 def _dollars_as_text(body):
@@ -1392,7 +1411,9 @@ def mode_free_definitions(tex):
             body = clean[m.end() + 1:close - 1]
             if '\\ifmmode' not in body or '#' in body:
                 continue
-            fixed = _ifmmode_as_ensuremath(body)
+            symbol = _decimal_symbol(body)
+            fixed = ('\\ensuremath{%s}' % symbol if symbol
+                     else _ifmmode_as_ensuremath(body))
             if fixed is None or fixed == body:
                 continue
             # `strip_comments` keeps offsets, so the span is the same in

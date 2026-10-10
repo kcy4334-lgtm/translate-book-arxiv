@@ -549,6 +549,14 @@ class PackageMacrosInsideFormulas(unittest.TestCase):
         self.assertIn('\\newcommand{\\ga}{\\gtrsim}', tex)
         self.assertIn('\\newcommand{\\la}{\\lesssim}', tex)
 
+    def test_a_decimal_mark_is_the_point_and_its_mark(self):
+        # planck's `\pdeg`: a degree sign set over the decimal point.
+        tex = ('\\def\\pdeg{\\ifmmode $\\setbox0=\\hbox{$^{\\circ}$}\\rlap{'
+               '\\hskip.11\\wd0 .}$^{\\circ}\\else \\setbox0=\\hbox{$^{\\circ}$}'
+               '\\rlap{\\hskip.11\\wd0 .}$^{\\circ}$\\fi}\n')
+        out, _names = pm.mode_free_definitions(tex)
+        self.assertIn('\\def\\pdeg{\\ensuremath{{.}^{\\circ}}}', out)
+
     def test_the_true_branch_of_ifmmode(self):
         self.assertEqual(pm._resolve_ifmmode(r'\ifmmode A\else B\fi', math=True),
                          ' A')
