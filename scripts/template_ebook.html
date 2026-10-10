@@ -903,6 +903,20 @@
                marker; on paper it is a bare ↩︎ printed after the last word
                of every footnote. */
             a.footnote-back { display: none; }
+            /* A footnote set under the paragraph that cites it
+               (--reference-location=block): small, under a short rule, and
+               kept with that paragraph where the page allows. */
+            aside.footnotes {
+                font-size: 8.5pt; line-height: 1.45; color: #333;
+                margin: 4pt 0 10pt;
+                break-before: avoid; page-break-before: avoid;
+            }
+            aside.footnotes::before {
+                content: ""; display: block; width: 25%; margin: 0 0 4pt;
+                border-top: 0.5pt solid #999;
+            }
+            aside.footnotes ol { margin: 0; padding-left: 1.6em; }
+            aside.footnotes li p { margin: 0 0 2pt; text-indent: 0; }
             /* The `\thanks` block: submission dates, affiliations, funding,
                DOI. It is a page-1 footnote in the original and reads as one
                here — small, set off by a rule, no body indent. */

@@ -874,6 +874,12 @@ def convert_with_pandoc(md_file, html_file, title, lang_attr, math_mode='mathml'
         '--from', pandoc_from(lang_attr),
         '--to', 'html5',
         '--wrap=preserve',
+        # Each footnote under the paragraph that cites it. pandoc's default
+        # gathers them at the end of the document, and the books printed
+        # every footnote on the last page, far from the sentence it explains.
+        # Chromium has no page-foot float for the PDF, so the paragraph is
+        # the nearest place on the same page.
+        '--reference-location=block',
     ]
     if math_mode == 'mathml':
         cmd.append('--mathml')
