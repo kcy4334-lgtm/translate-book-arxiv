@@ -52,6 +52,21 @@ class Split(unittest.TestCase):
         self.assertEqual(arxiv_backend.split_stacked_captions(tex), (tex, 0))
 
 
+class CentredFigures(unittest.TestCase):
+    """planck centres 35 figures in a `center`; pandoc wrote each as a bare
+    image and a caption paragraph, and the book numbered none of them."""
+
+    def test_center_becomes_centering(self):
+        tex = ('\\begin{figure}\n\\begin{center}\n\\includegraphics{a}\n'
+               '\\end{center}\n\\caption{A.}\n\\end{figure}\n'
+               'text \\begin{center}kept\\end{center}')
+        out, n = arxiv_backend.unwrap_centered_figures(tex)
+        self.assertEqual(n, 1)
+        self.assertIn('\\begin{figure}\n\\centering\n\\includegraphics{a}\n\n'
+                      '\\caption{A.}', out)
+        self.assertIn('text \\begin{center}kept\\end{center}', out)
+
+
 class Units(unittest.TestCase):
 
     def test_the_second_image_belongs_to_the_second_figure(self):

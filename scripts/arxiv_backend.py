@@ -2574,6 +2574,32 @@ def split_captioned_minipages(tex):
     return _FIGURE_ENV_RE.sub(repl, tex), count
 
 
+_CENTER_RE = re.compile(r'\\(begin|end)\s*\{center\}')
+
+
+def unwrap_centered_figures(tex):
+    r"""`\begin{center}` inside a figure becomes `\centering`. (tex, n).
+
+    pandoc reads a figure whose image sits in a `center` as a figure holding
+    a div, which markdown cannot write; with raw HTML off it comes out as a
+    bare image and a caption paragraph, so no figure is formed. planck
+    centres 35 of its figures that way and the book numbered none of them.
+    """
+    count = 0
+
+    def repl(m):
+        nonlocal count
+        body = m.group(2)
+        if not _CENTER_RE.search(body):
+            return m.group(0)
+        count += 1
+        body = _CENTER_RE.sub(
+            lambda c: '\\centering' if c.group(1) == 'begin' else '', body)
+        return m.group(0).replace(m.group(2), body, 1)
+
+    return _FIGURE_ENV_RE.sub(repl, tex), count
+
+
 _STACKED_CAPTION_RE = re.compile(r'\\caption\s*(?:\[[^\]]*\])?\s*\{')
 _STACK_NESTING_RE = re.compile(
     r'\\begin\{(?:minipage|subfigure|subtable|tabular)|\\subfloat|\\subfigure'
@@ -2822,6 +2848,10 @@ def sanitize_tex(tex):
     if arrays:
         print(f"Rewrote {arrays} tabular(s) inside a formula as arrays; "
               f"read as tables they were dropped from the formula")
+    tex, centred = unwrap_centered_figures(tex)
+    if centred:
+        print(f"Unwrapped the center environment in {centred} figure(s); "
+              f"pandoc writes such a figure as a bare image and a paragraph")
     tex, stacked = split_stacked_captions(tex)
     if stacked:
         print(f"Split {stacked} figure(s) stacking image and caption twice "
