@@ -4054,14 +4054,26 @@ def _rasterize_pdf(src, dest, page_no=1):
 
 
 def _eps_to_pdf(src, work_dir):
-    """Convert EPS via epstopdf (shipped with MiKTeX/TeX Live), if available."""
+    """Convert EPS via epstopdf (shipped with MiKTeX/TeX Live), if available.
+
+    An EPS file is a PostScript program, and this one came from arXiv, so
+    Ghostscript runs it sandboxed. `--safer` is epstopdf's default but is
+    said out loud so no installation's default decides it; with it, an EPS
+    that opens a file for writing stops on /invalidfileaccess. `--restricted`
+    also refuses Ghostscript options and any output path that is absolute or
+    climbs out, which is why the output is named relative to `work_dir` and
+    epstopdf runs there.
+    """
     tool = shutil.which('epstopdf')
     if not tool:
         return None
-    out = os.path.join(work_dir, os.path.basename(os.path.splitext(src)[0]) + '.pdf')
+    name = re.sub(r'[^A-Za-z0-9_-]', '_',
+                  os.path.basename(os.path.splitext(src)[0])) + '.pdf'
+    out = os.path.join(work_dir, name)
     try:
-        result = subprocess.run([tool, f'--outfile={out}', src],
-                                capture_output=True, text=True,
+        result = subprocess.run([tool, '--safer', '--restricted',
+                                 f'--outfile={name}', os.path.abspath(src)],
+                                cwd=work_dir, capture_output=True, text=True,
                                 encoding='utf-8', errors='replace', timeout=120)
         if result.returncode == 0 and os.path.isfile(out):
             return out

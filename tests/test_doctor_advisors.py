@@ -23,6 +23,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT_DIR = ROOT / "scripts"
@@ -39,11 +40,13 @@ class TheAdvisorCheckNoticesASkippedInstall(unittest.TestCase):
         """A home directory this test owns, restored afterwards."""
         home = tempfile.mkdtemp(prefix="doctor-home")
         self.addCleanup(shutil.rmtree, home, True)
-        for var in ("HOME", "USERPROFILE"):
-            self.addCleanup(os.environ.pop, var, None)
-            if var in os.environ:
-                self.addCleanup(os.environ.__setitem__, var, os.environ[var])
-            os.environ[var] = home
+        # patch.dict puts back exactly what was there. The cleanups this
+        # replaces ran last-registered first, so the restore ran before the
+        # pop and the suite went on with no HOME at all; TeX Live's
+        # epstopdf wrapper fails without one.
+        env = mock.patch.dict(os.environ, {"HOME": home, "USERPROFILE": home})
+        env.start()
+        self.addCleanup(env.stop)
         # The plugin branch ships the definitions at `agents/`, where a
         # plugin install loads them; run from that folder, they are installed.
         self.addCleanup(setattr, doctor, "PLUGIN_AGENTS", doctor.PLUGIN_AGENTS)

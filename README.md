@@ -76,7 +76,7 @@ This page was written for the repository, with made-up results, so it can be sho
 - **Resumable**: SHA-256 hashes in a manifest keep stale outputs out of the merge, and a changed glossary re-translates only the chunks that used the changed terms
 - **Print-ready PDF**: headless Chromium against a real `@page` box (A4, 18/18/22/18 mm, 11.5 pt), page numbers stamped afterwards because Chrome has no margin boxes. `scripts/layout.py` holds the page geometry and fonts
 - **Output**: HTML with a floating TOC, DOCX, EPUB and PDF, with an optional EPUB cover, working folder and export name
-- **Tests**: 2,693, standard library only, run in CI
+- **Tests**: 2,697, standard library only, run in CI
 
 ## Growing the skill
 
@@ -151,7 +151,11 @@ Everything the skill does outside your agent's own conversation:
 - **Sends** nothing. There is no telemetry and no upload. The translation is
   done by your agent's own model, in its own sub-agents.
 - **Runs** its bundled Python scripts, Pandoc, Calibre's `ebook-convert`, and
-  a headless Chromium, Chrome or Edge to print the PDF.
+  a headless Chromium, Chrome or Edge to print the PDF. When an arXiv paper
+  has EPS figures and TeX Live or MiKTeX is installed, it also runs
+  `epstopdf` on them. An EPS file is a small PostScript program, so it runs
+  with Ghostscript's sandbox on (`--safer --restricted`): the figure cannot
+  write, rename or delete files.
 - **Writes** its working files and the finished book into `<book>_temp/`, in
   the current directory or under the `temp_root` you name. When a run teaches
   it something, it appends to its own logs inside the skill folder
