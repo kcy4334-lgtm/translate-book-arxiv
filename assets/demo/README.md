@@ -6,8 +6,8 @@ hand: `python tools/demo_strip.py <paper.pdf> <page> <book.pdf> <page> <out.png>
 
 | Strip | Source page | Book page | What it shows |
 |---|---|---|---|
-| ![Page 1 of the paper beside page 3 of the Korean book](01-title.png) | 1 | 3 | Title, authors, affiliations, abstract and Figure 1 |
-| ![The Background section beside its Korean page, equations (2) to (5) intact](02-math.png) | 3 | 6 | Equations stay equations, and keep the paper's numbers |
+| ![Page 1 of the paper beside page 3 of the Korean book](01-title.png) | 1 | 3 | Title, abstract and Figure 1 (the authors and their affiliations open the book on page 1) |
+| ![The Background section beside its Korean page, equations (1) to (4) intact](02-math.png) | 3 | 6 | Equations stay equations, and keep the paper's numbers |
 | ![Table 1 of the paper beside Table 1 of the Korean book](03-table.png) | 7 | 13 | Table 1, every number and every `±` unchanged |
 
 ## Source and licence
