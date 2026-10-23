@@ -23,6 +23,11 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(
 
 import arxiv_backend as ab
 
+try:
+    import pypandoc
+except ImportError:          # CI runs the standard library only
+    pypandoc = None
+
 ENTRY = (
     '@misc{openai2024o1,\n'
     '  author = {OpenAI},\n'
@@ -70,10 +75,10 @@ class HowpublishedUrl(unittest.TestCase):
         self.assertEqual(self.read(path), text)
 
 
-@unittest.skipUnless(shutil.which('pandoc'), 'pandoc not installed')
+@unittest.skipUnless(pypandoc and shutil.which('pandoc'),
+                     'pandoc or pypandoc not installed')
 class RenderedEntry(unittest.TestCase):
     def test_the_entry_prints_its_address_and_its_note(self):
-        import pypandoc
         folder = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, folder, True)
         bib = os.path.join(folder, 'refs.bib')

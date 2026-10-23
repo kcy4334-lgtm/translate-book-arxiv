@@ -15,9 +15,16 @@ import unittest
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, 'scripts'))
 
-import render_pages  # noqa: E402
+# The script needs PyMuPDF to import at all, and CI runs the standard library
+# only: there the module did not load, and its tests went missing from the
+# count instead of being skipped.
+try:
+    import render_pages  # noqa: E402
+except ImportError:
+    render_pages = None
 
 
+@unittest.skipUnless(render_pages, 'pymupdf is not installed')
 class RenderPagesTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.mkdtemp()
