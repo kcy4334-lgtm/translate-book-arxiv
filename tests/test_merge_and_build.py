@@ -2193,6 +2193,15 @@ class TableHeaderPromotionTests(unittest.TestCase):
                          + "en & 1 & 2" + BS + BS)
         self.assertEqual(merge_and_build.header_row_count(latex), 2)
 
+    def test_an_escaped_percent_in_a_header_is_not_a_comment(self):
+        # 2609.11801's Table 7 heads a column `accuracy (\%)`. Read as a
+        # comment, the rest of that line went with it, the `\\` ending the
+        # row too, and the table had no header at all.
+        latex = self.tab(BS + "toprule" + NL + "& acc (" + BS + "%) & n"
+                         + BS + BS + NL + "& a & b" + BS + BS + NL
+                         + BS + "midrule" + NL + "x & 1 & 2" + BS + BS)
+        self.assertEqual(merge_and_build.header_row_count(latex), 2)
+
     def test_no_midrule_means_no_header(self):
         latex = self.tab(BS + "toprule" + NL + "1 & 2 & 3" + BS + BS)
         self.assertEqual(merge_and_build.header_row_count(latex), 0)

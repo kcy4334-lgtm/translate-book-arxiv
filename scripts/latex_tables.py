@@ -914,7 +914,11 @@ def header_row_count(latex):
 def _header_body(latex):
     """The tabular's rows, with comments and the top rule out of the way."""
     body = latex[latex.find('}', latex.find('{')) + 1:]
-    return re.sub(r'(?m)%.*$', '', body).replace('\\toprule', '', 1)
+    # Comments go by the helper that honours `\%`. A bare `%.*$` took
+    # 2609.11801's `accuracy (\%)` for one, cut its header row there with the
+    # `\\` that ended it, and the table came out with no header at all.
+    body = strip_tex_comments(body, keep_definitions=True)
+    return body.replace('\\toprule', '', 1)
 
 
 def _first_body_rule(body):

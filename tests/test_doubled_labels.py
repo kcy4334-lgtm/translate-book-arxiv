@@ -204,6 +204,34 @@ class DoubledLabels(unittest.TestCase):
         self.assertEqual(got, '표 2에 제시했다')
         self.assertEqual(n, 1)
 
+    def test_a_heading_ending_in_the_label_keeps_its_paragraph(self):
+        """2609.11801, p29: the heading `추가 추론 시 지표` ends in 표 and the
+        paragraph under it opens with `표 7`. Read across the blank line as
+        one doubling, the paragraph joined the heading and printed in bold."""
+        text = '#### 추가 추론 시 지표\n\n표 7은 표 5의 결과를 보완한다.'
+        got, n = mb.drop_doubled_labels(text, {'table': '표'},
+                                        {'table': '{label} {number}'}, KO)
+        self.assertEqual(got, text)
+        self.assertEqual(n, 0)
+
+    def test_a_word_ending_in_the_label_is_not_the_label(self):
+        """Korean spaces its words, so `지표 표 7` is a word and then a
+        reference, not a doubled label."""
+        text = '추가 지표 표 7을 본다'
+        got, n = mb.drop_doubled_labels(text, {'table': '표'},
+                                        {'table': '{label} {number}'}, KO)
+        self.assertEqual(got, text)
+        self.assertEqual(n, 0)
+
+    def test_chinese_still_collapses_inside_a_word(self):
+        """Chinese has no spaces to read a boundary from, so its translator's
+        式 inside 那么式 is still taken as the doubling."""
+        got, n = mb.drop_doubled_labels('那么式 式 (3) 成立',
+                                        {'equation': '式'},
+                                        {'equation': '{label} {number}'}, {})
+        self.assertEqual(got, '那么式 (3) 成立')
+        self.assertEqual(n, 1)
+
     def test_a_word_starting_with_the_label_is_still_safe(self):
         """`표현` must survive: the guard is the digit, not the word."""
         text = '표 표현을 바꾼다'

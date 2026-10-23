@@ -1360,6 +1360,57 @@ def repair_bib_braces(path):
     return repaired
 
 
+# `howpublished = {\url{...}}` and nothing else in the field.
+_HOWPUBLISHED_URL_RE = re.compile(
+    r'(?im)^([ \t]*)howpublished[ \t]*=[ \t]*([{"])[ \t]*\\url[ \t]*'
+    r'\{([^{}\s]+)\}[ \t]*[}"]')
+_BIB_URL_FIELD_RE = re.compile(r'(?im)^[ \t]*url[ \t]*=')
+
+
+def howpublished_urls(path):
+    r"""`howpublished = {\url{X}}` becomes `url = {X}`. Returns the count.
+
+    A web page's address is written that way because BibTeX's standard
+    styles have no `url` field. pandoc reads `howpublished` as the
+    publisher, so the address printed in the publisher's place and took its
+    capital: 2609.11801's OpenAI entry read "Https://openai.com/...". As
+    `url` it is an address, printed as one and linked.
+
+    An entry that already has a `url` keeps it and loses the copy, which
+    would otherwise print twice. Nothing else in the file changes.
+    """
+    try:
+        with open(path, encoding='utf-8', errors='replace') as fh:
+            text = fh.read()
+    except (IOError, OSError):
+        return 0
+    starts = [m.start() for m in _BIB_ENTRY_RE.finditer(text)] + [len(text)]
+    pieces, count = [text[:starts[0]]], 0
+    for start, stop in zip(starts, starts[1:]):
+        entry = text[start:stop]
+        m = _HOWPUBLISHED_URL_RE.search(entry)
+        if m:
+            if _BIB_URL_FIELD_RE.search(entry):
+                tail = re.sub(r'^[ \t]*,?[ \t]*\n?', '', entry[m.end():],
+                              count=1)
+                entry = entry[:m.start()] + tail
+            else:
+                # Same opening delimiter, and the field's own closing one.
+                entry = (entry[:m.start()] + '%surl = %s%s'
+                         % (m.group(1), m.group(2), m.group(3))
+                         + entry[m.end() - 1:])
+            count += 1
+        pieces.append(entry)
+    if not count:
+        return 0
+    try:
+        with open(path, 'w', encoding='utf-8', newline='') as fh:
+            fh.write(''.join(pieces))
+    except (IOError, OSError):
+        return 0
+    return count
+
+
 # Presentation-only markup that pandoc does not consume and that therefore
 # reaches the markdown as literal text. \cellcolor is the one that does real
 # damage: pandoc writes wide tables as *simple tables*, whose columns are
@@ -3536,6 +3587,11 @@ def _full_author_csl(pypandoc):
     reader of the translation had 44 entries shortened that the original
     gives in full. In-text citations keep the default's "et al.". Returns a
     temporary file's path, or None to fall back to the default.
+
+    It also prints an entry's `note`, which the default prints for no type
+    at all. plainnat prints it, so the reader lost what the authors put
+    there: 2609.11801's OpenAI entry ends "Accessed: 2026-08-24" in the
+    paper and stopped at the address in the book.
     """
     try:
         exe = pypandoc.get_pandoc_path()
@@ -3548,6 +3604,14 @@ def _full_author_csl(pypandoc):
         r'\1', style, count=1)
     if not n:
         return None
+    # Last in the entry, as plainnat sets it. The macro's group already
+    # joins its parts with ". ". A pandoc whose style has moved on keeps the
+    # author fix above without this one.
+    patched = re.sub(
+        r'(<macro name="bibliography-author-date">.*?<else>.*?'
+        r'<text variable="references"/>)',
+        r'\1\n          <text variable="note"/>', patched, count=1,
+        flags=re.DOTALL)
     fd, path = tempfile.mkstemp(suffix='.csl', prefix='translate_book_')
     with os.fdopen(fd, 'w', encoding='utf-8', newline='\n') as f:
         f.write(patched)
@@ -4300,6 +4364,10 @@ def build(input_file, temp_dir, arxiv_id, allow_network=True, lang=None):
     if mended:
         print(f"Bibliography: {mended} entry(ies) closed with a brace pandoc "
               f"read as literal text; BibTeX had already closed them")
+    addresses = sum(howpublished_urls(p) for p in bib_files)
+    if addresses:
+        print(f"Bibliography: {addresses} web address(es) moved from "
+              f"howpublished to url; pandoc prints howpublished as a publisher")
     if not bib_files:
         flat = inline_bibliography(flat, work_dir, main_tex)
 

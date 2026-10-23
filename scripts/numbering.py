@@ -2114,6 +2114,10 @@ def drop_abbreviated_label(md_text, label):
     return pattern.sub(strip, md_text), count[0]
 
 
+# Han ideographs and kana: scripts written without spaces between words.
+_UNSPACED_LABEL_RE = re.compile(r'^[぀-ヿ㐀-䶿一-鿿]+$')
+
+
 def drop_doubled_labels(md_text, words, formats, lang_cfg=None):
     r"""`4.1절 절과` -> `4.1절과`. Returns (text, n).
 
@@ -2134,13 +2138,20 @@ def drop_doubled_labels(md_text, words, formats, lang_cfg=None):
     tail = r'(?!\w)'
     if lang_cfg.get('particle_agreement') is True:
         tail = r'(?=(?:%s)?(?!\w))' % '|'.join(_KO_PARTICLES)
+    # A doubling sits inside one sentence, so the space between the two
+    # labels never holds a line break. Allowing one let a heading ending in
+    # the label meet the reference opening the next paragraph: 2609.11801's
+    # `#### 추가 추론 시 지표` over `표 7은 ...` came out `#### 추가 추론 시
+    # 지표 7은 ...`, the whole paragraph printed as a five-line heading.
+    gap = r'[^\S\n]'
     for slot, label in words.items():
         template = formats.get(slot, '{label} {number}')
         head, _sep, after = template.partition('{number}')
         esc = re.escape(label)
         if '{label}' in after:
             # Suffix style: `4.1절 절과` -> `4.1절과`.
-            pattern = re.compile(r'(\d[\d.]*' + esc + r')\s*' + esc + tail)
+            pattern = re.compile(r'(\d[\d.]*' + esc + r')' + gap + '*'
+                                 + esc + tail)
         elif '{label}' in head:
             # Prefix style: `그림 그림 1` -> `그림 1`. Anchored on the number,
             # so a sentence that merely repeats the word is left alone.
@@ -2168,7 +2179,15 @@ def drop_doubled_labels(md_text, words, formats, lang_cfg=None):
             # so this cannot tell them apart; it chooses the visible defect
             # over the invisible one, since a bare `(3)` still reads as an
             # equation reference and `式 式 (3)` reads as nothing.
-            pattern = re.compile(esc + r'\s+(' + esc
+            #
+            # That trade is Chinese and Japanese only. A language that puts
+            # spaces between words has a word boundary to read, and there
+            # the same match takes the end of a word: Korean `지표 표 7` is
+            # "the metric, Table 7", and collapsing it printed `지표 7`.
+            # Which kind of script the label is decides it, so a language
+            # nobody has run yet is covered.
+            lead = '' if _UNSPACED_LABEL_RE.match(label) else r'(?<!\w)'
+            pattern = re.compile(lead + esc + gap + r'+(' + esc
                                  + r'\s*[（(]?\s*[A-Za-z]?\d)')
             md_text, n = pattern.subn(r'\1', md_text)
             total += n

@@ -414,6 +414,16 @@
 
         thead th { border-bottom: 1px solid #4a5568; }
         thead th[colspan]:not(:empty) { border-bottom: 1px solid #4a5568; }
+        /* Inset at both ends like the print sheet's, so two groups side by
+           side do not read as one. A reader without the support keeps the
+           full-width border above. */
+        @supports (background-size: calc(100% - 1em) 1px) {
+            thead th[colspan]:not(:empty) {
+                border-bottom: 0;
+                background: linear-gradient(#4a5568, #4a5568) center bottom /
+                            calc(100% - 1em) 1px no-repeat;
+            }
+        }
         thead tr:not(:last-child) th:not([colspan]) { border-bottom: 0; }
         tbody tr.rule-above > * { border-top: 1px solid #4a5568; }
         tbody tr.rule-above-soft > * { border-top: 1px solid #cbd5e0; }
@@ -748,6 +758,12 @@
                and bit budget stayed behind. Honoured while the group fits;
                a group taller than the page splits regardless. */
             tbody.rowgroup { break-inside: avoid; page-break-inside: avoid; }
+            /* A table short enough to fit on a page stays on one, as a
+               float does in the paper. On the table this cannot be said
+               (see above); on its body it can, and a body taller than a page
+               still splits row by row. 2609.11801's six-row Table 3 left two
+               rows and a repeated header on the next page. */
+            tbody { break-inside: avoid; page-break-inside: avoid; }
             /* The note under a table defines the marks its rows carry, so
                it has to stay with the table it belongs to. */
             .table-notes {
@@ -788,8 +804,16 @@
                pandoc cannot carry, so without this the reader cannot tell
                which three of nine numeric columns belong to which model.
                A row of empty spacer cells must not draw one. */
+            /* Drawn short at both ends, as `\cmidrule(lr)` trims it by
+               half an em. A border runs the cell's full width, so two groups
+               side by side met in one unbroken line: 2609.11801's
+               "N-Queens | Graph Coloring" and the four sizes under them read
+               as one span. A background line can be inset; a border cannot. */
             thead th[colspan]:not(:empty) {
-                border-bottom: 0.5pt solid #000;
+                border-bottom: 0;
+                background: linear-gradient(#000, #000) center bottom /
+                            calc(100% - 1em) 0.5pt no-repeat;
+                -webkit-print-color-adjust: exact; print-color-adjust: exact;
             }
             /* Header decks above the last one carry the group rule only. */
             thead tr:not(:last-child) th:not([colspan]) { border-bottom: 0; }
